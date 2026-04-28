@@ -867,6 +867,100 @@ body {
   display: none !important;
 }
 
+/* ===== モバイル対応（編集画面のみ。PDF出力時は html2canvas に
+        windowWidth: 1400 を渡しているのでこのメディアクエリは効かない）===== */
+@media (max-width: 768px) {
+  /* B3用紙の左右paddingを縮めて表示領域確保 */
+  .report-page:not(.pdf-rendering) {
+    padding: 14px 14px;
+  }
+  .report-page:not(.pdf-rendering) .report-title {
+    font-size: 26px;
+  }
+  .report-page:not(.pdf-rendering) .report-section h3 {
+    font-size: 17px;
+  }
+  /* メタ情報（日付・記録者・駅）は縦に積む */
+  .report-page:not(.pdf-rendering) .report-meta-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .report-page:not(.pdf-rendering) .report-meta {
+    flex-wrap: wrap;
+  }
+  .report-page:not(.pdf-rendering) .report-meta input {
+    flex: 1;
+    min-width: 0;
+  }
+  /* 写真リストは1列に */
+  .report-page:not(.pdf-rendering) .report-photos {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  /* 写真envelope を画面幅にフィット */
+  .report-page:not(.pdf-rendering) .report-photo-img-wrap {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    min-height: 220px;
+    max-height: 75vh;
+  }
+  /* JS が設定した width/height (mm) を打ち消し、画像を画面幅にフィット */
+  .report-page:not(.pdf-rendering) .report-photo-img-wrap img {
+    width: auto !important;
+    height: auto !important;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  /* STEP のアクションボタンを縦に積む（小さい画面では並びきらない） */
+  .step-actions {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .step-actions .btn-primary,
+  .step-actions .btn-secondary {
+    width: 100%;
+  }
+  .step-actions > div {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .step-actions > div .btn-primary,
+  .step-actions > div .btn-secondary {
+    flex: 1;
+  }
+  /* スポット一覧と地図のレイアウト：縦積み */
+  .spots-layout {
+    grid-template-columns: 1fr;
+  }
+  .spots-list {
+    max-height: none;
+  }
+  .map-container {
+    height: 280px;
+  }
+  /* ヘッダーをコンパクトに */
+  .header {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+  .header h1 { font-size: 18px; }
+  .header-sub {
+    width: 100%;
+    margin-left: 0;
+    font-size: 12px;
+  }
+  /* カードの余白を縮める */
+  .card { padding: 16px; }
+  /* 都市タブを横スクロール風に */
+  .city-tabs { gap: 4px; }
+  .city-tab { padding: 8px 12px; font-size: 13px; }
+}
+
 /* ===== ローディング ===== */
 .loading {
   text-align: center;

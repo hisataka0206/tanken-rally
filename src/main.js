@@ -1,11 +1,11 @@
-import { CONFIG } from '../config.js?v=30';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=30';
-import { fetchOriginStory } from './utils/ai.js?v=30';
-import { generateMapPdf } from './utils/pdf.js?v=30';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=30';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=30';
-import { CITIES } from './data/cities.js?v=30';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=30';
+import { CONFIG } from '../config.js?v=31';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=31';
+import { fetchOriginStory } from './utils/ai.js?v=31';
+import { generateMapPdf } from './utils/pdf.js?v=31';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=31';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=31';
+import { CITIES } from './data/cities.js?v=31';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=31';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -914,6 +914,8 @@ async function onReportPdf() {
     }
 
     // html2canvas で画像化（B3の解像度: scale=2 で十分）
+    // windowWidth=1400 でモバイル用 @media (max-width: 768px) を無効化し、
+    // PDF はデスクトップレイアウトで描画する
     // onclone でクローン側の form要素を「描画用テキスト」に置換する
     const canvas = await html2canvas(page, {
       scale: 2,
@@ -921,6 +923,7 @@ async function onReportPdf() {
       useCORS: true,
       allowTaint: false,
       logging: false,
+      windowWidth: 1400,
       onclone: (clonedDoc) => {
         const clonedPage = clonedDoc.querySelector('.report-page');
         if (!clonedPage) return;

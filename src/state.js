@@ -9,6 +9,7 @@ export const state = {
   // STEP 2 (スポット選択)
   allSpots: [],                 // [{ id, name, category, address, lat, lng, ... }]
   selectedSpotIds: new Set(),
+  visibleCategories: new Set(['historic', 'sweets', 'nature', 'toy', 'museum', 'science']),
 
   // STEP 3 (ルート)
   orderedSpots: [],
@@ -21,6 +22,16 @@ export const state = {
   driveSession: null,           // { folderId, folderUrl, folderName }
   uploadedPhotos: [],           // [{ fileId, url, thumbnailUrl, spotName, fileName, uploading }]
   selectedPhotoIds: new Set(),
+
+  // STEP 5 (レポート)
+  reportData: {
+    date: '',
+    author: '',
+    overview: '',
+    afterword: '',
+    photoComments: {},          // { fileId: '感想' }
+    excludedPhotoIds: new Set(),// レポートから除外する写真ID
+  },
 };
 
 // 駅再検索時のクリーンアップ。blob URL は明示的に解放する
@@ -30,6 +41,7 @@ export function resetSearchState() {
   });
   state.allSpots = [];
   state.selectedSpotIds.clear();
+  state.visibleCategories = new Set(['historic', 'sweets', 'nature', 'toy', 'museum', 'science']);
   state.orderedSpots = [];
   state.directionsResult = null;
   state.routeStats = null;
@@ -37,6 +49,11 @@ export function resetSearchState() {
   state.selectedPhotoIds.clear();
   state.driveSession = null;
   state.sessionId = null;
+  state.reportData = {
+    date: '', author: '', overview: '', afterword: '',
+    photoComments: {},
+    excludedPhotoIds: new Set(),
+  };
 }
 
 // カテゴリのラベル定義（main.js / pdf.js / style.css で共用）
@@ -45,6 +62,9 @@ export const CAT = {
   historic: { label: '史跡・文化財',     cls: 'cat-historic', icon: '🏯', color: '#795548' }, // 茶
   sweets:   { label: 'スイーツ・菓子店', cls: 'cat-sweets',   icon: '🍰', color: '#e91e8c' }, // ピンク
   nature:   { label: '公園・自然',       cls: 'cat-nature',   icon: '🌿', color: '#2e7d32' }, // 緑
+  toy:      { label: '玩具・おもちゃ',   cls: 'cat-toy',      icon: '🧸', color: '#ff9800' }, // オレンジ
+  museum:   { label: '美術館・博物館',   cls: 'cat-museum',   icon: '🎨', color: '#5e35b1' }, // 紫
+  science:  { label: '科学館・自然史',   cls: 'cat-science',  icon: '🔬', color: '#0097a7' }, // 青緑
   other:    { label: 'その他',           cls: 'cat-other',    icon: '📍', color: '#666666' }, // グレー
 };
 

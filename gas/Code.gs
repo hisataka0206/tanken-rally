@@ -13,8 +13,10 @@
  */
 
 // ===== 設定 =====
-const ROOT_FOLDER_NAME = 'たんけんラリー';
+// 指定 Drive フォルダ（https://drive.google.com/drive/folders/<ID>）
+const ROOT_FOLDER_ID = '10EzCggGS5BcZ2LJXOnbfd1WLhSh7MECH';
 const SHARED_SECRET    = 'tanken-rally-poc-2026'; // config.js の GAS_SECRET と合わせること
+const SESSION_RETENTION_DAYS = 7;                  // セッションフォルダの保持期間（日）
 
 // ===== エントリポイント =====
 function doPost(e) {
@@ -77,28 +79,39 @@ function respond(headers, data) {
 
 // ===== Drive フォルダ管理 =====
 
-/** ルートフォルダを取得（なければ作成） */
+/** ルートフォルダを取得（ID 固定） */
 function getRootFolder() {
-  const folders = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
-  if (folders.hasNext()) return folders.next();
-  return DriveApp.createFolder(ROOT_FOLDER_NAME);
+  try {
+    return DriveApp.getFolderById(ROOT_FOLDER_ID);
+  } catch (e) {
+    throw new Error(`ルートフォルダ(ID=${ROOT_FOLDER_ID})にアクセスできません。GAS実行ユーザーがフォルダの編集者になっているか確認してください。原因: ${e.message}`);
+  }
 }
 
 /** 探検セッション用フォルダを作成 */
 function createSession(body) {
-  const { sessionId, stationName, playerName } = body;
-  if (!sessionId || !stationName) return { ok: false, error: 'sessionId と stationName が必要です' };
+  try {
+    const { sessionId, stationName, playerName } = body;
+    if (!sessionId || !stationName) return { ok: false, error: 'sessionId と stationName が必要です' };
 
-  const root = getRootFolder();
-  const folderName = `${stationName}_${playerName || 'たんけんしゃ'}_${sessionId}`;
-  const folder = root.createFolder(folderName);
+    const root = getRootFolder();
+    const folderName = `${stationName}_${playerName || 'たんけんしゃ'}_${sessionId}`;
+    let folder;
+    try {
+      folder = root.createFolder(folderName);
+    } catch (e) {
+      throw new Error(`createFolder失敗（folderName="${folderName}"）: ${e.message}`);
+    }
 
-  return {
-    ok: true,
-    folderId: folder.getId(),
-    folderName,
-    folderUrl: folder.getUrl(),
-  };
+    return {
+      ok: true,
+      folderId: folder.getId(),
+      folderName,
+      folderUrl: folder.getUrl(),
+    };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
 }
 
 /** 写真をDriveに保存 */
@@ -157,6 +170,51 @@ function listPhotos(body) {
   // 撮影時刻順にソート
   photos.sort((a, b) => (a.takenAt || '') < (b.takenAt || '') ? -1 : 1);
   return { ok: true, photos };
+}
+
+// ===== セッションフォルダ自動掃除 =====
+
+/**
+ * SESSION_RETENTION_DAYS より古いセッションフォルダをゴミ箱へ移動。
+ * トリガーから定期実行される（setupAutoCleanup() で6時間ごとに登録）。
+ */
+function cleanupOldSessions() {
+  const root = getRootFolder();
+  const folders = root.getFolders();
+  const cutoff = new Date(Date.now() - SESSION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  let removed = 0;
+  while (folders.hasNext()) {
+    const folder = folders.next();
+    if (folder.getDateCreated() < cutoff) {
+      const name = folder.getName();
+      const created = folder.getDateCreated();
+      folder.setTrashed(true); // ゴミ箱へ（30日後に Drive が完全削除）
+      removed++;
+      console.log('Trashed: %s (created %s)', name, created);
+    }
+  }
+  console.log('cleanupOldSessions done. Removed %s folder(s).', removed);
+  return removed;
+}
+
+/**
+ * 6時間ごとに cleanupOldSessions を実行するトリガーを登録。
+ * 初回 1 度だけ GAS エディタから手動実行すれば、以降は自動。
+ */
+function setupAutoCleanup() {
+  // 既存の同名トリガーがあれば削除（重複防止）
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'cleanupOldSessions') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  // 新規トリガー作成
+  ScriptApp.newTrigger('cleanupOldSessions')
+    .timeBased()
+    .everyHours(6)
+    .create();
+  console.log('cleanupOldSessions トリガー登録: 6時間ごと');
+  return 'OK';
 }
 
 // ===== ランキング（Sheets） =====

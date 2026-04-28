@@ -70,6 +70,19 @@ body {
   flex-shrink: 0;
 }
 
+/* ===== 免責 ===== */
+.disclaimer {
+  background: #fff8e1;
+  border-left: 4px solid #ffb74d;
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #5d4037;
+  margin-bottom: 18px;
+}
+.disclaimer strong { color: #e65100; }
+
 /* ===== 都市タブ ===== */
 .city-tabs {
   display: flex;
@@ -223,6 +236,33 @@ body {
   display: flex;
   gap: 10px;
   align-items: flex-start;
+  position: relative;
+}
+
+/* 不適切スポットを削除するボタン（カード右上の小さいゴミ箱） */
+.spot-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255,255,255,.85);
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: .55;
+  transition: opacity .15s, background .15s, transform .1s;
+  line-height: 1;
+}
+.spot-card:hover .spot-delete { opacity: 1; }
+.spot-delete:hover {
+  background: #ffe5e5;
+  transform: scale(1.08);
 }
 .spot-card:hover { border-color: var(--green-light); background: #f0f7f0; }
 .spot-card.selected { border-color: var(--green-dark); background: #e8f5e9; }
@@ -290,7 +330,48 @@ body {
 .cat-historic { background: #795548; }
 .cat-sweets   { background: #e91e8c; }
 .cat-nature   { background: #2e7d32; }
+.cat-toy      { background: #ff9800; }
+.cat-museum   { background: #5e35b1; }
+.cat-science  { background: #0097a7; }
 .cat-other    { background: #666; }
+
+/* ===== カテゴリフィルタ ===== */
+.category-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  background: #f5f0e8;
+  border-radius: 8px;
+}
+.category-filter-label {
+  font-size: 12px;
+  color: var(--green-dark);
+  font-weight: 600;
+  align-self: center;
+  margin-right: 4px;
+}
+.cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: 2px solid;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+  background: white;
+  user-select: none;
+}
+.cat-chip.off {
+  opacity: .35;
+  background: white !important;
+  color: #888 !important;
+}
+.cat-chip:active { transform: scale(.96); }
 
 /* ===== 地図 ===== */
 .map-container {
@@ -421,6 +502,55 @@ body {
   min-width: 180px;
 }
 
+.photo-hint {
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1;
+  min-width: 200px;
+}
+
+/* ===== モーダル ===== */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal.hidden { display: none; }
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  cursor: pointer;
+}
+.modal-content {
+  position: relative;
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  width: min(420px, 92%);
+  box-shadow: 0 8px 30px rgba(0,0,0,.25);
+}
+.modal-content h3 {
+  font-size: 17px;
+  color: var(--green-dark);
+  margin-bottom: 8px;
+}
+.modal-desc {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 14px;
+  line-height: 1.6;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 .upload-progress {
   background: #e8f5e9;
   border-radius: 8px;
@@ -474,7 +604,268 @@ body {
   font-size: 28px;
 }
 
+/* レポート対象に含める/外すトグルボタン（写真の右上） */
+.photo-include-toggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 18px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.25);
+  z-index: 5;
+  padding: 0;
+  line-height: 1;
+}
+.photo-include-toggle:hover { background: white; transform: scale(1.05); }
+
+/* 除外された写真の見た目：薄くなる + ✕ オーバーレイ */
+.photo-item.photo-excluded { opacity: .45; }
+.photo-item.photo-excluded::before {
+  content: '✕';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56px;
+  color: rgba(220, 0, 0, 0.65);
+  background: rgba(0,0,0,0.15);
+  z-index: 4;
+  pointer-events: none;
+  font-weight: 700;
+  text-shadow: 0 0 8px white;
+}
+
 .photos-count { font-size: 14px; color: var(--muted); }
+
+/* ===== レポート（STEP 5） ===== */
+.report-intro {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-bottom: 18px;
+  background: #f9f6f0;
+  padding: 12px 14px;
+  border-radius: 8px;
+}
+
+.report-editor {
+  background: #f0ece2;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+/* B3 用紙イメージ：実寸 364mm 幅。画面では収まるように max-width で制御 */
+.report-page {
+  background: white;
+  width: 364mm;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 18mm 20mm;
+  box-shadow: 0 2px 12px rgba(0,0,0,.12);
+  /* 子供向け：教科書のような Klee One を本文に */
+  font-family: 'Klee One', 'Hiragino Maru Gothic ProN', 'Yu Gothic UI', 'Hiragino Kaku Gothic ProN', sans-serif;
+  color: #2a3a2a;
+  letter-spacing: 0.02em;
+}
+
+.report-page-header {
+  border-bottom: 3px double var(--green-dark);
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+}
+.report-title {
+  /* タイトルは元気な手書き風 Yusei Magic */
+  font-family: 'Yusei Magic', 'Klee One', 'Hiragino Maru Gothic ProN', sans-serif;
+  font-size: 38px;
+  font-weight: 400;
+  color: var(--green-dark);
+  letter-spacing: 0.06em;
+  margin-bottom: 12px;
+  text-shadow: 1px 1px 0 rgba(118,187,118,.18);
+}
+.report-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 28px;
+  font-size: 14px;
+}
+.report-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--brown);
+}
+.report-meta label {
+  font-weight: 600;
+  color: var(--green-dark);
+}
+.report-meta input {
+  border: none;
+  border-bottom: 1.5px solid #999;
+  padding: 4px 6px;
+  font-size: 15px;
+  font-family: 'Klee One', 'Hiragino Maru Gothic ProN', sans-serif;
+  background: transparent;
+  outline: none;
+  min-width: 140px;
+  color: #2a3a2a;
+}
+.report-meta input:focus { border-bottom-color: var(--green-dark); }
+.report-meta-static {
+  font-weight: 600;
+  color: var(--brown);
+}
+
+.report-section { margin-bottom: 22px; }
+.report-section h3 {
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 19px;
+  font-weight: 400;
+  color: var(--green-dark);
+  margin-bottom: 10px;
+  border-left: 5px solid var(--green-light);
+  padding-left: 10px;
+  letter-spacing: 0.04em;
+}
+.report-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+#report-overview, #report-afterword,
+.report-photo-comment {
+  width: 100%;
+  border: 1.5px dashed #bbb;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 15px;
+  line-height: 1.8;
+  font-family: 'Klee One', 'Hiragino Maru Gothic ProN', sans-serif;
+  background: repeating-linear-gradient(transparent, transparent 27px, #e8e5dc 27px, #e8e5dc 28px);
+  resize: vertical;
+  outline: none;
+  color: #2a3a2a;
+}
+#report-overview:focus, #report-afterword:focus,
+.report-photo-comment:focus { border-color: var(--green-dark); }
+
+/* 写真リスト：B3 用紙幅(324mm content)に対して 2 列グリッド配置
+   各エントリは「ハガキサイズ写真 + 感想欄」を縦に積む */
+.report-photos {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.report-photo-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  min-width: 0;
+}
+/* 横長写真でも常に縦積み（2列グリッドの中で）*/
+.report-photo-item.landscape {
+  flex-direction: column;
+}
+.report-photo-item.excluded {
+  opacity: .35;
+  background: #f5f5f5;
+}
+.report-photo-img-wrap {
+  flex-shrink: 0;
+  /* 148mm 四方の envelope：すべての写真がここに収まる */
+  width: 148mm;
+  height: 148mm;
+  border: 1px solid #ddd;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+/* 画像の width / height は JS が naturalAspect から mm で明示的にセットする
+   （html2canvas の object-fit: contain 不完全実装による PDF崩れ回避）*/
+.report-photo-img-wrap img {
+  display: block;
+}
+.report-photo-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  flex: none;
+  min-width: 0;
+}
+.report-photo-tag {
+  font-size: 13px;
+  color: var(--green-dark);
+  font-weight: 600;
+}
+.report-photo-include {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.report-photo-comment {
+  flex: none;
+  /* 1 行ぶんを目安にしつつ、書きながら手動で広げられる */
+  min-height: 32px;
+  height: 36px;
+  line-height: 1.6;
+  padding: 6px 10px;
+  /* 罫線背景は 1 行用に上書き */
+  background: white;
+  border: 1.5px dashed #bbb;
+  resize: vertical;
+}
+.report-photo-order {
+  display: inline-block;
+  background: var(--green-dark);
+  color: white;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 26px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+/* PDF 生成中（一時的にデスクトップ表示固定するためのクラス） */
+.report-page.pdf-rendering {
+  width: 364mm !important;
+  max-width: none !important;
+}
+/* PDF出力時に隠す要素：エディタ専用UIや説明テキスト */
+.report-page.pdf-rendering .report-photo-include,
+.report-page.pdf-rendering .report-photo-tag-empty,
+.report-page.pdf-rendering .report-hint {
+  display: none !important;
+}
+.report-page.pdf-rendering .report-photo-item.excluded {
+  display: none !important;
+}
 
 /* ===== ローディング ===== */
 .loading {

@@ -75,10 +75,16 @@ tanken-rally/
 
 1. [script.google.com](https://script.google.com) で新規プロジェクトを作成
 2. `gas/Code.gs` の内容を貼り付け
-3. 「デプロイ」→「新しいデプロイ」→ 種類: ウェブアプリ
-4. 実行ユーザー: 自分 / アクセスできるユーザー: 全員
-5. 発行された URL を `config.js` の `GAS_URL` に設定
-6. `Code.gs` の `SHARED_SECRET` と `config.js` の `GAS_SECRET` を同値にする
+3. **写真保存先の Drive フォルダ ID を `ROOT_FOLDER_ID` に設定**（既定値: `10EzCggGS5BcZ2LJXOnbfd1WLhSh7MECH`）
+   - 自分の Drive で右クリック「新しいフォルダ」→ 作成 → そのフォルダを開いた URL の末尾が ID
+   - GAS 実行ユーザーが Drive 上でこのフォルダにアクセスできる必要あり
+4. 「デプロイ」→「新しいデプロイ」→ 種類: ウェブアプリ
+5. 実行ユーザー: 自分 / アクセスできるユーザー: 全員
+6. 発行された URL を `config.js` の `GAS_URL` に設定
+7. `Code.gs` の `SHARED_SECRET` と `config.js` の `GAS_SECRET` を同値にする
+8. **自動削除トリガーの登録**: GAS エディタで関数 `setupAutoCleanup` を一度だけ手動実行
+   - 6時間ごとに `cleanupOldSessions` が走り、`SESSION_RETENTION_DAYS`（既定 7日）より古いセッションフォルダをゴミ箱へ移動
+   - 初回実行時に Drive へのアクセス許可ダイアログが出るので承認
 
 GAS が提供する API（POST `action`）：
 

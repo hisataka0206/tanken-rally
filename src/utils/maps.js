@@ -16,14 +16,31 @@ export function loadGoogleMaps(apiKey) {
 }
 
 // 駅名からジオコード（緯度経度）を取得
-export function geocodeStation(stationName) {
+// opts.cityName / opts.lineName を渡すと、同名駅の曖昧性解消用にクエリへ追加する
+//   例: cityName="名古屋市", lineName="名古屋市営地下鉄 桜通線", stationName="吹上"
+//        → "名古屋市 名古屋市営地下鉄 桜通線 吹上駅"
+export function geocodeStation(stationName, opts = {}) {
   return new Promise((resolve, reject) => {
     const geocoder = new google.maps.Geocoder();
+    const parts = [];
+    if (opts.cityName) parts.push(opts.cityName);
+    if (opts.lineName) parts.push(opts.lineName);
+    parts.push(`${stationName}駅`);
+    const address = parts.join(' ');
     geocoder.geocode(
-      { address: `${stationName}駅`, region: 'JP', language: 'ja' },
+      { address, region: 'JP', language: 'ja' },
       (results, status) => {
         if (status === 'OK' && results[0]) {
           resolve(results[0].geometry.location);
+        } else if (parts.length > 1) {
+          // コンテキスト付きで失敗 → 駅名単独でリトライ（広域からでも見つかるように）
+          geocoder.geocode(
+            { address: `${stationName}駅`, region: 'JP', language: 'ja' },
+            (r2, s2) => {
+              if (s2 === 'OK' && r2[0]) resolve(r2[0].geometry.location);
+              else reject(new Error(`駅が見つかりませんでした: ${stationName}`));
+            }
+          );
         } else {
           reject(new Error(`駅が見つかりませんでした: ${stationName}`));
         }
@@ -49,18 +66,21 @@ export function searchNearbySpotsWith(service, location) {
 
 function _searchWithService(service, location) {
   const queries = [
-    { keyword: '神社 OR 寺 OR 史跡 OR 城跡 OR 記念碑', category: 'historic', label: '史跡・文化財' },
-    { keyword: 'ケーキ屋 OR 和菓子 OR お菓子 OR スイーツ', category: 'sweets', label: 'スイーツ・菓子店' },
-    { keyword: '公園 OR 庭園', category: 'nature', label: '公園・自然' },
+    { keyword: '神社 OR 寺 OR 史跡 OR 城跡 OR 記念碑',     category: 'historic', label: '史跡・文化財' },
+    { keyword: 'ケーキ屋 OR 和菓子 OR お菓子 OR スイーツ', category: 'sweets',   label: 'スイーツ・菓子店' },
+    { keyword: '公園 OR 庭園',                             category: 'nature',   label: '公園・自然' },
+    { keyword: 'おもちゃ屋 OR 玩具店 OR キャラクターショップ', category: 'toy',  label: '玩具・おもちゃ' },
+    { keyword: '美術館 OR 博物館 OR 資料館 OR ギャラリー',  category: 'museum',   label: '美術館・博物館' },
+    { keyword: '科学館 OR プラネタリウム OR 天文台',        category: 'science',  label: '科学館・自然史' },
   ];
 
   const allSpots = [];
   const seenIds = new Set(); // place_id 重複除去（複数カテゴリの keyword に同じ場所がヒットすることがある）
   let pending = queries.length;
 
-  // カテゴリ優先度: historic > nature > sweets > other
+  // カテゴリ優先度: historic > museum/science > nature > toy > sweets > other
   // 同じ place_id が複数カテゴリにマッチした場合、優先度の高いカテゴリで保持
-  const CAT_PRIORITY = { historic: 3, nature: 2, sweets: 1, other: 0 };
+  const CAT_PRIORITY = { historic: 6, museum: 5, science: 5, nature: 4, toy: 3, sweets: 2, other: 0 };
 
   return new Promise((resolve) => {
     queries.forEach(q => {

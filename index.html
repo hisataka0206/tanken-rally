@@ -4,7 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>たんけんラリー</title>
-  <link rel="stylesheet" href="src/style.css?v=8" />
+
+  <!-- 子供向け手書き風フォント (Google Fonts):
+       - Yusei Magic: 元気でやわらかい手書き風（タイトル用）
+       - Klee One: 学校の教科書のような手書き感（本文用）
+       - Hachi Maru Pop: 丸くて可愛い（差し色用） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="src/style.css?v=19" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -26,6 +35,12 @@
     <section id="step-station" class="step active">
       <div class="card">
         <h2 class="step-title"><span class="step-num">1</span> 探検する駅をえらぼう</h2>
+
+        <!-- 免責 -->
+        <p class="disclaimer">
+          ⚠️ <strong>すべての駅で適切なルートが確保できていることを確約していません。</strong>
+          スポットが少なかったり、目安時間（約60分）に収まらないこともあります。気になったら別の駅も試してみてね。
+        </p>
 
         <!-- 都市タブ -->
         <div id="city-tabs" class="city-tabs"></div>
@@ -71,6 +86,7 @@
       <div class="card">
         <h2 class="step-title"><span class="step-num">2</span> 行きたい場所を選ぼう</h2>
         <p id="origin-story" class="origin-story"></p>
+        <div id="category-filter" class="category-filter"></div>
         <div class="spots-layout">
           <div id="spots-list" class="spots-list"></div>
           <div id="map" class="map-container"></div>
@@ -94,19 +110,92 @@
             📷 写真を撮る / 選ぶ
             <input id="photo-input" type="file" accept="image/*" capture="environment" multiple hidden />
           </label>
-          <select id="photo-spot-select" class="spot-select">
-            <option value="">── どこで撮った？（任意）──</option>
-          </select>
+          <p class="photo-hint">💡 撮影あとに写真をタップして、場所のタグ（任意）を付けられるよ。</p>
         </div>
         <div id="upload-progress" class="upload-progress hidden"></div>
         <div id="photos-grid" class="photos-grid"></div>
         <div class="step-actions">
           <button id="back-to-route" class="btn-secondary">← マップに戻る</button>
           <span id="photos-count" class="photos-count">0枚</span>
-          <button id="finish-explore-btn" class="btn-primary">探検おわり！レポートへ →</button>
+          <button id="finish-explore-btn" class="btn-primary">探検おわり！ノートへ →</button>
         </div>
       </div>
     </section>
+
+    <!-- STEP 5: たんけんノート編集 -->
+    <section id="step-report" class="step hidden">
+      <div class="card">
+        <h2 class="step-title"><span class="step-num">5</span> たんけんノートをつくろう</h2>
+        <p class="report-intro">
+          ✏️ 自分のことばで、感じたこと・見つけたこと・気になったことを書いてみよう。
+          PDFにして印刷すると、B3ポスターサイズのたんけんノートになるよ。
+        </p>
+
+        <div id="report-editor" class="report-editor">
+          <div class="report-page">
+            <header class="report-page-header">
+              <h1 class="report-title">🗺 たんけんノート</h1>
+              <div class="report-meta-row">
+                <div class="report-meta">
+                  <label>📅 たんけん日</label>
+                  <input type="text" id="report-date" />
+                </div>
+                <div class="report-meta">
+                  <label>✏️ きろくした人</label>
+                  <input type="text" id="report-author" placeholder="（あなたの名前）" />
+                </div>
+                <div class="report-meta">
+                  <label>🚉 たんけんした駅</label>
+                  <span id="report-station" class="report-meta-static"></span>
+                </div>
+              </div>
+            </header>
+
+            <section class="report-section">
+              <h3>🌟 たんけんを終えて思ったこと</h3>
+              <textarea id="report-overview" rows="5"
+                placeholder="ここに自由に感想を書こう。一番たのしかったこと、びっくりしたこと、気になったこと…"></textarea>
+            </section>
+
+            <section class="report-section">
+              <h3>📷 とった写真と思い出</h3>
+              <p class="report-hint">
+                行った順に並べてあるよ。ノートに載せたくない写真は STEP 4 で外しておこう。
+                写真ごとに思ったこと・気づいたことを書きこめます（任意）。
+              </p>
+              <div id="report-photos" class="report-photos"></div>
+            </section>
+
+            <section class="report-section">
+              <h3>✏️ ノートを書いてみて</h3>
+              <textarea id="report-afterword" rows="4"
+                placeholder="ノートを書いてみて、新しく気づいたことや、もっと知りたくなったことがあれば書こう"></textarea>
+            </section>
+          </div>
+        </div>
+
+        <div class="step-actions">
+          <button id="back-to-photos" class="btn-secondary">← 写真にもどる</button>
+          <button id="report-pdf-btn" class="btn-primary">📄 ノートをPDF（B3）で出力</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 写真タグ編集モーダル -->
+    <div id="tag-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="tag-modal-title">
+      <div class="modal-backdrop" data-action="close"></div>
+      <div class="modal-content">
+        <h3 id="tag-modal-title">📍 タグをつける</h3>
+        <p class="modal-desc">この写真を撮った場所を選んでね（任意）。</p>
+        <select id="tag-modal-select" class="spot-select">
+          <option value="">── タグなし ──</option>
+        </select>
+        <div class="modal-actions">
+          <button class="btn-secondary" data-action="close">キャンセル</button>
+          <button id="tag-modal-save" class="btn-primary">保存</button>
+        </div>
+      </div>
+    </div>
 
     <!-- STEP 3: ルート確認 + PDF出力 -->
     <section id="step-route" class="step hidden">
@@ -128,6 +217,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=17"></script>
+  <script type="module" src="src/main.js?v=30"></script>
 </body>
 </html>

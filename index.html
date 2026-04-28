@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>たんけんラリー</title>
+  <link rel="stylesheet" href="src/style.css?v=8" />
+
+  <!-- jsPDF (PDF生成) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- html2canvas (地図スクリーンショット→PDF) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+  <div id="app">
+
+    <!-- ヘッダー -->
+    <header class="header">
+      <span class="header-icon">🗺️</span>
+      <h1>たんけんラリー</h1>
+      <span class="header-sub">駅から街を探検しよう</span>
+    </header>
+
+    <!-- STEP 1: 駅名入力 -->
+    <section id="step-station" class="step active">
+      <div class="card">
+        <h2 class="step-title"><span class="step-num">1</span> 探検する駅をえらぼう</h2>
+
+        <!-- 都市タブ -->
+        <div id="city-tabs" class="city-tabs"></div>
+
+        <!-- 都市選択 → 路線/駅セレクタ -->
+        <div id="city-selector" class="city-selector hidden">
+          <div class="selector-row">
+            <label>路線</label>
+            <select id="line-select">
+              <option value="">── 路線をえらんでね ──</option>
+            </select>
+          </div>
+          <div class="selector-row">
+            <label>駅</label>
+            <select id="station-select" disabled>
+              <option value="">── 先に路線をえらんでね ──</option>
+            </select>
+          </div>
+          <div class="step-actions">
+            <button id="search-by-select-btn" class="btn-primary" disabled>この駅でさがす →</button>
+          </div>
+        </div>
+
+        <!-- その他（自由入力） -->
+        <div id="freetext-selector" class="freetext-selector hidden">
+          <div class="input-row">
+            <input
+              id="station-input"
+              type="text"
+              placeholder="例：高円寺、鎌倉、浅草 ..."
+              autocomplete="off"
+            />
+            <button id="search-btn" class="btn-primary">さがす</button>
+          </div>
+        </div>
+
+        <div id="station-error" class="error-msg hidden"></div>
+      </div>
+    </section>
+
+    <!-- STEP 2: スポット一覧 + 地図 -->
+    <section id="step-spots" class="step hidden">
+      <div class="card">
+        <h2 class="step-title"><span class="step-num">2</span> 行きたい場所を選ぼう</h2>
+        <p id="origin-story" class="origin-story"></p>
+        <div class="spots-layout">
+          <div id="spots-list" class="spots-list"></div>
+          <div id="map" class="map-container"></div>
+        </div>
+        <div class="step-actions">
+          <button id="back-to-station" class="btn-secondary">← 駅を変える</button>
+          <span id="route-btn-hint" class="route-btn-hint"></span>
+          <span id="route-preview" class="route-preview"></span>
+          <button id="make-route-btn" class="btn-primary" disabled>ルートをつくる →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 4: 写真アップロード -->
+    <section id="step-photos" class="step hidden">
+      <div class="card">
+        <h2 class="step-title"><span class="step-num">4</span> 探検しながら写真を撮ろう</h2>
+        <div id="photos-session-info" class="session-info"></div>
+        <div class="photo-upload-area">
+          <label for="photo-input" class="photo-upload-btn">
+            📷 写真を撮る / 選ぶ
+            <input id="photo-input" type="file" accept="image/*" capture="environment" multiple hidden />
+          </label>
+          <select id="photo-spot-select" class="spot-select">
+            <option value="">── どこで撮った？（任意）──</option>
+          </select>
+        </div>
+        <div id="upload-progress" class="upload-progress hidden"></div>
+        <div id="photos-grid" class="photos-grid"></div>
+        <div class="step-actions">
+          <button id="back-to-route" class="btn-secondary">← マップに戻る</button>
+          <span id="photos-count" class="photos-count">0枚</span>
+          <button id="finish-explore-btn" class="btn-primary">探検おわり！レポートへ →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3: ルート確認 + PDF出力 -->
+    <section id="step-route" class="step hidden">
+      <div class="card">
+        <h2 class="step-title"><span class="step-num">3</span> 探検マップを確認しよう</h2>
+        <div id="route-info" class="route-info"></div>
+        <div id="route-map" class="map-container"></div>
+        <div id="route-spots" class="route-spots-list"></div>
+        <div class="step-actions">
+          <button id="back-to-spots" class="btn-secondary">← スポットを変える</button>
+          <div style="display:flex;gap:10px">
+            <button id="download-pdf-btn" class="btn-secondary">📄 地図PDFをダウンロード</button>
+            <button id="start-explore-btn" class="btn-primary">探検スタート！ →</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Google Maps API（動的ロード） -->
+  <script type="module" src="src/main.js?v=17"></script>
+</body>
+</html>

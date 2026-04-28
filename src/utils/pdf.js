@@ -4,7 +4,7 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=17';
+import { toLatLngLiteral } from './maps.js?v=32';
 
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
@@ -128,6 +128,16 @@ function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, ap
       ${buildRouteFlowHtml({ stationName, orderedSpots, directions, catLabel })}
     </div>
 
+    <div style="margin-top:24px;background:#004029;color:#fff;padding:8px 16px;border-radius:6px;font-weight:700;font-size:15px;">
+      曲がるところ・目印
+    </div>
+    <div style="margin-top:6px;font-size:11px;color:#666;line-height:1.5;">
+      ストリートビューの写真を目印にしてね。実際の景色とすこし違うこともあります。
+    </div>
+    <div style="margin-top:8px;">
+      ${buildTurnPointsHtml({ stationName, origin, orderedSpots, directions, apiKey })}
+    </div>
+
     <div style="margin-top:24px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:10px;">
       たんけんラリー — ${escapeHtml(stationName)} 探検マップ
     </div>
@@ -177,6 +187,145 @@ function buildRouteFlowHtml({ stationName, orderedSpots, directions, catLabel })
   parts.push(legHtml(legs[legs.length - 1]));
   parts.push(stationItem('G', '#c62828'));
   return parts.join('');
+}
+
+// ===== 曲がる場所＋ランドマーク（ストリートビュー）=====
+//
+// Directions API の各 leg.steps[] の中で、maneuver が設定されているものが
+// 「曲がるところ」。各 step.start_location でストリートビューを取得して、
+// 進行方向を heading として渡すことで、曲がった先の風景が映るようにする。
+function buildTurnPointsHtml({ stationName, origin, orderedSpots, directions, apiKey }) {
+  if (!apiKey) {
+    return `<div style="padding:14px;background:#f5f0e8;border-radius:6px;font-size:12px;color:#666;">（APIキー未設定のためストリートビューを表示できません）</div>`;
+  }
+  const legs = directions?.routes?.[0]?.legs || [];
+  if (legs.length === 0) return '';
+
+  // 出発地点：駅 → 1つ目のスポット方向のストリートビュー
+  const cards = [];
+  const o = toLatLngLiteral(origin);
+  const firstStep = legs[0]?.steps?.[0];
+  if (o && firstStep) {
+    const endLoc = toLatLngLiteral(firstStep.end_location);
+    const heading = endLoc ? computeHeading(o, endLoc) : 0;
+    cards.push(buildTurnCard({
+      label: 'S',
+      labelColor: '#2e7d32',
+      title: `${stationName}駅`,
+      subtitle: 'スタート — ここから探検をはじめよう',
+      icon: '🚉',
+      lat: o.lat,
+      lng: o.lng,
+      heading,
+      apiKey,
+    }));
+  }
+
+  // 各 leg を走査し、maneuver 付き step を抽出
+  let turnCount = 0;
+  legs.forEach((leg, legIdx) => {
+    const nextSpotName = legIdx < orderedSpots.length
+      ? orderedSpots[legIdx].name
+      : `${stationName}駅（ゴール）`;
+    (leg.steps || []).forEach(step => {
+      // straight や maneuver なしの直進ステップは省略
+      if (!step.maneuver) return;
+      if (step.maneuver === 'straight') return;
+      turnCount++;
+      const start = toLatLngLiteral(step.start_location);
+      const end = toLatLngLiteral(step.end_location);
+      const heading = (start && end) ? computeHeading(start, end) : 0;
+      cards.push(buildTurnCard({
+        label: String(turnCount),
+        labelColor: '#004029',
+        title: stripHtml(step.html_instructions || step.instructions || '進む'),
+        subtitle: `${escapeHtml(step.distance?.text || '')}・約${Math.max(1, Math.round((step.duration?.value || 0) / 60))}分　→ 次は${escapeHtml(nextSpotName)}方面`,
+        icon: maneuverIcon(step.maneuver),
+        lat: start?.lat,
+        lng: start?.lng,
+        heading,
+        apiKey,
+      }));
+    });
+  });
+
+  // ゴール地点：最後のスポット → 駅 の方向
+  const lastLeg = legs[legs.length - 1];
+  const lastStep = lastLeg?.steps?.[lastLeg.steps.length - 1];
+  if (lastStep && o) {
+    const endLoc = toLatLngLiteral(lastStep.end_location);
+    if (endLoc) {
+      cards.push(buildTurnCard({
+        label: 'G',
+        labelColor: '#c62828',
+        title: `${stationName}駅`,
+        subtitle: 'ゴール — おつかれさま！',
+        icon: '🏁',
+        lat: endLoc.lat,
+        lng: endLoc.lng,
+        heading: computeHeading(endLoc, o),
+        apiKey,
+      }));
+    }
+  }
+
+  if (cards.length === 0) {
+    return `<div style="padding:14px;background:#f5f0e8;border-radius:6px;font-size:12px;color:#666;">曲がる場所はありません。まっすぐ進んでね。</div>`;
+  }
+
+  return cards.join('');
+}
+
+function buildTurnCard({ label, labelColor, title, subtitle, icon, lat, lng, heading, apiKey }) {
+  const sv = `https://maps.googleapis.com/maps/api/streetview?size=240x180&location=${lat},${lng}&heading=${Math.round(heading)}&fov=90&pitch=0&key=${apiKey}`;
+  return `
+    <div style="display:flex;gap:10px;padding:10px;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:8px;page-break-inside:avoid;background:#fff;">
+      <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:32px;padding-top:4px;">
+        <div style="width:26px;height:26px;background:${labelColor};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.25);">${escapeHtml(label)}</div>
+        <div style="font-size:22px;line-height:1;margin-top:6px;">${icon}</div>
+      </div>
+      <img src="${sv}" alt="streetview" crossorigin="anonymous" style="flex-shrink:0;width:140px;height:105px;border-radius:6px;object-fit:cover;background:#eee;border:1px solid #ddd;" />
+      <div style="flex:1;font-size:12px;line-height:1.55;min-width:0;">
+        <div style="font-weight:700;color:#222;font-size:13px;">${escapeHtml(title)}</div>
+        <div style="font-size:11px;color:#666;margin-top:6px;">${subtitle}</div>
+      </div>
+    </div>
+  `;
+}
+
+// 曲がる方向の絵文字アイコン
+function maneuverIcon(m) {
+  if (!m) return '🚶';
+  if (m.includes('uturn')) return '↩️';
+  if (m.includes('sharp-right')) return '↘️';
+  if (m.includes('sharp-left')) return '↙️';
+  if (m.includes('slight-right')) return '↗️';
+  if (m.includes('slight-left')) return '↖️';
+  if (m.includes('right')) return '➡️';
+  if (m.includes('left')) return '⬅️';
+  if (m.includes('roundabout')) return '🔄';
+  if (m.includes('merge')) return '⤴️';
+  if (m.includes('fork')) return '⑂';
+  return '🚶';
+}
+
+// 2点間の方位角（北を0度として時計回り、度）
+function computeHeading(from, to) {
+  if (!from || !to) return 0;
+  const dLng = (to.lng - from.lng) * Math.PI / 180;
+  const lat1 = from.lat * Math.PI / 180;
+  const lat2 = to.lat * Math.PI / 180;
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+}
+
+// HTML タグ（Directions API の instructions に含まれる <b>, <div> など）を除去
+function stripHtml(html) {
+  if (!html) return '';
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return (tmp.textContent || tmp.innerText || '').trim();
 }
 
 function buildStaticMapUrl({ origin, orderedSpots, directions, apiKey }) {

@@ -1,11 +1,11 @@
-import { CONFIG } from '../config.js?v=31';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=31';
-import { fetchOriginStory } from './utils/ai.js?v=31';
-import { generateMapPdf } from './utils/pdf.js?v=31';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=31';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=31';
-import { CITIES } from './data/cities.js?v=31';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=31';
+import { CONFIG } from '../config.js?v=32';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=32';
+import { fetchOriginStory } from './utils/ai.js?v=32';
+import { generateMapPdf } from './utils/pdf.js?v=32';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=32';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=32';
+import { CITIES } from './data/cities.js?v=32';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=32';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'

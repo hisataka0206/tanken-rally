@@ -106,6 +106,61 @@ GAS が提供する API（POST `action`）：
 - [ ] 探検レポート生成（次フェーズ）
 - [ ] スコアリング / ランキング（次フェーズ）
 
+## [[GitHub Pages]] への自動デプロイ
+
+main ブランチに push すると `.github/workflows/deploy.yml` が走って公開されます。
+
+### 1. リポジトリ設定（初回のみ）
+
+1. GitHub リポジトリの **Settings → Pages**
+2. "Source" を **GitHub Actions** に切り替え
+
+### 2. Secrets 登録（初回のみ）
+
+**Settings → Secrets and variables → Actions → New repository secret** で以下4つを登録：
+
+| Secret 名 | 内容 |
+|---|---|
+| `GOOGLE_MAPS_API_KEY` | Google Cloud Console で発行した Maps JS / Places / Directions / Geocoding / Maps Static API キー |
+| `OPENAI_API_KEY` | OpenAI の API キー（未設定なら空文字でも可。地名由来生成は失敗してスキップされる） |
+| `GAS_URL` | GAS デプロイURL（未設定なら空文字。写真アップロードはローカル保存にフォールバック） |
+| `GAS_SECRET` | GAS の `SHARED_SECRET` と同じ値 |
+
+ワークフローはこれらを使って `config.js` をデプロイ時に生成します。`config.js` 自体は git にコミットしません（`.gitignore` 済み）。
+
+### 3. デプロイ
+
+```bash
+git push origin main
+```
+
+数分後に `https://<ユーザー名>.github.io/tanken-rally/` で公開されます（プロジェクト名がリポジトリ名）。
+
+### 🔒 API キー漏洩対策（必読）
+
+**GitHub Pages は静的ホスティングなので、デプロイ後の `config.js` はブラウザから誰でも読めます。** 必ず以下の制限をかけてください：
+
+#### Google Maps API キー
+[Google Cloud Console](https://console.cloud.google.com/apis/credentials) でキーを開き、**アプリケーションの制限**を設定：
+
+- **HTTPリファラー** で許可するドメインを限定:
+  - `https://<ユーザー名>.github.io/tanken-rally/*`
+  - `http://localhost:8080/*`（ローカル開発用）
+- **APIの制限** で必要な API のみ許可（Maps JavaScript API / Places API / Directions API / Geocoding API / Maps Static API）
+
+これでキー文字列が漏れても他ドメインでの利用を防げます。
+
+#### OpenAI API キー
+**OpenAI には GoogleMaps 相当の HTTPリファラ制限がない** ため、キーが漏れると他人が課金できてしまいます。安全に運用するなら：
+
+- **推奨**: OpenAI 呼び出しを GAS (Code.gs) 側にプロキシして、ブラウザにキーを露出させない（リファクタ要）
+- **暫定**: OpenAI ダッシュボードで月次の利用上限額を低く設定する（例: $5/月）
+- **回避**: `OPENAI_API_KEY` を Secrets に入れない（地名由来機能は無効化されるが他は動く）
+
+#### GAS_URL / GAS_SECRET
+- GAS_SECRET は実質「ファイル送信トークン」程度の役割。漏れても任意のファイルを Drive ルートフォルダに上げられる程度のリスク。
+- 重要なら GAS 側で IP 制限や Origin チェックを追加することを検討。
+
 ## 既知の制限事項（PoC）
 
 - OpenAI / Google Maps の **API キーがブラウザに露出** している。本番では必ずサーバ側プロキシを置くこと。

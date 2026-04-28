@@ -1,6 +1,9 @@
 // OpenAI API ユーティリティ（PoC: ブラウザから直接呼び出し）
 
 export async function fetchOriginStory(stationName, apiKey) {
+  // キー未設定時は早期リターン（無駄な401を避け、UI上は静かに無効化）
+  if (!apiKey) throw new Error('OPENAI_API_KEY 未設定');
+
   const prompt = `「${stationName}」という地名の由来を、小学校3年生でも分かる言葉で3〜5文で教えてください。
 語源が諸説ある場合は最も有力な説を紹介してください。
 「たんけん博士」というキャラクターが話しかけるような口調（ですます調）で書いてください。`;

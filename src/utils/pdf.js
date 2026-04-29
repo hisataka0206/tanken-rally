@@ -4,7 +4,7 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=37';
+import { toLatLngLiteral } from './maps.js?v=38';
 
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
@@ -32,29 +32,70 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
     await waitForImagesWithFallback(container);
 
     // 2) html2canvas でラスタライズ
+    const SCALE = 2;
     const canvas = await html2canvas(container, {
       useCORS: true,
       allowTaint: false,
       backgroundColor: '#ffffff',
-      scale: 2,
+      scale: SCALE,
     });
 
+    // 2.5) ページ分割時に「割らない方が良い」ブロックの Y 範囲を取得
+    //      （getBoundingClientRect は CSS pixel 単位なので scale 倍してキャンバス座標へ）
+    const containerRect = container.getBoundingClientRect();
+    const blockSelectors = [
+      '.report-photo-item',                  // 「曲がるところ」のカード
+      '[data-pdf-block]',                    // 任意で「割らない」と指定したブロック
+    ].join(',');
+    const blockRanges = Array.from(container.querySelectorAll(blockSelectors)).map(el => {
+      const r = el.getBoundingClientRect();
+      return {
+        top: (r.top - containerRect.top) * SCALE,
+        bottom: (r.bottom - containerRect.top) * SCALE,
+      };
+    }).sort((a, b) => a.top - b.top);
+
+    // 与えられた desired Y で分割するとブロックを割ってしまう場合、
+    // そのブロックの上端まで戻して安全に分割。lowerBound + minAdvance より上には戻らない。
+    const findSafeSplit = (desired, lowerBound) => {
+      const minAdvance = 200; // 200px = ページの数%。これより小さい slice は作らない
+      let cutAt = desired;
+      for (const r of blockRanges) {
+        if (r.top < desired && r.bottom > desired) {
+          if (r.top > lowerBound + minAdvance && r.top < cutAt) {
+            cutAt = r.top;
+          }
+        }
+      }
+      return cutAt;
+    };
+
     // 3) jsPDF に画像として配置（A4 幅にフィット、必要に応じて複数ページに分割）
-    const imgData = canvas.toDataURL('image/jpeg', 0.92);
     const pageInnerW = A4.wMm - MARGIN_MM * 2;
     const pageInnerH = A4.hMm - MARGIN_MM * 2;
     const imgWidthMm = pageInnerW;
     const imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
 
     if (imgHeightMm <= pageInnerH) {
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
       doc.addImage(imgData, 'JPEG', MARGIN_MM, MARGIN_MM, imgWidthMm, imgHeightMm);
     } else {
-      // 縦長の場合はキャンバスをスライスして複数ページに展開
+      // 縦長 → キャンバスをスライスして複数ページに展開
       const pageHeightPx = (pageInnerH * canvas.width) / pageInnerW;
       let offsetPx = 0;
       let pageNum = 0;
       while (offsetPx < canvas.height) {
-        const sliceHeight = Math.min(pageHeightPx, canvas.height - offsetPx);
+        const remaining = canvas.height - offsetPx;
+        let sliceHeight;
+        if (remaining <= pageHeightPx) {
+          // 最後のページ：残り全部
+          sliceHeight = remaining;
+        } else {
+          // 通常ページ：割らないブロックを跨がない位置で切る
+          const desired = offsetPx + pageHeightPx;
+          const safeY = findSafeSplit(desired, offsetPx);
+          sliceHeight = safeY - offsetPx;
+        }
         const slice = document.createElement('canvas');
         slice.width = canvas.width;
         slice.height = sliceHeight;
@@ -115,7 +156,7 @@ function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, ap
       <div><span style="color:#666;">スポット数</span> <strong style="font-size:14px;color:#004029;">${orderedSpots.length}件</strong></div>
     </div>
 
-    <div style="margin-top:12px;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
+    <div data-pdf-block style="margin-top:12px;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
       ${mapImgUrl
         ? `<img src="${mapImgUrl}" alt="map" crossorigin="anonymous" referrerpolicy="no-referrer-when-downgrade" style="display:block;width:100%;" />`
         : `<div style="padding:80px 24px;text-align:center;color:#888;background:#f4f4f4;">（地図画像はAPIキー未設定のため省略）</div>`}

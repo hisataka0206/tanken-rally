@@ -146,12 +146,18 @@ function resumeSession(body) {
       return { ok: false, error: 'セッションフォルダが見つかりません。IDを確認してください（古いセッションは7日で自動削除されます）。' };
     }
 
-    // Sheet からセッションメタデータを読む（無ければフォルダ情報のみで返す）
+    // Sheet からセッションメタデータを読む（失敗してもフォルダ情報は返すが、
+    // 原因はクライアント側でデバッグできるよう sheetWarning として明示）
     let sheetData = null;
+    let sheetWarning = '';
     try {
       const r = loadSession({ sessionId });
       if (r && r.ok) sheetData = r;
-    } catch (_) {}
+      else if (r) sheetWarning = r.error || 'loadSession returned not-ok';
+      else sheetWarning = 'loadSession returned null';
+    } catch (e) {
+      sheetWarning = 'Sheet read exception: ' + (e.message || e);
+    }
 
     return {
       ok: true,
@@ -162,6 +168,7 @@ function resumeSession(body) {
       playerName:  sheetData ? sheetData.playerName  : '',
       orderedSpots: sheetData ? sheetData.orderedSpots : [],
       routeStats:   sheetData ? sheetData.routeStats   : null,
+      sheetWarning, // 空文字なら成功、何か入っていれば失敗理由
     };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };

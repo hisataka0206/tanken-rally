@@ -1,12 +1,12 @@
-import { CONFIG } from '../config.js?v=39';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=39';
-import { fetchOriginStory } from './utils/ai.js?v=39';
-import { generateMapPdf } from './utils/pdf.js?v=39';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=39';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=39';
-import { CITIES } from './data/cities.js?v=39';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=39';
-import { addReport as addIssueReport } from './utils/issues.js?v=39';
+import { CONFIG } from '../config.js?v=40';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=40';
+import { fetchOriginStory } from './utils/ai.js?v=40';
+import { generateMapPdf } from './utils/pdf.js?v=40';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=40';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=40';
+import { CITIES } from './data/cities.js?v=40';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=40';
+import { addReport as addIssueReport } from './utils/issues.js?v=40';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -21,6 +21,8 @@ console.log('[tanken-rally] CONFIG.GAS_URL:', CONFIG.GAS_URL ? `${String(CONFIG.
 const $ = id => document.getElementById(id);
 const show = id => { $( id ).classList.remove('hidden'); $( id ).classList.add('active'); };
 const hide = id => { $( id ).classList.add('hidden'); $( id ).classList.remove('active'); };
+const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // ===== STEP 1: 都市タブ + 路線/駅 セレクタ =====
 function initCityTabs() {
@@ -840,6 +842,10 @@ async function onResumeSession() {
   try {
     // 1) セッション情報を Drive + Sheet から取得
     const session = await drive.resumeSession({ sessionId });
+    console.log('[resume] GAS response:', session);
+    if (session.sheetWarning) {
+      console.warn('[resume] Sheet 読込み警告:', session.sheetWarning);
+    }
     state.driveSession = session;
     state.sessionId = sessionId;
 
@@ -856,8 +862,11 @@ async function onResumeSession() {
     if (Array.isArray(session.orderedSpots) && session.orderedSpots.length) {
       state.orderedSpots = session.orderedSpots;
       if (session.routeStats) state.routeStats = session.routeStats;
+      console.info(`[resume] スポット ${state.orderedSpots.length} 件を復元:`,
+        state.orderedSpots.map(s => s.name).join(' → '));
     } else {
       state.orderedSpots = [];
+      console.warn('[resume] スポット復元できず（Sheet にデータなし or 読み込み失敗）');
     }
 
     // 4) 写真一覧を取得
@@ -880,13 +889,27 @@ async function onResumeSession() {
       excludedPhotoIds: new Set(),
     };
 
-    // 5) STEP 4 ヘ：セッション情報表示 ＋ タグモーダルのスポット選択肢を再構築
+    // 5) STEP 4 ヘ：セッション情報を見やすく表示
     const info = $('photos-session-info');
     const stationLabel = state.stationName ? `${state.stationName}駅 / ` : '';
-    info.innerHTML = `📂 セッション再開: ${stationLabel}` +
-      `<a href="${session.folderUrl}" target="_blank" style="color:#2e7d32">${session.folderName}</a>` +
-      `（写真 ${state.uploadedPhotos.length} 枚 / スポット ${state.orderedSpots.length} 件）`;
+    const folderLink = `<a href="${session.folderUrl}" target="_blank" style="color:#2e7d32">${session.folderName}</a>`;
+    const counts = `写真 ${state.uploadedPhotos.length} 枚 / スポット ${state.orderedSpots.length} 件`;
 
+    let html = `📂 <strong>セッション再開:</strong> ${stationLabel}${folderLink}（${counts}）`;
+    // 復元したスポット一覧（あれば）
+    if (state.orderedSpots.length) {
+      const spotsLine = state.orderedSpots.map((s, i) => `${i + 1}. ${s.name}`).join(' → ');
+      html += `<br/><span style="font-size:12px;color:#2e7d32;">📍 行った場所: ${spotsLine}</span>`;
+    }
+    // Sheet 読込み失敗の警告（取れたフォルダだけ表示状態）
+    if (session.sheetWarning) {
+      html += `<br/><span style="font-size:12px;color:#c62828;">⚠️ スポット情報の復元に失敗（${escapeHtml(session.sheetWarning)}）— GAS の権限承認またはデプロイ更新を確認してください</span>`;
+    } else if (state.orderedSpots.length === 0) {
+      html += `<br/><span style="font-size:12px;color:#c62828;">⚠️ Sheet に該当 sessionId のセッション情報が見つかりませんでした</span>`;
+    }
+    info.innerHTML = html;
+
+    // タグ編集モーダルのスポット選択肢を再構築
     const tagSel = $('tag-modal-select');
     tagSel.innerHTML = '<option value="">── タグなし ──</option>';
     state.orderedSpots.forEach((s, i) => {

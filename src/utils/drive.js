@@ -25,6 +25,13 @@ export class DriveClient {
     return data; // { folderId, folderName, folderUrl }
   }
 
+  /** セッションID（パスワード）から既存フォルダを取得 */
+  async resumeSession({ sessionId }) {
+    const data = await this._post({ action: 'resumeSession', sessionId });
+    if (!data.ok) throw new Error(data.error);
+    return data; // { folderId, folderName, folderUrl }
+  }
+
   /** 写真をアップロード */
   async uploadPhoto({ folderId, file, spotName }) {
     const { base64, mimeType, fileName } = await fileToBase64(file);

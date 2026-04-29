@@ -1,10 +1,15 @@
 // 主要都市の路線・駅データ（PoC版・主要駅のみ）
 // 必要に応じて拡張すること
+//
+// center: 都市の代表座標（駅検索 geocode の bias 用）
+// bounds: 都市の南西端 / 北東端（geocoder の bounds パラメータに渡す）
 
 export const CITIES = [
   {
     id: 'tokyo',
     name: '東京',
+    center: { lat: 35.6812, lng: 139.7671 },
+    bounds: { sw: { lat: 35.50, lng: 139.55 }, ne: { lat: 35.85, lng: 139.95 } },
     lines: [
       {
         name: 'JR山手線',
@@ -31,6 +36,8 @@ export const CITIES = [
   {
     id: 'nagoya',
     name: '名古屋',
+    center: { lat: 35.1815, lng: 136.9066 },
+    bounds: { sw: { lat: 35.05, lng: 136.78 }, ne: { lat: 35.30, lng: 137.05 } },
     lines: [
       {
         name: '名古屋市営地下鉄 東山線',
@@ -69,6 +76,8 @@ export const CITIES = [
   {
     id: 'osaka',
     name: '大阪',
+    center: { lat: 34.6937, lng: 135.5023 },
+    bounds: { sw: { lat: 34.55, lng: 135.35 }, ne: { lat: 34.85, lng: 135.65 } },
     lines: [
       {
         name: '大阪メトロ御堂筋線',
@@ -91,6 +100,8 @@ export const CITIES = [
   {
     id: 'kobe',
     name: '神戸',
+    center: { lat: 34.6900, lng: 135.1955 },
+    bounds: { sw: { lat: 34.60, lng: 134.95 }, ne: { lat: 34.80, lng: 135.40 } },
     lines: [
       {
         name: 'JR神戸線',
@@ -113,6 +124,8 @@ export const CITIES = [
   {
     id: 'kyoto',
     name: '京都',
+    center: { lat: 35.0116, lng: 135.7681 },
+    bounds: { sw: { lat: 34.90, lng: 135.65 }, ne: { lat: 35.15, lng: 135.90 } },
     lines: [
       {
         name: '京都市営地下鉄烏丸線',

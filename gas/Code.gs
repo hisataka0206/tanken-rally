@@ -42,6 +42,9 @@ function doPost(e) {
     if (action === 'createSession') {
       return respond(headers, createSession(body));
     }
+    if (action === 'resumeSession') {
+      return respond(headers, resumeSession(body));
+    }
     if (action === 'uploadPhoto') {
       return respond(headers, uploadPhoto(body));
     }
@@ -109,6 +112,32 @@ function createSession(body) {
       folderName,
       folderUrl: folder.getUrl(),
     };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** セッションIDから既存フォルダを探す（パスワードログイン用）
+ *  フォルダ名末尾が "_<sessionId>" のものを返す */
+function resumeSession(body) {
+  try {
+    const { sessionId } = body;
+    if (!sessionId) return { ok: false, error: 'sessionId が必要です' };
+    const root = getRootFolder();
+    const folders = root.getFolders();
+    while (folders.hasNext()) {
+      const folder = folders.next();
+      const name = folder.getName();
+      if (name.endsWith('_' + sessionId)) {
+        return {
+          ok: true,
+          folderId: folder.getId(),
+          folderName: name,
+          folderUrl: folder.getUrl(),
+        };
+      }
+    }
+    return { ok: false, error: 'セッションが見つかりません。IDを確認してください（古いセッションは7日で自動削除されます）。' };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
   }

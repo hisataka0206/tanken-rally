@@ -1,11 +1,12 @@
-import { CONFIG } from '../config.js?v=35';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=35';
-import { fetchOriginStory } from './utils/ai.js?v=35';
-import { generateMapPdf } from './utils/pdf.js?v=35';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=35';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=35';
-import { CITIES } from './data/cities.js?v=35';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=35';
+import { CONFIG } from '../config.js?v=37';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=37';
+import { fetchOriginStory } from './utils/ai.js?v=37';
+import { generateMapPdf } from './utils/pdf.js?v=37';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=37';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=37';
+import { CITIES } from './data/cities.js?v=37';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=37';
+import { addReport as addIssueReport } from './utils/issues.js?v=37';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -108,8 +109,8 @@ function selectCity(cityId, opts = {}) {
   }
 }
 
-// セレクタ「この駅でさがす」 → 都市名・路線名コンテキスト付きで onSearchStation を呼ぶ
-// （同名駅の曖昧性解消のため。例: 名古屋市の「吹上」と東京の「吹上」を区別）
+// セレクタ「この駅でさがす」 → 都市名・路線名・bounds 付きで onSearchStation を呼ぶ
+// （同名駅の曖昧性解消のため。例: 名古屋の「吹上」と東京の「吹上」、名古屋の「荒畑」を別エリアの同名と区別）
 function onSearchBySelect() {
   const stationName = $('station-select').value;
   if (!stationName) return;
@@ -121,7 +122,13 @@ function onSearchBySelect() {
   const lineName = (city && lineIdx !== '') ? city.lines[Number(lineIdx)]?.name : '';
   const cityName = city ? city.name : '';
   $('station-input').value = stationName;
-  onSearchStation({ stationName, lineName, cityName });
+  onSearchStation({
+    stationName,
+    lineName,
+    cityName,
+    bounds: city?.bounds,        // 都市矩形に検索を絞り込む
+    center: city?.center,        // 同点時のタイブレーク用
+  });
 }
 
 // 駅 + 全スポットが画面に収まるように地図をフィット
@@ -184,6 +191,8 @@ async function onSearchStation(context) {
     state.stationLocation = await geocodeStation(name, isCtx ? {
       lineName: context.lineName,
       cityName: context.cityName,
+      bounds: context.bounds,
+      center: context.center,
     } : {});
     state.stationName = name;
 
@@ -780,6 +789,79 @@ function saveTagModal() {
   renderPhotosGrid();
 }
 
+// ===== セッション再開（パスワード入力） =====
+async function onResumeSession() {
+  const errEl = $('resume-error');
+  errEl.classList.add('hidden');
+  errEl.textContent = '';
+
+  const sessionId = $('resume-session-input').value.trim();
+  if (!sessionId) {
+    errEl.textContent = 'セッションIDを入力してね。';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (!drive) {
+    errEl.textContent = 'Drive 連携が無効です（GAS未設定）。再開機能は使えません。';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const btn = $('resume-session-btn');
+  const original = btn.textContent;
+  btn.textContent = '読み込み中…';
+  btn.disabled = true;
+
+  try {
+    // 1) セッション情報を Drive から取得
+    const session = await drive.resumeSession({ sessionId });
+    state.driveSession = session;
+    state.sessionId = sessionId;
+
+    // 2) フォルダ名から駅名を推定（"駅名_プレーヤー名_sessionId" 形式）
+    const folderName = session.folderName || '';
+    const stationGuess = folderName.split('_')[0] || '';
+    if (stationGuess) state.stationName = stationGuess;
+
+    // 3) 写真一覧を取得
+    const photos = await drive.listPhotos(session.folderId);
+    state.uploadedPhotos = (photos || []).map(p => ({
+      fileId: p.fileId,
+      url: p.url,                  // Drive URL（CORS不可だがプレビュー用に表示）
+      thumbnailUrl: p.thumbnailUrl,
+      driveUrl: p.url,
+      driveThumbnailUrl: p.thumbnailUrl,
+      spotName: p.spotName || '',
+      fileName: p.fileName || '',
+      takenAt: p.takenAt || '',
+      uploading: false,
+    }));
+    state.selectedPhotoIds.clear();
+    state.reportData = {
+      date: '', author: '', overview: '', afterword: '',
+      photoComments: {},
+      excludedPhotoIds: new Set(),
+    };
+
+    // 4) STEP 4 へジャンプ（最低限の状態で表示）
+    const info = $('photos-session-info');
+    info.innerHTML = `📂 セッション再開: <a href="${session.folderUrl}" target="_blank" style="color:#2e7d32">${session.folderName}</a>（写真 ${state.uploadedPhotos.length} 枚）`;
+
+    // タグ編集モーダル用のスポットセレクタも更新（前回の orderedSpots は失われているので空のみ）
+    const tagSel = $('tag-modal-select');
+    tagSel.innerHTML = '<option value="">── タグなし ──</option>';
+
+    renderPhotosGrid();
+    showStep('step-photos');
+  } catch (e) {
+    errEl.textContent = e.message || '再開に失敗しました';
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.textContent = original;
+    btn.disabled = false;
+  }
+}
+
 // ===== STEP 5: レポート =====
 function onStartReport() {
   // メタ情報初期化（日付はシステム側で自動入力しない。ユーザーが date picker で入力）
@@ -1043,6 +1125,43 @@ $('tag-modal').addEventListener('click', e => {
 // STEP 5（レポート）
 $('back-to-photos').addEventListener('click', () => showStep('step-photos'));
 $('report-pdf-btn').addEventListener('click', onReportPdf);
+
+// セッション再開（パスワードで前回の写真を復元）
+$('resume-session-btn').addEventListener('click', onResumeSession);
+$('resume-session-input').addEventListener('keydown', e => { if (e.key === 'Enter') onResumeSession(); });
+
+// 不具合報告
+$('report-issue-btn').addEventListener('click', () => {
+  const modal = $('issue-modal');
+  // 開くたびにフォームをリセット
+  modal.querySelectorAll('[data-issue-type]').forEach(cb => { cb.checked = false; });
+  $('issue-detail').value = '';
+  modal.classList.remove('hidden');
+});
+$('issue-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'close') $('issue-modal').classList.add('hidden');
+});
+$('issue-submit-btn').addEventListener('click', () => {
+  const types = Array.from(document.querySelectorAll('#issue-modal [data-issue-type]:checked'))
+    .map(cb => cb.dataset.issueType);
+  const detail = $('issue-detail').value;
+  try {
+    addIssueReport({
+      types,
+      detail,
+      context: {
+        stationName: state.stationName || '',
+        cityTab: document.querySelector('.city-tab.active')?.dataset.cityId || '',
+        currentStep: document.querySelector('.step.active')?.id || '',
+        sessionId: state.sessionId || '',
+      },
+    });
+    alert('🐛 報告ありがとうございました！\n開発者がこの情報をもとに改善していきます。');
+    $('issue-modal').classList.add('hidden');
+  } catch (e) {
+    alert(e.message);
+  }
+});
 
 // ===== 初期表示 =====
 initCityTabs();

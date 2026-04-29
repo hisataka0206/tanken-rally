@@ -4,7 +4,7 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=35';
+import { toLatLngLiteral } from './maps.js?v=37';
 
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
@@ -135,7 +135,7 @@ function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, ap
     <div style="margin-top:6px;font-size:11px;color:#666;line-height:1.5;">
       ストリートビューの写真を目印にしてね。実際の景色とすこし違うこともあります。
     </div>
-    <div style="margin-top:8px;">
+    <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       ${buildTurnPointsHtml({ stationName, origin, orderedSpots, directions, apiKey })}
     </div>
 
@@ -279,21 +279,22 @@ function buildTurnPointsHtml({ stationName, origin, orderedSpots, directions, ap
 
 function buildTurnCard({ label, labelColor, title, subtitle, icon, lat, lng, heading, apiKey }) {
   // Street View Static API:
+  //   - 大きめの 480x320 で取得（PDF出力時に綺麗に見える）
   //   - radius=100 でデフォルトの 50m → 100m に拡大（パノラマがない場所のヒット率向上）
   //   - source=outdoor で屋外のみを対象（地下道・屋内の謎SVを除外）
-  const sv = `https://maps.googleapis.com/maps/api/streetview?size=240x180&location=${lat},${lng}&heading=${Math.round(heading)}&fov=90&pitch=0&radius=100&source=outdoor&key=${apiKey}`;
+  const sv = `https://maps.googleapis.com/maps/api/streetview?size=480x320&location=${lat},${lng}&heading=${Math.round(heading)}&fov=90&pitch=0&radius=100&source=outdoor&key=${apiKey}`;
   // フォールバック：SV取得失敗時に表示する Static Map（地点中心、ズーム18、マーカー付き）
-  const fallback = `https://maps.googleapis.com/maps/api/staticmap?size=280x180&scale=2&center=${lat},${lng}&zoom=18&markers=color:red%7Csize:mid%7C${lat},${lng}&maptype=roadmap&language=ja&key=${apiKey}`;
+  const fallback = `https://maps.googleapis.com/maps/api/staticmap?size=480x320&scale=2&center=${lat},${lng}&zoom=18&markers=color:red%7Csize:mid%7C${lat},${lng}&maptype=roadmap&language=ja&key=${apiKey}`;
   return `
-    <div style="display:flex;gap:10px;padding:10px;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:8px;page-break-inside:avoid;background:#fff;">
-      <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:32px;padding-top:4px;">
-        <div style="width:26px;height:26px;background:${labelColor};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.25);">${escapeHtml(label)}</div>
-        <div style="font-size:22px;line-height:1;margin-top:6px;">${icon}</div>
-      </div>
-      <img src="${sv}" alt="streetview" data-fallback="${escapeHtml(fallback)}" crossorigin="anonymous" referrerpolicy="no-referrer-when-downgrade" style="flex-shrink:0;width:140px;height:105px;border-radius:6px;object-fit:cover;background:#eee;border:1px solid #ddd;" />
-      <div style="flex:1;font-size:12px;line-height:1.55;min-width:0;">
-        <div style="font-weight:700;color:#222;font-size:13px;">${escapeHtml(title)}</div>
-        <div style="font-size:11px;color:#666;margin-top:6px;">${subtitle}</div>
+    <div style="border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;page-break-inside:avoid;background:#fff;display:flex;flex-direction:column;">
+      <img src="${sv}" alt="streetview" data-fallback="${escapeHtml(fallback)}" crossorigin="anonymous" referrerpolicy="no-referrer-when-downgrade" style="display:block;width:100%;aspect-ratio:3/2;object-fit:cover;background:#eee;border-bottom:1px solid #ddd;" />
+      <div style="padding:8px 10px;font-size:12px;line-height:1.5;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <div style="flex-shrink:0;width:24px;height:24px;background:${labelColor};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;border:2px solid white;box-shadow:0 1px 2px rgba(0,0,0,.2);">${escapeHtml(label)}</div>
+          <div style="font-size:18px;line-height:1;">${icon}</div>
+          <div style="font-weight:700;color:#222;font-size:13px;flex:1;min-width:0;word-break:break-word;">${escapeHtml(title)}</div>
+        </div>
+        <div style="font-size:11px;color:#666;padding-left:32px;line-height:1.5;">${subtitle}</div>
       </div>
     </div>
   `;

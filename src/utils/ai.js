@@ -4,9 +4,24 @@ export async function fetchOriginStory(stationName, apiKey) {
   // キー未設定時は早期リターン（無駄な401を避け、UI上は静かに無効化）
   if (!apiKey) throw new Error('OPENAI_API_KEY 未設定');
 
-  const prompt = `「${stationName}」という地名の由来を、小学校3年生でも分かる言葉で3〜5文で教えてください。
-語源が諸説ある場合は最も有力な説を紹介してください。
-「たんけん博士」というキャラクターが話しかけるような口調（ですます調）で書いてください。`;
+  // 「正確性最優先」プロンプト：
+  //   - 確実に知っている場合のみ説明
+  //   - 不確かなら必ず「諸説あります」「はっきりしていません」と明記
+  //   - 創作・推測で埋めない
+  //   - 最後に必ず「※ 諸説あります」を付ける
+  const systemPrompt = `あなたは日本の地名の由来を子どもに伝える「たんけん博士」です。
+以下のルールを厳守してください：
+
+1. 由来や語源について、自分が確実に知っている情報のみを伝える。
+2. はっきりした定説がない場合や知らない場合は、「はっきりした由来はわかっていません」「いくつかの説があります」と正直に書く。
+3. 推測で埋めたり、もっともらしい話を創作したりしない。
+4. 一般的に語られている説が複数ある場合は「○○という説があります」「△△とも言われています」のように、断定を避ける。
+5. 出典が明確な事実（公式の歴史記録など）と、説や言い伝えを区別して書く。
+6. 文末に必ず「※ 諸説あります」と付ける。
+
+口調はやさしいですます調。3〜5文。小学校3年生でも分かる言葉で。`;
+
+  const userPrompt = `「${stationName}」という地名・駅名の由来を教えてください。`;
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -16,9 +31,12 @@ export async function fetchOriginStory(stationName, apiKey) {
     },
     body: JSON.stringify({
       model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 300,
-      temperature: 0.7,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 350,
+      temperature: 0.3,    // 創作を抑えるため低めに
     }),
   });
 

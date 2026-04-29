@@ -17,13 +17,18 @@ export function loadGoogleMaps(apiKey) {
 
 // 駅名からジオコード（緯度経度）を取得
 // opts.cityName / opts.lineName を渡すと、同名駅の曖昧性解消用にクエリへ追加する
-//   例: cityName="名古屋市", lineName="名古屋市営地下鉄 桜通線", stationName="吹上"
-//        → "名古屋市 名古屋市営地下鉄 桜通線 吹上駅"
+//   例: cityName="名古屋", lineName="名古屋市営地下鉄 桜通線", stationName="吹上"
+//        → "名古屋 名古屋市営地下鉄 桜通線 吹上駅"
+// opts.bounds (= { sw:{lat,lng}, ne:{lat,lng} }) を渡すと geocoder の検索範囲をその矩形にバイアス。
+// opts.center を渡すと結果が center に近いものを優先する後処理を行う（同点時の判定）。
 //
 // 動作仕様：
 //   1. Geocoding API を試す（最優先・精度が一番高い）
+//      - bounds があれば探索を都市範囲に絞り込む
+//      - bounds 内の結果がなければ範囲外でも採用
 //   2. 失敗 (REQUEST_DENIED 等) なら Places API findPlaceFromQuery にフォールバック
-//      → Geocoding API が Cloud で有効化されていなくても、Places が有効なら動く
+//      - locationRestriction を bounds で指定して市内の場所のみ取得
+//   3. 全部失敗 → エラー
 export function geocodeStation(stationName, opts = {}) {
   return new Promise((resolve, reject) => {
     const parts = [];
@@ -32,11 +37,31 @@ export function geocodeStation(stationName, opts = {}) {
     parts.push(`${stationName}駅`);
     const address = parts.join(' ');
 
-    // Places API へのフォールバック（無料で使える findPlaceFromQuery）
+    const gmBounds = opts.bounds
+      ? new google.maps.LatLngBounds(
+          new google.maps.LatLng(opts.bounds.sw.lat, opts.bounds.sw.lng),
+          new google.maps.LatLng(opts.bounds.ne.lat, opts.bounds.ne.lng)
+        )
+      : null;
+
+    // bounds 内の結果を最優先で選ぶ。なければ最初の結果を返す。
+    const pickBest = (results) => {
+      if (!results || !results.length) return null;
+      if (gmBounds) {
+        const inside = results.find(r => {
+          const loc = r.geometry?.location;
+          return loc && gmBounds.contains(loc);
+        });
+        if (inside) return inside.geometry.location;
+      }
+      return results[0].geometry.location;
+    };
+
+    // Places API へのフォールバック（findPlaceFromQuery）
     const tryPlacesFallback = (reason = 'unknown') => {
       const ps = new google.maps.places.PlacesService(document.createElement('div'));
       const queries = parts.length > 1
-        ? [address, `${stationName}駅`]   // コンテキスト付き → 単独 の順で試す
+        ? [address, `${stationName}駅`]
         : [`${stationName}駅`];
 
       const tryQuery = (i) => {
@@ -44,14 +69,22 @@ export function geocodeStation(stationName, opts = {}) {
           reject(new Error(`駅が見つかりませんでした: ${stationName}（Geocoding/Places どちらも失敗）`));
           return;
         }
-        ps.findPlaceFromQuery({
+        const req = {
           query: queries[i],
           fields: ['geometry', 'name'],
           language: 'ja',
-        }, (results, status) => {
+        };
+        // locationBias は SW/NE タプルか radius/center で指定（ここでは bounds の長方形で）
+        if (gmBounds) req.locationBias = gmBounds;
+        ps.findPlaceFromQuery(req, (results, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK
               && results && results[0] && results[0].geometry?.location) {
             console.warn(`[geocodeStation] Places API フォールバック成功 (Geocoding 失敗理由: ${reason})`);
+            // bounds がある場合は内側の結果を優先（誤マッチ回避）
+            if (gmBounds) {
+              const inside = results.find(r => r.geometry?.location && gmBounds.contains(r.geometry.location));
+              if (inside) { resolve(inside.geometry.location); return; }
+            }
             resolve(results[0].geometry.location);
           } else {
             tryQuery(i + 1);
@@ -61,35 +94,36 @@ export function geocodeStation(stationName, opts = {}) {
       tryQuery(0);
     };
 
-    // 1) Geocoding API を試す
+    // 1) Geocoding API を試す（bounds bias あり）
     const geocoder = new google.maps.Geocoder();
-    geocoder.geocode(
-      { address, region: 'JP', language: 'ja' },
-      (results, status) => {
-        if (status === 'OK' && results && results[0]) {
-          resolve(results[0].geometry.location);
-        } else if (status === 'REQUEST_DENIED' || status === 'OVER_QUERY_LIMIT') {
-          // API無効 or quota超過 → Places にフォールバック
-          tryPlacesFallback(status);
-        } else if (parts.length > 1) {
-          // 結果0件 → コンテキスト無しで再試行
-          geocoder.geocode(
-            { address: `${stationName}駅`, region: 'JP', language: 'ja' },
-            (r2, s2) => {
-              if (s2 === 'OK' && r2 && r2[0]) {
-                resolve(r2[0].geometry.location);
-              } else if (s2 === 'REQUEST_DENIED' || s2 === 'OVER_QUERY_LIMIT') {
-                tryPlacesFallback(s2);
-              } else {
-                tryPlacesFallback(`Geocode ${s2}`);
-              }
-            }
-          );
-        } else {
-          tryPlacesFallback(`Geocode ${status}`);
-        }
+    const baseReq = { address, region: 'JP', language: 'ja' };
+    if (gmBounds) baseReq.bounds = gmBounds;
+
+    geocoder.geocode(baseReq, (results, status) => {
+      if (status === 'OK' && results && results.length) {
+        const loc = pickBest(results);
+        if (loc) { resolve(loc); return; }
       }
-    );
+      if (status === 'REQUEST_DENIED' || status === 'OVER_QUERY_LIMIT') {
+        tryPlacesFallback(status);
+        return;
+      }
+      // 結果0件 or 拾えなかった → コンテキスト無しで再試行
+      if (parts.length > 1) {
+        const fallbackReq = { address: `${stationName}駅`, region: 'JP', language: 'ja' };
+        if (gmBounds) fallbackReq.bounds = gmBounds;
+        geocoder.geocode(fallbackReq, (r2, s2) => {
+          if (s2 === 'OK' && r2 && r2.length) {
+            const loc = pickBest(r2);
+            if (loc) { resolve(loc); return; }
+          }
+          if (s2 === 'REQUEST_DENIED' || s2 === 'OVER_QUERY_LIMIT') tryPlacesFallback(s2);
+          else tryPlacesFallback(`Geocode ${s2}`);
+        });
+      } else {
+        tryPlacesFallback(`Geocode ${status}`);
+      }
+    });
   });
 }
 

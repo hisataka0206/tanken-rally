@@ -70,6 +70,52 @@ body {
   flex-shrink: 0;
 }
 
+/* ===== 前回再開 ===== */
+.resume-section {
+  background: #f0f7f0;
+  border: 1px dashed #b8d6b8;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  font-size: 13px;
+}
+.resume-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--green-dark);
+  user-select: none;
+  list-style: none;
+}
+.resume-section summary::-webkit-details-marker { display: none; }
+.resume-section[open] summary { margin-bottom: 10px; }
+.resume-hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+.resume-hint code {
+  background: white;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+  border: 1px solid #ddd;
+}
+.resume-form {
+  display: flex;
+  gap: 8px;
+}
+.resume-form input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+}
+.resume-form input:focus { border-color: var(--green-dark); }
+
 /* ===== 免責 ===== */
 .disclaimer {
   background: #fff8e1;
@@ -550,6 +596,71 @@ body {
   gap: 10px;
   margin-top: 18px;
 }
+.modal-content-wide { width: min(560px, 92%); }
+
+/* ===== 不具合報告 ===== */
+.report-issue-fab {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 90;
+  background: #fff;
+  color: var(--green-dark);
+  border: 2px solid var(--green-dark);
+  border-radius: 24px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,.18);
+  font-family: inherit;
+}
+.report-issue-fab:hover {
+  background: var(--cream);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0,0,0,.22);
+}
+@media (max-width: 768px) {
+  .report-issue-fab {
+    font-size: 12px;
+    padding: 7px 12px;
+    bottom: 12px;
+    right: 12px;
+  }
+}
+
+.issue-types {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0;
+  padding: 12px;
+  background: #f9f6f0;
+  border-radius: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.issue-types label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1.5;
+}
+.issue-types label input { margin-top: 3px; flex-shrink: 0; }
+#issue-detail {
+  width: 100%;
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+}
+#issue-detail:focus { border-color: var(--green-dark); }
 
 .upload-progress {
   background: #e8f5e9;

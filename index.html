@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=20" />
+  <link rel="stylesheet" href="src/style.css?v=21" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -48,6 +48,20 @@
           ⚠️ <strong>すべての駅で適切なルートが確保できていることを確約していません。</strong>
           スポットが少なかったり、目安時間（約60分）に収まらないこともあります。気になったら別の駅も試してみてね。
         </p>
+
+        <!-- 前回の続きを開く（セッションID入力） -->
+        <details class="resume-section">
+          <summary>🔑 前回のたんけんを開く（パスワード入力）</summary>
+          <p class="resume-hint">
+            前回の探検時に Drive 上に作成されたフォルダ名の末尾にあるランダムな文字列（例：<code>lwgvzs6b9k2</code>）を入力すると、
+            そのときの写真を読み込んで「たんけんノート」の続きが書けます。
+          </p>
+          <div class="resume-form">
+            <input id="resume-session-input" type="text" placeholder="セッションID を貼り付け..." autocomplete="off" />
+            <button id="resume-session-btn" class="btn-secondary">前回を開く →</button>
+          </div>
+          <div id="resume-error" class="error-msg hidden"></div>
+        </details>
 
         <!-- 都市タブ -->
         <div id="city-tabs" class="city-tabs"></div>
@@ -188,6 +202,40 @@
       </div>
     </section>
 
+    <!-- 不具合報告：フローティングボタン（全ステップ共通） -->
+    <button id="report-issue-btn" type="button" class="report-issue-fab"
+      title="アプリの不具合を報告" aria-label="不具合を報告">
+      🐛 不具合を報告
+    </button>
+
+    <!-- 不具合報告モーダル -->
+    <div id="issue-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="issue-modal-title">
+      <div class="modal-backdrop" data-action="close"></div>
+      <div class="modal-content modal-content-wide">
+        <h3 id="issue-modal-title">🐛 不具合を報告</h3>
+        <p class="modal-desc">
+          困ったことや、おかしな動きがあったら教えてください。<br />
+          開発者がこの情報をもとに、ちょっとずつ良くしていきます。
+        </p>
+        <div class="issue-types">
+          <label><input type="checkbox" data-issue-type="station-location" /> 駅の位置がおかしい（別の場所に飛んだ）</label>
+          <label><input type="checkbox" data-issue-type="spots-bad" /> スポットの内容が不適切・少なすぎる</label>
+          <label><input type="checkbox" data-issue-type="route-weird" /> ルートが変（遠回り・通れない道など）</label>
+          <label><input type="checkbox" data-issue-type="streetview-empty" /> ストリートビュー写真が出ない</label>
+          <label><input type="checkbox" data-issue-type="pdf-broken" /> PDFが正しく出力されない</label>
+          <label><input type="checkbox" data-issue-type="photo-upload" /> 写真のアップロード・タグがおかしい</label>
+          <label><input type="checkbox" data-issue-type="report-edit" /> たんけんノートの編集で困った</label>
+          <label><input type="checkbox" data-issue-type="other" /> その他</label>
+        </div>
+        <textarea id="issue-detail" rows="4"
+          placeholder="詳しく書きたい場合はこちらに自由に記入してください（任意）"></textarea>
+        <div class="modal-actions">
+          <button class="btn-secondary" data-action="close">キャンセル</button>
+          <button id="issue-submit-btn" class="btn-primary">送信</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 写真タグ編集モーダル -->
     <div id="tag-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="tag-modal-title">
       <div class="modal-backdrop" data-action="close"></div>
@@ -224,6 +272,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=35"></script>
+  <script type="module" src="src/main.js?v=37"></script>
 </body>
 </html>

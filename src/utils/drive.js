@@ -25,11 +25,34 @@ export class DriveClient {
     return data; // { folderId, folderName, folderUrl }
   }
 
-  /** セッションID（パスワード）から既存フォルダを取得 */
+  /** セッションID（パスワード）から既存フォルダ＋Sheetメタを取得 */
   async resumeSession({ sessionId }) {
     const data = await this._post({ action: 'resumeSession', sessionId });
     if (!data.ok) throw new Error(data.error);
-    return data; // { folderId, folderName, folderUrl }
+    return data; // { folderId, folderName, folderUrl, stationName, orderedSpots, routeStats, ... }
+  }
+
+  /** 探検開始時にセッションのメタデータを Sheet に保存 */
+  async saveSession({ sessionId, stationName, playerName, folderUrl, orderedSpots, routeStats }) {
+    const data = await this._post({
+      action: 'saveSession',
+      sessionId, stationName, playerName, folderUrl,
+      orderedSpots, routeStats,
+    });
+    if (!data.ok) throw new Error(data.error);
+    return data;
+  }
+
+  /** ユーザーからの不具合報告を Sheet に送信 */
+  async submitIssue({ types, detail, context }) {
+    const data = await this._post({
+      action: 'saveIssueReport',
+      types: types || [],
+      detail: detail || '',
+      context: context || {},
+    });
+    if (!data.ok) throw new Error(data.error);
+    return data;
   }
 
   /** 写真をアップロード */

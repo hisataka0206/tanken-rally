@@ -1,12 +1,12 @@
-import { CONFIG } from '../config.js?v=38';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=38';
-import { fetchOriginStory } from './utils/ai.js?v=38';
-import { generateMapPdf } from './utils/pdf.js?v=38';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=38';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=38';
-import { CITIES } from './data/cities.js?v=38';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=38';
-import { addReport as addIssueReport } from './utils/issues.js?v=38';
+import { CONFIG } from '../config.js?v=39';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=39';
+import { fetchOriginStory } from './utils/ai.js?v=39';
+import { generateMapPdf } from './utils/pdf.js?v=39';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=39';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=39';
+import { CITIES } from './data/cities.js?v=39';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=39';
+import { addReport as addIssueReport } from './utils/issues.js?v=39';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -620,7 +620,32 @@ async function onStartExplore() {
           stationName: state.stationName,
           playerName,
         });
-        info.innerHTML = `📂 保存先: <a href="${state.driveSession.folderUrl}" target="_blank" style="color:#2e7d32">${state.driveSession.folderName}</a>`;
+        info.innerHTML = `📂 保存先: <a href="${state.driveSession.folderUrl}" target="_blank" style="color:#2e7d32">${state.driveSession.folderName}</a><br/>` +
+          `🔑 再開パスワード: <code style="background:#f0f0f0;padding:2px 6px;border-radius:4px;font-family:monospace">${state.sessionId}</code>（メモしておこう）`;
+
+        // 続けて Sheet にメタデータ（駅名・スポット順序など）を保存
+        // 失敗しても探検フロー自体は継続するため try/catch で握り潰す
+        try {
+          await drive.saveSession({
+            sessionId: state.sessionId,
+            stationName: state.stationName,
+            playerName,
+            folderUrl: state.driveSession.folderUrl,
+            orderedSpots: state.orderedSpots.map(s => ({
+              id: s.id,
+              name: s.name,
+              category: s.category,
+              address: s.address || '',
+              lat: s.lat,
+              lng: s.lng,
+              recommended: !!s.recommended,
+            })),
+            routeStats: state.routeStats || null,
+          });
+          console.info('[tanken-rally] Sheet にセッション保存しました');
+        } catch (e) {
+          console.warn('Sheetへのセッション保存に失敗（続行）:', e);
+        }
       } catch (e) {
         info.textContent = `⚠️ Drive接続エラー（写真はローカルのみ）: ${e.message}`;
         console.warn('Drive session creation failed:', e);
@@ -813,21 +838,33 @@ async function onResumeSession() {
   btn.disabled = true;
 
   try {
-    // 1) セッション情報を Drive から取得
+    // 1) セッション情報を Drive + Sheet から取得
     const session = await drive.resumeSession({ sessionId });
     state.driveSession = session;
     state.sessionId = sessionId;
 
-    // 2) フォルダ名から駅名を推定（"駅名_プレーヤー名_sessionId" 形式）
-    const folderName = session.folderName || '';
-    const stationGuess = folderName.split('_')[0] || '';
-    if (stationGuess) state.stationName = stationGuess;
+    // 2) Sheet 由来の駅名を優先、無ければフォルダ名から推定
+    if (session.stationName) {
+      state.stationName = session.stationName;
+    } else {
+      const folderName = session.folderName || '';
+      const stationGuess = folderName.split('_')[0] || '';
+      if (stationGuess) state.stationName = stationGuess;
+    }
 
-    // 3) 写真一覧を取得
+    // 3) Sheet にスポット順序が記録されていれば復元
+    if (Array.isArray(session.orderedSpots) && session.orderedSpots.length) {
+      state.orderedSpots = session.orderedSpots;
+      if (session.routeStats) state.routeStats = session.routeStats;
+    } else {
+      state.orderedSpots = [];
+    }
+
+    // 4) 写真一覧を取得
     const photos = await drive.listPhotos(session.folderId);
     state.uploadedPhotos = (photos || []).map(p => ({
       fileId: p.fileId,
-      url: p.url,                  // Drive URL（CORS不可だがプレビュー用に表示）
+      url: p.url,
       thumbnailUrl: p.thumbnailUrl,
       driveUrl: p.url,
       driveThumbnailUrl: p.thumbnailUrl,
@@ -843,13 +880,21 @@ async function onResumeSession() {
       excludedPhotoIds: new Set(),
     };
 
-    // 4) STEP 4 へジャンプ（最低限の状態で表示）
+    // 5) STEP 4 ヘ：セッション情報表示 ＋ タグモーダルのスポット選択肢を再構築
     const info = $('photos-session-info');
-    info.innerHTML = `📂 セッション再開: <a href="${session.folderUrl}" target="_blank" style="color:#2e7d32">${session.folderName}</a>（写真 ${state.uploadedPhotos.length} 枚）`;
+    const stationLabel = state.stationName ? `${state.stationName}駅 / ` : '';
+    info.innerHTML = `📂 セッション再開: ${stationLabel}` +
+      `<a href="${session.folderUrl}" target="_blank" style="color:#2e7d32">${session.folderName}</a>` +
+      `（写真 ${state.uploadedPhotos.length} 枚 / スポット ${state.orderedSpots.length} 件）`;
 
-    // タグ編集モーダル用のスポットセレクタも更新（前回の orderedSpots は失われているので空のみ）
     const tagSel = $('tag-modal-select');
     tagSel.innerHTML = '<option value="">── タグなし ──</option>';
+    state.orderedSpots.forEach((s, i) => {
+      const opt = document.createElement('option');
+      opt.value = s.name;
+      opt.textContent = `${i + 1}. ${s.name}`;
+      tagSel.appendChild(opt);
+    });
 
     renderPhotosGrid();
     showStep('step-photos');
@@ -1141,25 +1186,41 @@ $('report-issue-btn').addEventListener('click', () => {
 $('issue-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'close') $('issue-modal').classList.add('hidden');
 });
-$('issue-submit-btn').addEventListener('click', () => {
+$('issue-submit-btn').addEventListener('click', async () => {
   const types = Array.from(document.querySelectorAll('#issue-modal [data-issue-type]:checked'))
     .map(cb => cb.dataset.issueType);
   const detail = $('issue-detail').value;
+  const context = {
+    stationName: state.stationName || '',
+    cityTab: document.querySelector('.city-tab.active')?.dataset.cityId || '',
+    currentStep: document.querySelector('.step.active')?.id || '',
+    sessionId: state.sessionId || '',
+    ua: navigator.userAgent,
+    href: location.href,
+  };
+  const submitBtn = $('issue-submit-btn');
+  const original = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = '送信中…';
   try {
-    addIssueReport({
-      types,
-      detail,
-      context: {
-        stationName: state.stationName || '',
-        cityTab: document.querySelector('.city-tab.active')?.dataset.cityId || '',
-        currentStep: document.querySelector('.step.active')?.id || '',
-        sessionId: state.sessionId || '',
-      },
-    });
+    // ローカル保存（オフラインバックアップ）
+    addIssueReport({ types, detail, context });
+    // Sheet にも送信（drive クライアントが無効なら自動でスキップ）
+    if (drive) {
+      try {
+        await drive.submitIssue({ types, detail, context });
+        console.info('[issue-report] Sheet にも保存しました');
+      } catch (e) {
+        console.warn('[issue-report] Sheet送信失敗（ローカルには保存済）:', e);
+      }
+    }
     alert('🐛 報告ありがとうございました！\n開発者がこの情報をもとに改善していきます。');
     $('issue-modal').classList.add('hidden');
   } catch (e) {
     alert(e.message);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = original;
   }
 });
 

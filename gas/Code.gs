@@ -15,6 +15,9 @@
 // ===== 設定 =====
 // 指定 Drive フォルダ（https://drive.google.com/drive/folders/<ID>）
 const ROOT_FOLDER_ID = '10EzCggGS5BcZ2LJXOnbfd1WLhSh7MECH';
+// セッションログ・不具合報告の蓄積用 Spreadsheet ID
+// https://docs.google.com/spreadsheets/d/<ID>/edit
+const LOG_SHEET_ID   = '1ClqbDlFA6flvz2i3A7OABE0seq4GeqhcztLFCHdTuHk';
 const SHARED_SECRET    = 'tanken-rally-poc-2026'; // config.js の GAS_SECRET と合わせること
 const SESSION_RETENTION_DAYS = 7;                  // セッションフォルダの保持期間（日）
 
@@ -45,11 +48,20 @@ function doPost(e) {
     if (action === 'resumeSession') {
       return respond(headers, resumeSession(body));
     }
+    if (action === 'saveSession') {
+      return respond(headers, saveSession(body));
+    }
+    if (action === 'loadSession') {
+      return respond(headers, loadSession(body));
+    }
     if (action === 'uploadPhoto') {
       return respond(headers, uploadPhoto(body));
     }
     if (action === 'listPhotos') {
       return respond(headers, listPhotos(body));
+    }
+    if (action === 'saveIssueReport') {
+      return respond(headers, saveIssueReport(body));
     }
     if (action === 'saveRanking') {
       return respond(headers, saveRanking(body));
@@ -118,26 +130,147 @@ function createSession(body) {
 }
 
 /** セッションIDから既存フォルダを探す（パスワードログイン用）
- *  フォルダ名末尾が "_<sessionId>" のものを返す */
+ *  フォルダ名末尾が "_<sessionId>" のもの＋Sheetのセッション行を統合して返す */
 function resumeSession(body) {
   try {
     const { sessionId } = body;
     if (!sessionId) return { ok: false, error: 'sessionId が必要です' };
     const root = getRootFolder();
     const folders = root.getFolders();
+    let folder = null;
     while (folders.hasNext()) {
-      const folder = folders.next();
-      const name = folder.getName();
-      if (name.endsWith('_' + sessionId)) {
-        return {
-          ok: true,
-          folderId: folder.getId(),
-          folderName: name,
-          folderUrl: folder.getUrl(),
-        };
+      const f = folders.next();
+      if (f.getName().endsWith('_' + sessionId)) { folder = f; break; }
+    }
+    if (!folder) {
+      return { ok: false, error: 'セッションフォルダが見つかりません。IDを確認してください（古いセッションは7日で自動削除されます）。' };
+    }
+
+    // Sheet からセッションメタデータを読む（無ければフォルダ情報のみで返す）
+    let sheetData = null;
+    try {
+      const r = loadSession({ sessionId });
+      if (r && r.ok) sheetData = r;
+    } catch (_) {}
+
+    return {
+      ok: true,
+      folderId: folder.getId(),
+      folderName: folder.getName(),
+      folderUrl: folder.getUrl(),
+      stationName: sheetData ? sheetData.stationName : '',
+      playerName:  sheetData ? sheetData.playerName  : '',
+      orderedSpots: sheetData ? sheetData.orderedSpots : [],
+      routeStats:   sheetData ? sheetData.routeStats   : null,
+    };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+// ===== 外部 Spreadsheet 連携 =====
+//
+// 「セッション」タブ：探検開始時に保存
+//   日時 / sessionId / 駅名 / プレーヤー名 / フォルダURL / スポット数 / スポット詳細(JSON) / 総距離 / 推定時間(分)
+// 「不具合報告」タブ：ユーザーが「🐛 不具合を報告」したときに追記
+//   日時 / sessionId / 駅名 / 都市タブ / ステップ / 種類 / 詳細 / userAgent / URL
+
+const SHEET_TAB_SESSION = 'セッション';
+const SHEET_TAB_ISSUE   = '不具合報告';
+const SHEET_HEADERS_SESSION = ['日時', 'sessionId', '駅名', 'プレーヤー名', 'フォルダURL', 'スポット数', 'スポット詳細(JSON)', '総距離', '推定時間(分)'];
+const SHEET_HEADERS_ISSUE   = ['日時', 'sessionId', '駅名', '都市タブ', 'ステップ', '種類', '詳細', 'userAgent', 'URL'];
+
+/** ログ用 Spreadsheet の指定タブを取得（無ければ作成、ヘッダ行も自動投入） */
+function getLogSheet(tabName, headers) {
+  const ss = SpreadsheetApp.openById(LOG_SHEET_ID);
+  let sheet = ss.getSheetByName(tabName);
+  if (!sheet) {
+    sheet = ss.insertSheet(tabName);
+    if (headers && headers.length) sheet.appendRow(headers);
+  } else if (sheet.getLastRow() === 0 && headers && headers.length) {
+    sheet.appendRow(headers);
+  }
+  return sheet;
+}
+
+/** 探検開始時にセッションのメタデータを Sheet に保存 */
+function saveSession(body) {
+  try {
+    const { sessionId, stationName, playerName, folderUrl, orderedSpots, routeStats } = body;
+    if (!sessionId) return { ok: false, error: 'sessionId が必要です' };
+    const sheet = getLogSheet(SHEET_TAB_SESSION, SHEET_HEADERS_SESSION);
+    sheet.appendRow([
+      new Date().toISOString(),
+      sessionId,
+      stationName || '',
+      playerName || '',
+      folderUrl || '',
+      (orderedSpots && orderedSpots.length) || 0,
+      JSON.stringify(orderedSpots || []),
+      (routeStats && routeStats.distanceText) || '',
+      (routeStats && routeStats.durationMin) || '',
+    ]);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** Sheet からセッション行を1件取得（同IDで複数あれば最新） */
+function loadSession(body) {
+  try {
+    const { sessionId } = body;
+    if (!sessionId) return { ok: false, error: 'sessionId が必要です' };
+    const sheet = getLogSheet(SHEET_TAB_SESSION, SHEET_HEADERS_SESSION);
+    const rows = sheet.getDataRange().getValues();
+    if (rows.length < 2) return { ok: false, error: 'セッションが見つかりません' };
+    const headers = rows[0];
+    const idIdx = headers.indexOf('sessionId');
+    if (idIdx < 0) return { ok: false, error: 'シートのヘッダー不正' };
+    let found = null;
+    for (let i = rows.length - 1; i >= 1; i--) {
+      if (String(rows[i][idIdx]) === String(sessionId)) {
+        found = rows[i]; break;
       }
     }
-    return { ok: false, error: 'セッションが見つかりません。IDを確認してください（古いセッションは7日で自動削除されます）。' };
+    if (!found) return { ok: false, error: 'セッションが見つかりません' };
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = found[i]; });
+    let orderedSpots = [];
+    try { orderedSpots = JSON.parse(obj['スポット詳細(JSON)'] || '[]'); } catch (_) {}
+    return {
+      ok: true,
+      sessionId: obj.sessionId,
+      stationName: obj['駅名'],
+      playerName:  obj['プレーヤー名'],
+      folderUrl:   obj['フォルダURL'],
+      orderedSpots,
+      routeStats: { distanceText: obj['総距離'], durationMin: obj['推定時間(分)'] },
+    };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** ユーザーからの不具合報告を Sheet に保存 */
+function saveIssueReport(body) {
+  try {
+    const types   = body && body.types   ? body.types   : [];
+    const detail  = body && body.detail  ? body.detail  : '';
+    const context = body && body.context ? body.context : {};
+    const sheet = getLogSheet(SHEET_TAB_ISSUE, SHEET_HEADERS_ISSUE);
+    sheet.appendRow([
+      new Date().toISOString(),
+      context.sessionId   || '',
+      context.stationName || '',
+      context.cityTab     || '',
+      context.currentStep || '',
+      types.join(','),
+      detail,
+      context.ua   || '',
+      context.href || '',
+    ]);
+    return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
   }

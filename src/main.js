@@ -1,12 +1,12 @@
-import { CONFIG } from '../config.js?v=40';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=40';
-import { fetchOriginStory } from './utils/ai.js?v=40';
-import { generateMapPdf } from './utils/pdf.js?v=40';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=40';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=40';
-import { CITIES } from './data/cities.js?v=40';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=40';
-import { addReport as addIssueReport } from './utils/issues.js?v=40';
+import { CONFIG } from '../config.js?v=41';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=41';
+import { fetchOriginStory } from './utils/ai.js?v=41';
+import { generateMapPdf } from './utils/pdf.js?v=41';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=41';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=41';
+import { CITIES } from './data/cities.js?v=41';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=41';
+import { addReport as addIssueReport } from './utils/issues.js?v=41';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -465,6 +465,130 @@ function updateMakeRouteBtn() {
   if (hint) hint.textContent = hasHistoric ? '' : '🏯 史跡（ピンク枠）から1つ以上選んでね';
 }
 
+// ===== STEP 3 の UI 構築（state.orderedSpots / state.directionsResult から再描画） =====
+// onMakeRoute（新規ルート作成時）と back-to-route（再開セッションで戻ってきた時）の両方から呼ぶ
+function renderRouteStepUI() {
+  if (!state.stationLocation || !state.directionsResult || !state.orderedSpots.length) return;
+
+  // ルート地図初期化（fitBounds で全スポットが入るよう自動調整）
+  const routeMapEl = $('route-map');
+  routeMapEl.innerHTML = ''; // 既存内容をクリア（再描画対応）
+  const routeMap = new google.maps.Map(routeMapEl, {
+    center: state.stationLocation,
+    zoom: 15,
+    mapTypeControl: false,
+    streetViewControl: false,
+  });
+  state.mapInstances.route = routeMap;
+  fitMapToSpots(routeMap, state.stationLocation, state.orderedSpots);
+
+  // 既定マーカーは抑制し、カスタム番号マーカーを描く
+  const renderer = new google.maps.DirectionsRenderer({
+    map: routeMap,
+    suppressMarkers: true,
+    polylineOptions: { strokeColor: '#004029', strokeWeight: 5, strokeOpacity: 0.85 },
+  });
+  renderer.setDirections(state.directionsResult);
+
+  // 駅マーカー（出発点）
+  new google.maps.Marker({
+    position: state.stationLocation,
+    map: routeMap,
+    title: `${state.stationName}駅`,
+    label: { text: 'S', color: 'white', fontWeight: 'bold', fontSize: '12px' },
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 12, fillColor: '#004029', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 },
+  });
+
+  // スポット番号マーカー
+  state.orderedSpots.forEach((s, i) => {
+    new google.maps.Marker({
+      position: { lat: s.lat, lng: s.lng },
+      map: routeMap,
+      title: s.name,
+      label: { text: String(i + 1), color: 'white', fontWeight: 'bold', fontSize: '12px' },
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 12, fillColor: '#c62828', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 },
+    });
+  });
+
+  // ルート統計
+  const { distanceText, durationMin } = state.routeStats;
+  const overLimit = durationMin > 60;
+  $('route-info').innerHTML = `
+    ${overLimit ? `
+      <div class="route-warning">
+        ⚠️ <strong>このコースは約${durationMin}分かかります。</strong>
+        1時間以内が目安だよ。スポットを減らすか、別の駅で試してみよう！
+        <div class="route-warning-actions">
+          <button id="warn-back-spots" class="btn-secondary">スポットを減らす</button>
+          <button id="warn-back-station" class="btn-secondary">別の駅にする</button>
+        </div>
+      </div>
+    ` : ''}
+    <div class="route-stats">
+      <div><span>総距離</span><br/><strong>${distanceText}</strong></div>
+      <div><span>推定時間</span><br/><strong>約${durationMin}分</strong></div>
+      <div><span>スポット数</span><br/><strong>${state.orderedSpots.length}件</strong></div>
+    </div>
+  `;
+  if (overLimit) {
+    $('warn-back-spots').addEventListener('click', () => showStep('step-spots'));
+    $('warn-back-station').addEventListener('click', () => {
+      resetSearchState();
+      $('station-input').value = '';
+      showStep('step-station');
+    });
+  }
+
+  // スポット順リスト（駅 → スポット1 → ... → 駅 のループ、区間時間付き）
+  const legs = state.directionsResult.routes[0].legs;
+  const legHtml = (leg) => `
+    <div class="route-leg">
+      <span class="leg-icon">🚶</span>
+      <span>約 ${Math.max(1, Math.round(leg.duration.value / 60))}分・${leg.distance.text}</span>
+    </div>`;
+  const parts = [];
+  parts.push(`
+    <div class="route-spot-item route-station">
+      <span class="route-spot-num start">S</span>
+      <span>🚉 <strong>${state.stationName}駅</strong>（スタート）</span>
+    </div>`);
+  state.orderedSpots.forEach((s, i) => {
+    const cat = CAT[s.category] || CAT.other;
+    if (legs[i]) parts.push(legHtml(legs[i]));
+    parts.push(`
+      <div class="route-spot-item">
+        <span class="route-spot-num">${i + 1}</span>
+        <span>${cat.icon} <strong>${s.name}</strong> — ${s.address || ''}</span>
+      </div>`);
+  });
+  const lastLeg = legs[legs.length - 1];
+  if (lastLeg) parts.push(legHtml(lastLeg));
+  parts.push(`
+    <div class="route-spot-item route-station">
+      <span class="route-spot-num goal">G</span>
+      <span>🚉 <strong>${state.stationName}駅</strong>（ゴール）</span>
+    </div>`);
+  $('route-spots').innerHTML = parts.join('');
+}
+
+// 必要なら state を補完（駅座標 / Directions）してから STEP 3 を構築。
+// 主に再開セッション時に呼ばれる（既に揃っていれば早期リターン）
+async function ensureRouteStepReady() {
+  if (state.stationLocation && state.directionsResult && state.orderedSpots.length) return;
+  if (!state.orderedSpots.length) return;
+  await loadGoogleMaps(CONFIG.GOOGLE_MAPS_API_KEY);
+  // 駅座標を復元（Sheet には保存されていないので再 geocode）
+  if (!state.stationLocation && state.stationName) {
+    state.stationLocation = await geocodeStation(state.stationName);
+  }
+  // Directions を取得
+  if (!state.directionsResult && state.stationLocation) {
+    state.directionsResult = await getDirections(state.stationLocation, state.orderedSpots);
+    state.routeStats = calcRouteStats(state.directionsResult);
+  }
+  renderRouteStepUI();
+}
+
 // ===== STEP 2→3: ルート生成 =====
 async function onMakeRoute() {
   const btn = $('make-route-btn');
@@ -479,109 +603,7 @@ async function onMakeRoute() {
     state.directionsResult = await getDirections(state.stationLocation, state.orderedSpots);
     state.routeStats = calcRouteStats(state.directionsResult);
 
-    // ルート地図初期化（fitBounds で全スポットが入るよう自動調整）
-    const routeMapEl = $('route-map');
-    const routeMap = new google.maps.Map(routeMapEl, {
-      center: state.stationLocation,
-      zoom: 15,
-      mapTypeControl: false,
-      streetViewControl: false,
-    });
-    state.mapInstances.route = routeMap;
-    fitMapToSpots(routeMap, state.stationLocation, state.orderedSpots);
-
-    // 既定マーカーは抑制し、カスタム番号マーカーを描く
-    const renderer = new google.maps.DirectionsRenderer({
-      map: routeMap,
-      suppressMarkers: true,
-      polylineOptions: { strokeColor: '#004029', strokeWeight: 5, strokeOpacity: 0.85 },
-    });
-    renderer.setDirections(state.directionsResult);
-
-    // 駅マーカー（出発点）
-    new google.maps.Marker({
-      position: state.stationLocation,
-      map: routeMap,
-      title: `${state.stationName}駅`,
-      label: { text: 'S', color: 'white', fontWeight: 'bold', fontSize: '12px' },
-      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 12, fillColor: '#004029', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 },
-    });
-
-    // スポット番号マーカー
-    state.orderedSpots.forEach((s, i) => {
-      new google.maps.Marker({
-        position: { lat: s.lat, lng: s.lng },
-        map: routeMap,
-        title: s.name,
-        label: { text: String(i + 1), color: 'white', fontWeight: 'bold', fontSize: '12px' },
-        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 12, fillColor: '#c62828', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 },
-      });
-    });
-
-    // ルート統計
-    const { distanceText, durationMin } = state.routeStats;
-    const overLimit = durationMin > 60;
-    $('route-info').innerHTML = `
-      ${overLimit ? `
-        <div class="route-warning">
-          ⚠️ <strong>このコースは約${durationMin}分かかります。</strong>
-          1時間以内が目安だよ。スポットを減らすか、別の駅で試してみよう！
-          <div class="route-warning-actions">
-            <button id="warn-back-spots" class="btn-secondary">スポットを減らす</button>
-            <button id="warn-back-station" class="btn-secondary">別の駅にする</button>
-          </div>
-        </div>
-      ` : ''}
-      <div class="route-stats">
-        <div><span>総距離</span><br/><strong>${distanceText}</strong></div>
-        <div><span>推定時間</span><br/><strong>約${durationMin}分</strong></div>
-        <div><span>スポット数</span><br/><strong>${state.orderedSpots.length}件</strong></div>
-      </div>
-    `;
-    if (overLimit) {
-      $('warn-back-spots').addEventListener('click', () => showStep('step-spots'));
-      $('warn-back-station').addEventListener('click', () => {
-        resetSearchState();
-        $('station-input').value = '';
-        showStep('step-station');
-      });
-    }
-
-    // スポット順リスト（駅 → スポット1 → ... → 駅 のループ、区間時間付き）
-    const legs = state.directionsResult.routes[0].legs;
-    const legHtml = (leg) => `
-      <div class="route-leg">
-        <span class="leg-icon">🚶</span>
-        <span>約 ${Math.max(1, Math.round(leg.duration.value / 60))}分・${leg.distance.text}</span>
-      </div>`;
-    const parts = [];
-    // スタート駅
-    parts.push(`
-      <div class="route-spot-item route-station">
-        <span class="route-spot-num start">S</span>
-        <span>🚉 <strong>${state.stationName}駅</strong>（スタート）</span>
-      </div>`);
-    // 各スポット（前の区間 + スポット）
-    state.orderedSpots.forEach((s, i) => {
-      const cat = CAT[s.category] || CAT.other;
-      if (legs[i]) parts.push(legHtml(legs[i]));
-      parts.push(`
-        <div class="route-spot-item">
-          <span class="route-spot-num">${i + 1}</span>
-          <span>${cat.icon} <strong>${s.name}</strong> — ${s.address}</span>
-        </div>`);
-    });
-    // 最終区間（最後のスポット → 駅）
-    const lastLeg = legs[legs.length - 1];
-    if (lastLeg) parts.push(legHtml(lastLeg));
-    // ゴール駅
-    parts.push(`
-      <div class="route-spot-item route-station">
-        <span class="route-spot-num goal">G</span>
-        <span>🚉 <strong>${state.stationName}駅</strong>（ゴール）</span>
-      </div>`);
-    $('route-spots').innerHTML = parts.join('');
-
+    renderRouteStepUI();
     showStep('step-route');
 
   } catch (e) {
@@ -1181,7 +1203,25 @@ $('start-explore-btn').addEventListener('click', onStartExplore);
 
 // STEP 4
 $('photo-input').addEventListener('change', onPhotoInputChange);
-$('back-to-route').addEventListener('click', () => showStep('step-route'));
+$('back-to-route').addEventListener('click', async () => {
+  // 再開セッションでは Directions が未構築なので必要に応じて再構築する
+  const btn = $('back-to-route');
+  const orig = btn.textContent;
+  if (state.orderedSpots.length && (!state.directionsResult || !state.stationLocation)) {
+    btn.textContent = 'ルート復元中…';
+    btn.disabled = true;
+    try {
+      await ensureRouteStepReady();
+    } catch (e) {
+      console.warn('ルート復元失敗:', e);
+      alert('ルートの復元に失敗しました: ' + (e.message || e));
+    } finally {
+      btn.textContent = orig;
+      btn.disabled = false;
+    }
+  }
+  showStep('step-route');
+});
 $('finish-explore-btn').addEventListener('click', onStartReport);
 
 // タグ編集モーダル

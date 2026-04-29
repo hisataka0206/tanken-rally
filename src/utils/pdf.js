@@ -4,7 +4,7 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=34';
+import { toLatLngLiteral } from './maps.js?v=35';
 
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
@@ -27,8 +27,9 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
   document.body.appendChild(container);
 
   try {
-    // Static Map 画像のロード完了を待つ
-    await waitForImages(container);
+    // Static Map / Street View 画像のロード完了を待つ。
+    // SV取得失敗（パノラマなし等）の画像は Static Map にフォールバック差し替え。
+    await waitForImagesWithFallback(container);
 
     // 2) html2canvas でラスタライズ
     const canvas = await html2canvas(container, {
@@ -277,14 +278,19 @@ function buildTurnPointsHtml({ stationName, origin, orderedSpots, directions, ap
 }
 
 function buildTurnCard({ label, labelColor, title, subtitle, icon, lat, lng, heading, apiKey }) {
-  const sv = `https://maps.googleapis.com/maps/api/streetview?size=240x180&location=${lat},${lng}&heading=${Math.round(heading)}&fov=90&pitch=0&key=${apiKey}`;
+  // Street View Static API:
+  //   - radius=100 でデフォルトの 50m → 100m に拡大（パノラマがない場所のヒット率向上）
+  //   - source=outdoor で屋外のみを対象（地下道・屋内の謎SVを除外）
+  const sv = `https://maps.googleapis.com/maps/api/streetview?size=240x180&location=${lat},${lng}&heading=${Math.round(heading)}&fov=90&pitch=0&radius=100&source=outdoor&key=${apiKey}`;
+  // フォールバック：SV取得失敗時に表示する Static Map（地点中心、ズーム18、マーカー付き）
+  const fallback = `https://maps.googleapis.com/maps/api/staticmap?size=280x180&scale=2&center=${lat},${lng}&zoom=18&markers=color:red%7Csize:mid%7C${lat},${lng}&maptype=roadmap&language=ja&key=${apiKey}`;
   return `
     <div style="display:flex;gap:10px;padding:10px;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:8px;page-break-inside:avoid;background:#fff;">
       <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:32px;padding-top:4px;">
         <div style="width:26px;height:26px;background:${labelColor};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.25);">${escapeHtml(label)}</div>
         <div style="font-size:22px;line-height:1;margin-top:6px;">${icon}</div>
       </div>
-      <img src="${sv}" alt="streetview" crossorigin="anonymous" referrerpolicy="no-referrer-when-downgrade" style="flex-shrink:0;width:140px;height:105px;border-radius:6px;object-fit:cover;background:#eee;border:1px solid #ddd;" />
+      <img src="${sv}" alt="streetview" data-fallback="${escapeHtml(fallback)}" crossorigin="anonymous" referrerpolicy="no-referrer-when-downgrade" style="flex-shrink:0;width:140px;height:105px;border-radius:6px;object-fit:cover;background:#eee;border:1px solid #ddd;" />
       <div style="flex:1;font-size:12px;line-height:1.55;min-width:0;">
         <div style="font-weight:700;color:#222;font-size:13px;">${escapeHtml(title)}</div>
         <div style="font-size:11px;color:#666;margin-top:6px;">${subtitle}</div>
@@ -377,4 +383,19 @@ function waitForImages(root) {
       img.addEventListener('error', resolve, { once: true }); // 失敗してもPDF生成は続行
     });
   }));
+}
+
+// 1次ロード後、失敗した画像があれば data-fallback URL に差し替えて再ロードを待つ
+async function waitForImagesWithFallback(root) {
+  await waitForImages(root);
+  const broken = Array.from(root.querySelectorAll('img'))
+    .filter(img => (!img.complete || img.naturalWidth === 0) && img.dataset.fallback);
+  if (broken.length === 0) return;
+  console.warn(`[pdf] ${broken.length} streetview画像が失敗 → Static Map にフォールバック`);
+  broken.forEach(img => {
+    img.src = img.dataset.fallback;
+    delete img.dataset.fallback; // 二度目の失敗時は無限ループしないように
+  });
+  // 差し替え後の画像が読み込まれるのを待つ
+  await waitForImages(root);
 }

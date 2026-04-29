@@ -4,7 +4,7 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=32';
+import { toLatLngLiteral } from './maps.js?v=34';
 
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
@@ -116,7 +116,7 @@ function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, ap
 
     <div style="margin-top:12px;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
       ${mapImgUrl
-        ? `<img src="${mapImgUrl}" alt="map" crossorigin="anonymous" style="display:block;width:100%;" />`
+        ? `<img src="${mapImgUrl}" alt="map" crossorigin="anonymous" referrerpolicy="no-referrer-when-downgrade" style="display:block;width:100%;" />`
         : `<div style="padding:80px 24px;text-align:center;color:#888;background:#f4f4f4;">（地図画像はAPIキー未設定のため省略）</div>`}
     </div>
 
@@ -284,7 +284,7 @@ function buildTurnCard({ label, labelColor, title, subtitle, icon, lat, lng, hea
         <div style="width:26px;height:26px;background:${labelColor};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.25);">${escapeHtml(label)}</div>
         <div style="font-size:22px;line-height:1;margin-top:6px;">${icon}</div>
       </div>
-      <img src="${sv}" alt="streetview" crossorigin="anonymous" style="flex-shrink:0;width:140px;height:105px;border-radius:6px;object-fit:cover;background:#eee;border:1px solid #ddd;" />
+      <img src="${sv}" alt="streetview" crossorigin="anonymous" referrerpolicy="no-referrer-when-downgrade" style="flex-shrink:0;width:140px;height:105px;border-radius:6px;object-fit:cover;background:#eee;border:1px solid #ddd;" />
       <div style="flex:1;font-size:12px;line-height:1.55;min-width:0;">
         <div style="font-weight:700;color:#222;font-size:13px;">${escapeHtml(title)}</div>
         <div style="font-size:11px;color:#666;margin-top:6px;">${subtitle}</div>

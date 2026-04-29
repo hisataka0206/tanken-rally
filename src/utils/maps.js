@@ -19,30 +19,74 @@ export function loadGoogleMaps(apiKey) {
 // opts.cityName / opts.lineName を渡すと、同名駅の曖昧性解消用にクエリへ追加する
 //   例: cityName="名古屋市", lineName="名古屋市営地下鉄 桜通線", stationName="吹上"
 //        → "名古屋市 名古屋市営地下鉄 桜通線 吹上駅"
+//
+// 動作仕様：
+//   1. Geocoding API を試す（最優先・精度が一番高い）
+//   2. 失敗 (REQUEST_DENIED 等) なら Places API findPlaceFromQuery にフォールバック
+//      → Geocoding API が Cloud で有効化されていなくても、Places が有効なら動く
 export function geocodeStation(stationName, opts = {}) {
   return new Promise((resolve, reject) => {
-    const geocoder = new google.maps.Geocoder();
     const parts = [];
     if (opts.cityName) parts.push(opts.cityName);
     if (opts.lineName) parts.push(opts.lineName);
     parts.push(`${stationName}駅`);
     const address = parts.join(' ');
+
+    // Places API へのフォールバック（無料で使える findPlaceFromQuery）
+    const tryPlacesFallback = (reason = 'unknown') => {
+      const ps = new google.maps.places.PlacesService(document.createElement('div'));
+      const queries = parts.length > 1
+        ? [address, `${stationName}駅`]   // コンテキスト付き → 単独 の順で試す
+        : [`${stationName}駅`];
+
+      const tryQuery = (i) => {
+        if (i >= queries.length) {
+          reject(new Error(`駅が見つかりませんでした: ${stationName}（Geocoding/Places どちらも失敗）`));
+          return;
+        }
+        ps.findPlaceFromQuery({
+          query: queries[i],
+          fields: ['geometry', 'name'],
+          language: 'ja',
+        }, (results, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK
+              && results && results[0] && results[0].geometry?.location) {
+            console.warn(`[geocodeStation] Places API フォールバック成功 (Geocoding 失敗理由: ${reason})`);
+            resolve(results[0].geometry.location);
+          } else {
+            tryQuery(i + 1);
+          }
+        });
+      };
+      tryQuery(0);
+    };
+
+    // 1) Geocoding API を試す
+    const geocoder = new google.maps.Geocoder();
     geocoder.geocode(
       { address, region: 'JP', language: 'ja' },
       (results, status) => {
-        if (status === 'OK' && results[0]) {
+        if (status === 'OK' && results && results[0]) {
           resolve(results[0].geometry.location);
+        } else if (status === 'REQUEST_DENIED' || status === 'OVER_QUERY_LIMIT') {
+          // API無効 or quota超過 → Places にフォールバック
+          tryPlacesFallback(status);
         } else if (parts.length > 1) {
-          // コンテキスト付きで失敗 → 駅名単独でリトライ（広域からでも見つかるように）
+          // 結果0件 → コンテキスト無しで再試行
           geocoder.geocode(
             { address: `${stationName}駅`, region: 'JP', language: 'ja' },
             (r2, s2) => {
-              if (s2 === 'OK' && r2[0]) resolve(r2[0].geometry.location);
-              else reject(new Error(`駅が見つかりませんでした: ${stationName}`));
+              if (s2 === 'OK' && r2 && r2[0]) {
+                resolve(r2[0].geometry.location);
+              } else if (s2 === 'REQUEST_DENIED' || s2 === 'OVER_QUERY_LIMIT') {
+                tryPlacesFallback(s2);
+              } else {
+                tryPlacesFallback(`Geocode ${s2}`);
+              }
             }
           );
         } else {
-          reject(new Error(`駅が見つかりませんでした: ${stationName}`));
+          tryPlacesFallback(`Geocode ${status}`);
         }
       }
     );

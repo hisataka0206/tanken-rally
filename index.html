@@ -3,6 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!--
+    referrer policy: Static Maps / Street View Static API は API key の HTTP リファラ制限で
+    フル URL マッチを期待することがある。Chrome のデフォルト strict-origin-when-cross-origin
+    だと Referer が origin だけになり 403 が出るため、no-referrer-when-downgrade に変更して
+    HTTPS→HTTPS 間ではフル URL を送信する。
+  -->
+  <meta name="referrer" content="no-referrer-when-downgrade">
   <title>たんけんラリー</title>
 
   <!-- 子供向け手書き風フォント (Google Fonts):
@@ -217,6 +224,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=32"></script>
+  <script type="module" src="src/main.js?v=34"></script>
 </body>
 </html>

@@ -179,7 +179,10 @@ function _searchWithService(service, location) {
 
   // 同じ place_id が複数クエリにマッチした場合、優先度の高いカテゴリで上書き
   const CAT_PRIORITY = { historic: 6, science: 5, museum: 4, nature: 3, toy: 2, sweets: 1, other: 0 };
-  const RESULTS_PER_QUERY = 6;
+  // 1クエリあたりの最大取得件数（少なくして全体件数を抑える）
+  const RESULTS_PER_QUERY = 3;
+  // 駅からの検索半径（徒歩往復で60分に収まりやすい範囲に絞る）
+  const SEARCH_RADIUS_M = 800;
 
   // 史跡カテゴリに混入したくない place.types
   // （keyword='神社' でも稀に「神社町○○店」のような飲食店が混ざるため）
@@ -199,7 +202,7 @@ function _searchWithService(service, location) {
       service.nearbySearch(
         {
           location,
-          radius: 1500,
+          radius: SEARCH_RADIUS_M,
           keyword: q.keyword,
           language: 'ja',
         },
@@ -238,7 +241,12 @@ function _searchWithService(service, location) {
             });
           }
           pending--;
-          if (pending === 0) resolve(allSpots);
+          if (pending === 0) {
+            // 駅からの直線距離で昇順ソート（近い順 = ルートに組みやすい順）
+            const origin = toLatLngLiteral(location);
+            allSpots.sort((a, b) => haversine(origin, a) - haversine(origin, b));
+            resolve(allSpots);
+          }
         }
       );
     });
@@ -272,7 +280,8 @@ export function toLatLngLiteral(loc) {
   return { lat: loc.lat, lng: loc.lng };
 }
 
-function haversine(a, b) {
+// 2点間の直線距離（メートル）。駅から各スポットの距離計算で UI 側からも使うため export。
+export function haversine(a, b) {
   const R = 6371000;
   const dLat = (b.lat - a.lat) * Math.PI / 180;
   const dLng = (b.lng - a.lng) * Math.PI / 180;

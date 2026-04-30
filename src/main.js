@@ -1,12 +1,12 @@
-import { CONFIG } from '../config.js?v=43';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=43';
-import { fetchOriginStory } from './utils/ai.js?v=43';
-import { generateMapPdf } from './utils/pdf.js?v=43';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=43';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=43';
-import { CITIES } from './data/cities.js?v=43';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=43';
-import { addReport as addIssueReport } from './utils/issues.js?v=43';
+import { CONFIG } from '../config.js?v=44';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine } from './utils/maps.js?v=44';
+import { fetchOriginStory } from './utils/ai.js?v=44';
+import { generateMapPdf } from './utils/pdf.js?v=44';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=44';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=44';
+import { CITIES } from './data/cities.js?v=44';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=44';
+import { addReport as addIssueReport } from './utils/issues.js?v=44';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -23,6 +23,12 @@ const show = id => { $( id ).classList.remove('hidden'); $( id ).classList.add('
 const hide = id => { $( id ).classList.add('hidden'); $( id ).classList.remove('active'); };
 const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g,
   c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// LatLng / Literal どちらでも { lat, lng } の数値オブジェクトに正規化
+const toLL = loc => {
+  if (!loc) return null;
+  if (typeof loc.lat === 'function') return { lat: loc.lat(), lng: loc.lng() };
+  return { lat: loc.lat, lng: loc.lng };
+};
 
 // ===== STEP 1: 都市タブ + 路線/駅 セレクタ =====
 function initCityTabs() {
@@ -279,6 +285,14 @@ function renderSpotsList(map) {
     });
     _spotMarkers[spot.id] = marker;
 
+    // 駅からの直線距離を計算（徒歩時間の目安にもなる）
+    const distMeters = state.stationLocation
+      ? Math.round(haversine(toLL(state.stationLocation), { lat: spot.lat, lng: spot.lng }))
+      : 0;
+    const distLabel = distMeters >= 1000
+      ? `${(distMeters / 1000).toFixed(1)}km`
+      : `${distMeters}m`;
+
     // カード生成（史跡は recommended 装飾でハイライト、ただし選択は任意）
     const card = document.createElement('div');
     card.className = `spot-card${spot.recommended ? ' recommended' : ''}`;
@@ -290,7 +304,7 @@ function renderSpotsList(map) {
       <div class="spot-info">
         <div class="spot-name">${spot.name}${spot.recommended ? ' <span class="spot-badge">必ず1つ</span>' : ''}</div>
         <span class="spot-category ${cat.cls}">${cat.icon} ${cat.label}</span>
-        <div class="spot-desc">${spot.address}</div>
+        <div class="spot-desc">📏 駅から ${distLabel} ・ ${spot.address || ''}</div>
       </div>
       <button class="spot-delete" type="button" title="この場所を結果から削除（次回以降も非表示）" aria-label="削除">🗑</button>
     `;

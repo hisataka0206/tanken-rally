@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=56';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=56';
-import { fetchOriginStory } from './utils/ai.js?v=56';
-import { generateMapPdf } from './utils/pdf.js?v=56';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=56';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=56';
-import { CITIES, localizeStationName } from './data/cities.js?v=56';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=56';
-import { addReport as addIssueReport } from './utils/issues.js?v=56';
-import { applyI18n, LANG, t } from './utils/i18n.js?v=56';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=56';
+import { CONFIG } from '../config.js?v=57';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=57';
+import { fetchOriginStory } from './utils/ai.js?v=57';
+import { generateMapPdf } from './utils/pdf.js?v=57';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=57';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=57';
+import { CITIES, localizeStationName } from './data/cities.js?v=57';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=57';
+import { addReport as addIssueReport } from './utils/issues.js?v=57';
+import { applyI18n, LANG, t } from './utils/i18n.js?v=57';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=57';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -202,7 +202,7 @@ function clearError() {
 async function onSearchStation(context) {
   const isCtx = context && typeof context === 'object' && typeof context.stationName === 'string';
   const name = isCtx ? context.stationName : $('station-input').value.trim();
-  if (!name) { showError('駅名を入力してください'); return; }
+  if (!name) { showError(t('errEnterStation')); return; }
   clearError();
 
   const btn = $('search-btn');
@@ -278,7 +278,7 @@ async function onSearchStation(context) {
     new google.maps.Marker({
       position: state.stationLocation,
       map,
-      title: `${name}駅`,
+      title: t('markerStationFmt').replace('{name}', localizeStationName(name, LANG)),
       icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#004029', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 },
     });
 
@@ -293,9 +293,9 @@ async function onSearchStation(context) {
     showStep('step-spots');
 
   } catch (e) {
-    showError(e.message || 'エラーが発生しました');
+    showError(e.message || t('errGeneric'));
   } finally {
-    btn.textContent = 'さがす';
+    btn.textContent = t('btnSearch');
     btn.disabled = false;
   }
 }
@@ -354,13 +354,13 @@ function renderSpotsList(map) {
         <span class="spot-category ${cat.cls}">${cat.icon} ${escapeHtml(catLabel(spot.category))}</span>
         <div class="spot-desc">📏 ${t('distanceFromStation')} ${distLabel} ・ ${spot.address || ''}</div>
       </div>
-      <button class="spot-delete" type="button" title="この場所を結果から削除（次回以降も非表示）" aria-label="削除">🗑</button>
+      <button class="spot-delete" type="button" title="${escapeHtml(t('spotDeleteTitle'))}" aria-label="${escapeHtml(t('spotDeleteLabel'))}">🗑</button>
     `;
 
     // 削除ボタン（カード本体クリックにバブルさせない）
     card.querySelector('.spot-delete').addEventListener('click', e => {
       e.stopPropagation();
-      if (!confirm(`「${spot.name}」を結果から削除します。\n同じ場所は今後の検索でも表示されません。よろしいですか？`)) return;
+      if (!confirm(t('confirmDeleteSpotFmt').replace('{name}', spot.name))) return;
       addBlockedSpot(spot, 'user-removed');
       // state からも除外
       state.allSpots = state.allSpots.filter(s => s.id !== spot.id);
@@ -494,7 +494,7 @@ function schedulePreview() {
   }
 
   // 即座に「計算中」を表示
-  previewEl.textContent = '⏳ 計算中…';
+  previewEl.textContent = t('routePreviewCalcWait');
   previewEl.className = 'route-preview loading';
 
   previewTimer = setTimeout(async () => {
@@ -505,11 +505,14 @@ function schedulePreview() {
       if (seq !== previewSeq) return; // 古いリクエスト → 破棄
       const stats = calcRouteStats(result);
       const over = stats.durationMin > 60;
-      previewEl.textContent = `${over ? '⚠️ ' : '🚶 '}約 ${stats.distanceText} / ${stats.durationMin}分`;
+      const fmt = t('routePreviewResultFmt')
+        .replace('{dist}', stats.distanceText)
+        .replace('{min}', stats.durationMin);
+      previewEl.textContent = `${over ? '⚠️ ' : '🚶 '}${fmt}`;
       previewEl.className = `route-preview${over ? ' over' : ''}`;
     } catch (e) {
       if (seq !== previewSeq) return;
-      previewEl.textContent = '⚠️ 計算失敗';
+      previewEl.textContent = t('routePreviewFailMsg');
       previewEl.className = 'route-preview over';
     }
   }, 500);
@@ -521,7 +524,7 @@ function updateMakeRouteBtn() {
   const hasHistoric = selected.some(s => s.category === 'historic');
   const btn = $('make-route-btn');
   btn.disabled = !hasHistoric;
-  btn.title = hasHistoric ? '' : '史跡を1つ以上選んでね';
+  btn.title = hasHistoric ? '' : t('routeBtnTitleHistoricRequired');
   // ヒントメッセージ
   const hint = $('route-btn-hint');
   if (hint) hint.textContent = hasHistoric ? '' : t('hintHistoricRequired');
@@ -556,7 +559,7 @@ function renderRouteStepUI() {
   new google.maps.Marker({
     position: state.stationLocation,
     map: routeMap,
-    title: `${state.stationName}駅`,
+    title: t('markerStationFmt').replace('{name}', localizeStationName(state.stationName, LANG)),
     label: { text: 'S', color: 'white', fontWeight: 'bold', fontSize: '12px' },
     icon: { path: google.maps.SymbolPath.CIRCLE, scale: 12, fillColor: '#004029', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 },
   });
@@ -675,9 +678,9 @@ async function onMakeRoute() {
     showStep('step-route');
 
   } catch (e) {
-    alert(e.message || 'ルートの生成に失敗しました');
+    alert(e.message || t('errRouteFailed'));
   } finally {
-    btn.textContent = 'ルートをつくる →';
+    btn.textContent = t('btnMakeRouteIdle');
     btn.disabled = false;
   }
 }
@@ -693,7 +696,7 @@ async function onStartExplore() {
 
     // タグモーダル用のスポットセレクターを構築
     const tagSel = $('tag-modal-select');
-    tagSel.innerHTML = '<option value="">── タグなし ──</option>';
+    tagSel.innerHTML = `<option value="">${t('tagModalEmpty')}</option>`;
     state.orderedSpots.forEach((s, i) => {
       const opt = document.createElement('option');
       opt.value = s.name;
@@ -704,7 +707,7 @@ async function onStartExplore() {
     // DriveクライアントがあればGoogle Driveにセッションフォルダを作成
     if (drive) {
       const info = $('photos-session-info');
-      info.textContent = '📂 Google Driveにフォルダを作成中…';
+      info.textContent = t('driveCreatingFolder');
       try {
         const playerName = 'たんけんたろう'; // TODO: プレーヤー名入力UI
         state.driveSession = await drive.createSession({
@@ -712,8 +715,10 @@ async function onStartExplore() {
           stationName: state.stationName,
           playerName,
         });
-        info.innerHTML = `📂 保存先: <a href="${state.driveSession.folderUrl}" target="_blank" style="color:#2e7d32">${state.driveSession.folderName}</a><br/>` +
-          `🔑 再開パスワード: <code style="background:#f0f0f0;padding:2px 6px;border-radius:4px;font-family:monospace">${state.sessionId}</code>（メモしておこう）`;
+        info.innerHTML = t('driveFolderSavedFmt')
+          .replace('{url}', state.driveSession.folderUrl)
+          .replace('{name}', escapeHtml(state.driveSession.folderName))
+          .replace('{sessionId}', escapeHtml(state.sessionId));
 
         // 続けて Sheet にメタデータ（駅名・スポット順序など）を保存
         // 失敗しても探検フロー自体は継続するため try/catch で握り潰す
@@ -739,11 +744,11 @@ async function onStartExplore() {
           console.warn('Sheetへのセッション保存に失敗（続行）:', e);
         }
       } catch (e) {
-        info.textContent = `⚠️ Drive接続エラー（写真はローカルのみ）: ${e.message}`;
+        info.textContent = t('driveErrorPhotosLocalFmt').replace('{err}', e.message);
         console.warn('Drive session creation failed:', e);
       }
     } else {
-      $('photos-session-info').textContent = '📸 写真を撮って探検の記録をのこそう！（GAS未設定のためローカルのみ）';
+      $('photos-session-info').textContent = t('driveSessionInfoNoGas');
     }
 
     // 過去のセッション残骸（特に selectedPhotoIds の古いID）をクリア
@@ -756,9 +761,9 @@ async function onStartExplore() {
     showStep('step-photos');
 
   } catch (e) {
-    alert('スタートに失敗しました: ' + e.message);
+    alert(t('errStartFailedFmt').replace('{err}', e.message));
   } finally {
-    btn.textContent = '探検スタート！ →';
+    btn.textContent = t('btnStartExploreIdle');
     btn.disabled = false;
   }
 }
@@ -841,9 +846,9 @@ function renderPhotosGrid() {
     const excluded = state.reportData.excludedPhotoIds.has(photo.fileId);
     const item = document.createElement('div');
     item.className = `photo-item${photo.uploading ? ' photo-uploading' : ''}${excluded ? ' photo-excluded' : ''}`;
-    const tag = photo.spotName ? `📍 ${photo.spotName}` : '➕ タップしてタグ付け';
+    const tag = photo.spotName ? `📍 ${photo.spotName}` : t('photoTagAdd');
     const toggleIcon = excluded ? '⬜' : '✅';
-    const toggleTitle = excluded ? 'ノートに載せる' : 'ノートから外す';
+    const toggleTitle = excluded ? t('photoTagInclude') : t('photoTagExclude');
     item.innerHTML = `
       <img src="${photo.thumbnailUrl}" alt="${photo.fileName}" loading="lazy" />
       <div class="photo-overlay">${tag}</div>
@@ -921,19 +926,19 @@ async function onResumeSession() {
 
   const sessionId = $('resume-session-input').value.trim();
   if (!sessionId) {
-    errEl.textContent = 'セッションIDを入力してね。';
+    errEl.textContent = t('errEnterSessionId');
     errEl.classList.remove('hidden');
     return;
   }
   if (!drive) {
-    errEl.textContent = 'Drive 連携が無効です（GAS未設定）。再開機能は使えません。';
+    errEl.textContent = t('errDriveDisabledResume');
     errEl.classList.remove('hidden');
     return;
   }
 
   const btn = $('resume-session-btn');
   const original = btn.textContent;
-  btn.textContent = '読み込み中…';
+  btn.textContent = t('btnLoadingResume');
   btn.disabled = true;
 
   try {
@@ -1000,27 +1005,30 @@ async function onResumeSession() {
 
     // 5) STEP 4 ヘ：セッション情報を見やすく表示
     const info = $('photos-session-info');
-    const stationLabel = state.stationName ? `${state.stationName}駅 / ` : '';
-    const folderLink = `<a href="${session.folderUrl}" target="_blank" style="color:#2e7d32">${session.folderName}</a>`;
-    const counts = `写真 ${state.uploadedPhotos.length} 枚 / スポット ${state.orderedSpots.length} 件`;
+    const localStation = localizeStationName(state.stationName || '', LANG);
+    const stationLabel = localStation
+      ? `${t('reportStationFmt').replace('{name}', localStation)} / `
+      : '';
+    const folderLink = `<a href="${session.folderUrl}" target="_blank" style="color:#2e7d32">${escapeHtml(session.folderName)}</a>`;
+    const counts = t('sessionStatsFmt')
+      .replace('{photos}', state.uploadedPhotos.length)
+      .replace('{spots}', state.orderedSpots.length);
 
-    let html = `📂 <strong>セッション再開:</strong> ${stationLabel}${folderLink}（${counts}）`;
-    // 復元したスポット一覧（あれば）
+    let html = `${t('sessionResumedHeader')} ${stationLabel}${folderLink}（${counts}）`;
     if (state.orderedSpots.length) {
       const spotsLine = state.orderedSpots.map((s, i) => `${i + 1}. ${s.name}`).join(' → ');
-      html += `<br/><span style="font-size:12px;color:#2e7d32;">📍 行った場所: ${spotsLine}</span>`;
+      html += `<br/><span style="font-size:12px;color:#2e7d32;">${t('sessionVisitedLabel')} ${spotsLine}</span>`;
     }
-    // Sheet 読込み失敗の警告（取れたフォルダだけ表示状態）
     if (session.sheetWarning) {
-      html += `<br/><span style="font-size:12px;color:#c62828;">⚠️ スポット情報の復元に失敗（${escapeHtml(session.sheetWarning)}）— GAS の権限承認またはデプロイ更新を確認してください</span>`;
+      html += `<br/><span style="font-size:12px;color:#c62828;">${t('sessionWarnSpotsFmt').replace('{reason}', escapeHtml(session.sheetWarning))}</span>`;
     } else if (state.orderedSpots.length === 0) {
-      html += `<br/><span style="font-size:12px;color:#c62828;">⚠️ Sheet に該当 sessionId のセッション情報が見つかりませんでした</span>`;
+      html += `<br/><span style="font-size:12px;color:#c62828;">${t('sessionWarnNotFound')}</span>`;
     }
     info.innerHTML = html;
 
     // タグ編集モーダルのスポット選択肢を再構築
     const tagSel = $('tag-modal-select');
-    tagSel.innerHTML = '<option value="">── タグなし ──</option>';
+    tagSel.innerHTML = `<option value="">${t('tagModalEmpty')}</option>`;
     state.orderedSpots.forEach((s, i) => {
       const opt = document.createElement('option');
       opt.value = s.name;
@@ -1031,7 +1039,7 @@ async function onResumeSession() {
     renderPhotosGrid();
     showStep('step-photos');
   } catch (e) {
-    errEl.textContent = e.message || '再開に失敗しました';
+    errEl.textContent = e.message || t('errResumeFailed');
     errEl.classList.remove('hidden');
   } finally {
     btn.textContent = original;
@@ -1153,11 +1161,11 @@ function calculateScore() {
 
 // 合計点の絶対値で簡単な気分メッセージを返す（内訳の代わり）
 function scoreMoodLabel(score) {
-  if (score >= 1500) return '🌟 たんけんマスター！';
-  if (score >= 1000) return '✨ たんけん上手！';
-  if (score >=  500) return '🎉 おつかれさま！';
-  if (score >=  200) return '🌱 もう少しでハイスコア！';
-  return '🌱 また来てね！';
+  if (score >= 1500) return t('mood_master');
+  if (score >= 1000) return t('mood_great');
+  if (score >=  500) return t('mood_good');
+  if (score >=  200) return t('mood_almost');
+  return t('mood_keepgoing');
 }
 
 function openScoreModal() {
@@ -1172,7 +1180,7 @@ function openScoreModal() {
 }
 
 async function onSubmitScore() {
-  const playerName = $('score-player-name').value.trim() || '名無し';
+  const playerName = $('score-player-name').value.trim() || t('rankNoName');
   const result = calculateScore();
   const submitBtn = $('score-submit-btn');
   const original = submitBtn.textContent;
@@ -1180,7 +1188,7 @@ async function onSubmitScore() {
   submitBtn.textContent = t('statusSavingScore');
 
   if (!drive) {
-    alert('Drive 連携が無効のため、ランキングに送信できません（GAS未設定）。');
+    alert(t('errRankingDriveDisabled'));
     submitBtn.disabled = false;
     submitBtn.textContent = original;
     return;
@@ -1201,7 +1209,7 @@ async function onSubmitScore() {
     const ranking = await drive.getRanking({ cityId: state.cityId || 'other', limit: 10 });
     showRankingPhase(playerName, result.total, ranking);
   } catch (e) {
-    alert('ランキング送信に失敗しました: ' + (e.message || e));
+    alert(t('errRankingSendFailedFmt').replace('{err}', e.message || e));
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = original;
@@ -1210,8 +1218,8 @@ async function onSubmitScore() {
 
 function showRankingPhase(myName, myScore, ranking) {
   // 地域名を解決（東京/名古屋/大阪/神戸/京都/その他）
-  const cityIdToName = { tokyo: '東京', nagoya: '名古屋', osaka: '大阪', kobe: '神戸', kyoto: '京都', other: 'その他' };
-  const regionName = cityIdToName[state.cityId] || 'その他';
+  const regionKey = 'region_' + (state.cityId || 'other');
+  const regionName = t(regionKey) || t('region_other');
 
   // 自分の順位
   const myRank = (ranking || []).findIndex(r =>
@@ -1219,20 +1227,30 @@ function showRankingPhase(myName, myScore, ranking) {
   );
   let msg;
   if (myRank === 0) {
-    msg = `🥇 1位！ ${myName} さん、おめでとう！\n<strong>${myScore}</strong> 点 / ${regionName}エリア`;
+    msg = t('rankFirstFmt')
+      .replace('{name}', myName)
+      .replace('{score}', myScore)
+      .replace('{region}', regionName);
   } else if (myRank > 0) {
-    msg = `🎉 ${myName} さんは <strong>${myRank + 1}位</strong>！\n${myScore} 点 / ${regionName}エリア`;
+    msg = t('rankYourFmt')
+      .replace('{name}', myName)
+      .replace('{n}', myRank + 1)
+      .replace('{score}', myScore)
+      .replace('{region}', regionName);
   } else {
-    msg = `🎉 ${myName} さん、お疲れさま！\n${myScore} 点を記録しました（${regionName}エリア）`;
+    msg = t('rankNoplaceFmt')
+      .replace('{name}', myName)
+      .replace('{score}', myScore)
+      .replace('{region}', regionName);
   }
   $('score-rank-message').innerHTML = msg.replace(/\n/g, '<br/>');
 
   // ランキング一覧（タイトルは地域名）
-  $('ranking-station-name').textContent = `${regionName}エリア`;
+  $('ranking-station-name').textContent = t('regionAreaFmt').replace('{region}', regionName);
   const ol = $('ranking-list');
   ol.innerHTML = '';
   if (!ranking || ranking.length === 0) {
-    ol.innerHTML = '<li style="text-align:center;color:#999;padding:20px;">まだ記録がありません</li>';
+    ol.innerHTML = `<li style="text-align:center;color:#999;padding:20px;">${escapeHtml(t('rankNoRecords'))}</li>`;
   } else {
     ranking.forEach((r, i) => {
       const li = document.createElement('li');
@@ -1244,8 +1262,8 @@ function showRankingPhase(myName, myScore, ranking) {
         : '';
       li.innerHTML = `
         <span class="ranking-rank ${rankCls}">${i + 1}</span>
-        <span class="ranking-name">${escapeHtml(r['プレーヤー名'] || '名無し')}${isYou ? ' (あなた)' : ''}${stationLine}</span>
-        <span class="ranking-score">${r['スコア']} 点</span>
+        <span class="ranking-name">${escapeHtml(r['プレーヤー名'] || t('rankNoName'))}${isYou ? ' ' + escapeHtml(t('rankYou')) : ''}${stationLine}</span>
+        <span class="ranking-score">${r['スコア']}${t('suffPoints')}</span>
       `;
       ol.appendChild(li);
     });
@@ -1279,7 +1297,7 @@ function deserializeReportData(obj) {
 // ノートの状態を Drive へ保存（手動 + 「ノートを保存」ボタン）
 async function onSaveReportToDrive() {
   if (!drive || !state.sessionId) {
-    alert('Drive 連携が無効です（GAS未設定）。レポートのDrive保存は使えません。');
+    alert(t('errReportDriveDisabled'));
     return;
   }
   const btn = $('save-report-btn');
@@ -1295,7 +1313,7 @@ async function onSaveReportToDrive() {
     setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
   } catch (e) {
     console.error(e);
-    alert('Drive 保存に失敗しました: ' + (e.message || e));
+    alert(t('errReportSaveFailedFmt').replace('{err}', e.message || e));
     btn.textContent = original;
     btn.disabled = false;
   }
@@ -1306,7 +1324,9 @@ function onStartReport() {
   // メタ情報初期化（日付はシステム側で自動入力しない。ユーザーが date picker で入力）
   $('report-date').value = state.reportData.date || '';
   $('report-author').value = state.reportData.author || '';
-  $('report-station').textContent = state.stationName ? `${state.stationName}駅` : '';
+  $('report-station').textContent = state.stationName
+    ? t('reportStationFmt').replace('{name}', localizeStationName(state.stationName, LANG))
+    : '';
   $('report-overview').value = state.reportData.overview || '';
   $('report-afterword').value = state.reportData.afterword || '';
 
@@ -1339,7 +1359,7 @@ function renderReportPhotos() {
   const photos = getPhotosInVisitOrder()
     .filter(p => !state.reportData.excludedPhotoIds.has(p.fileId));
   if (photos.length === 0) {
-    wrap.innerHTML = '<p class="report-hint">📷 ノートに載せる写真がありません。STEP 4 で写真を撮るか、外した写真を戻そう。</p>';
+    wrap.innerHTML = `<p class="report-hint">${escapeHtml(t('reportNoPhotos'))}</p>`;
     return;
   }
 
@@ -1350,7 +1370,7 @@ function renderReportPhotos() {
     // タグなし時は判別できる class を付ける（CSS で PDF時のみ非表示にする）
     const tagHtml = photo.spotName
       ? `<span class="report-photo-tag">📍 ${photo.spotName}</span>`
-      : `<span class="report-photo-tag report-photo-tag-empty">📍 タグなし</span>`;
+      : `<span class="report-photo-tag report-photo-tag-empty">${escapeHtml(t('photoTagless'))}</span>`;
     // 表示には必ずローカルの blob: URL を使う（Drive の uc?id= は CORS で読めない）
     const imgSrc = photo.url || photo.thumbnailUrl || photo.driveThumbnailUrl || photo.driveUrl || '';
     item.innerHTML = `
@@ -1363,7 +1383,7 @@ function renderReportPhotos() {
           ${tagHtml}
         </div>
         <textarea class="report-photo-comment" rows="1"
-          placeholder="この写真について気づいたこと・思ったこと（任意・1行でもOK）"
+          placeholder="${escapeHtml(t('photoCommentPlaceholder'))}"
         >${state.reportData.photoComments[photo.fileId] || ''}</textarea>
       </div>
     `;
@@ -1504,7 +1524,7 @@ async function onReportPdf() {
     pdf.save(fname);
   } catch (e) {
     console.error(e);
-    alert('PDF生成に失敗しました: ' + (e.message || e));
+    alert(t('errPdfFailedFmt').replace('{err}', e.message || e));
   } finally {
     page.classList.remove('pdf-rendering');
     btn.textContent = original;
@@ -1528,7 +1548,7 @@ async function onDownloadPdf() {
       apiKey: CONFIG.GOOGLE_MAPS_API_KEY,
     });
   } catch (e) {
-    alert('PDF生成に失敗しました: ' + e.message);
+    alert(t('errPdfFailedFmt').replace('{err}', e.message || e));
   } finally {
     btn.textContent = original;
     btn.disabled = false;
@@ -1563,13 +1583,13 @@ $('back-to-route').addEventListener('click', async () => {
   const btn = $('back-to-route');
   const orig = btn.textContent;
   if (state.orderedSpots.length && (!state.directionsResult || !state.stationLocation)) {
-    btn.textContent = 'ルート復元中…';
+    btn.textContent = t('btnLoadingResume');
     btn.disabled = true;
     try {
       await ensureRouteStepReady();
     } catch (e) {
       console.warn('ルート復元失敗:', e);
-      alert('ルートの復元に失敗しました: ' + (e.message || e));
+      alert(t('errRestoreRouteFmt').replace('{err}', e.message || e));
     } finally {
       btn.textContent = orig;
       btn.disabled = false;
@@ -1642,7 +1662,7 @@ $('issue-submit-btn').addEventListener('click', async () => {
         console.warn('[issue-report] Sheet送信失敗（ローカルには保存済）:', e);
       }
     }
-    alert('🐛 報告ありがとうございました！\n開発者がこの情報をもとに改善していきます。');
+    alert(t('notifyIssueThanks'));
     $('issue-modal').classList.add('hidden');
   } catch (e) {
     alert(e.message);

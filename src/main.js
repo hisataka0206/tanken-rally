@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=53';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=53';
-import { fetchOriginStory } from './utils/ai.js?v=53';
-import { generateMapPdf } from './utils/pdf.js?v=53';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=53';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=53';
-import { CITIES } from './data/cities.js?v=53';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=53';
-import { addReport as addIssueReport } from './utils/issues.js?v=53';
-import { applyI18n, LANG, t } from './utils/i18n.js?v=53';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=53';
+import { CONFIG } from '../config.js?v=54';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=54';
+import { fetchOriginStory } from './utils/ai.js?v=54';
+import { generateMapPdf } from './utils/pdf.js?v=54';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=54';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=54';
+import { CITIES, localizeStationName } from './data/cities.js?v=54';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=54';
+import { addReport as addIssueReport } from './utils/issues.js?v=54';
+import { applyI18n, LANG, t } from './utils/i18n.js?v=54';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=54';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -109,8 +109,8 @@ function selectCity(cityId, opts = {}) {
     const line = city.lines[Number(idx)];
     line.stations.forEach(name => {
       const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
+      opt.value = name;                                 // value は日本語（API クエリ用）
+      opt.textContent = localizeStationName(name, LANG); // 表示は LANG に応じて切替
       stationSel.appendChild(opt);
     });
     stationSel.disabled = false;

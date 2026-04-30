@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=59';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=59';
-import { fetchOriginStory } from './utils/ai.js?v=59';
-import { generateMapPdf } from './utils/pdf.js?v=59';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=59';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=59';
-import { CITIES, localizeStationName } from './data/cities.js?v=59';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=59';
-import { addReport as addIssueReport } from './utils/issues.js?v=59';
-import { applyI18n, LANG, t } from './utils/i18n.js?v=59';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=59';
+import { CONFIG } from '../config.js?v=60';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=60';
+import { fetchOriginStory } from './utils/ai.js?v=60';
+import { generateMapPdf } from './utils/pdf.js?v=60';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=60';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=60';
+import { CITIES, localizeStationName } from './data/cities.js?v=60';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=60';
+import { addReport as addIssueReport } from './utils/issues.js?v=60';
+import { applyI18n, LANG, t } from './utils/i18n.js?v=60';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=60';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1150,13 +1150,61 @@ function calculateScore() {
     // breakdown は内部計算のみで、UIへは渡さない（秘匿）
     visitCount,
     photoCount,
+    taggedPhotoCount,
+    photoCommentCount,
+    overviewLen,
+    afterwordLen,
     distanceM,
+    distanceKm,
     totalElapsedMin,
     totalStayMin,
     userMoveMin,
     estimatedMin,
     reportWordCount: overviewLen + afterwordLen,
   };
+}
+
+// スコア結果から「弱点」をピックアップしてアドバイス文字列の配列を返す。
+// 全要素がしきい値を満たしていれば advicePerfect 1件のみを返す。
+function buildScoreAdvice(result) {
+  const tips = [];
+  // 写真枚数
+  if (result.photoCount < 5) {
+    tips.push(t('adviceMorePhotos').replace('{n}', result.photoCount));
+  }
+  // タグ付き写真
+  if (result.photoCount >= 3 && result.taggedPhotoCount < result.photoCount) {
+    tips.push(t('adviceTagPhotos')
+      .replace('{n}', result.taggedPhotoCount)
+      .replace('{total}', result.photoCount));
+  }
+  // 写真コメント数
+  if (result.photoCount >= 3 && result.photoCommentCount < result.photoCount) {
+    tips.push(t('adviceMoreComments')
+      .replace('{n}', result.photoCommentCount)
+      .replace('{total}', result.photoCount));
+  }
+  // 全体感想
+  if (result.overviewLen < 30) {
+    tips.push(t('adviceLongerOverview').replace('{n}', result.overviewLen));
+  }
+  // 60分以内
+  if (result.totalElapsedMin > 60) {
+    tips.push(t('adviceUnder60').replace('{min}', Math.round(result.totalElapsedMin)));
+  }
+  // 距離
+  if (result.distanceKm > 0 && result.distanceKm < 1.5) {
+    tips.push(t('adviceMoreDistance').replace('{km}', result.distanceKm.toFixed(1)));
+  }
+  // ペース
+  if (result.estimatedMin > 0 && result.userMoveMin > 0) {
+    const ratio = result.userMoveMin / result.estimatedMin;
+    if (ratio < 0.8 || ratio > 1.5) {
+      tips.push(t('advicePace'));
+    }
+  }
+  if (tips.length === 0) tips.push(t('advicePerfect'));
+  return tips;
 }
 
 // 合計点の絶対値で簡単な気分メッセージを返す（内訳の代わり）
@@ -1172,6 +1220,17 @@ function openScoreModal() {
   const result = calculateScore();
   $('score-total').textContent = `${result.total}${t('suffPoints')}`;
   $('score-rank-label').textContent = scoreMoodLabel(result.total);
+
+  // 弱点アドバイス
+  const adviceEl = $('score-advice');
+  if (adviceEl) {
+    const tips = buildScoreAdvice(result);
+    adviceEl.innerHTML = `
+      <div class="score-advice-title">${escapeHtml(t('scoreAdviceTitle'))}</div>
+      <ul class="score-advice-list">${tips.map(tip => `<li>${escapeHtml(tip)}</li>`).join('')}</ul>
+    `;
+    adviceEl.classList.remove('hidden');
+  }
 
   $('score-player-name').value = state.reportData.author || '';
   $('score-phase-input').classList.remove('hidden');

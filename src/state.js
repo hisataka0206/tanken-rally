@@ -10,7 +10,7 @@ export const state = {
   // STEP 2 (スポット選択)
   allSpots: [],                 // [{ id, name, category, address, lat, lng, ... }]
   selectedSpotIds: new Set(),
-  visibleCategories: new Set(['historic', 'sweets', 'nature', 'toy', 'museum', 'science']),
+  visibleCategories: new Set(['historic', 'sweets', 'nature', 'toy', 'museum', 'science', 'dagashi']),
 
   // STEP 3 (ルート)
   orderedSpots: [],
@@ -42,7 +42,7 @@ export function resetSearchState() {
   });
   state.allSpots = [];
   state.selectedSpotIds.clear();
-  state.visibleCategories = new Set(['historic', 'sweets', 'nature', 'toy', 'museum', 'science']);
+  state.visibleCategories = new Set(['historic', 'sweets', 'nature', 'toy', 'museum', 'science', 'dagashi']);
   state.orderedSpots = [];
   state.directionsResult = null;
   state.routeStats = null;
@@ -66,6 +66,7 @@ export const CAT = {
   toy:      { label: '玩具・おもちゃ',   cls: 'cat-toy',      icon: '🧸', color: '#ff9800' }, // オレンジ
   museum:   { label: '美術館・博物館',   cls: 'cat-museum',   icon: '🎨', color: '#5e35b1' }, // 紫
   science:  { label: '科学館・自然史',   cls: 'cat-science',  icon: '🔬', color: '#0097a7' }, // 青緑
+  dagashi:  { label: '駄菓子屋',         cls: 'cat-dagashi',  icon: '🍬', color: '#d81b60' }, // 赤紫
   other:    { label: 'その他',           cls: 'cat-other',    icon: '📍', color: '#666666' }, // グレー
 };
 

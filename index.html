@@ -243,6 +243,24 @@
         <div id="score-phase-input">
           <div id="score-total" class="score-total">0 点</div>
           <p id="score-rank-label" class="score-rank-label"></p>
+
+          <!-- スコアの仕組み（簡単な説明・係数は非公開） -->
+          <details class="score-howto">
+            <summary data-i18n="scoreHowtoSummary">💡 スコアはどう決まるの？</summary>
+            <ul class="score-howto-list" data-i18n-html="scoreHowtoList">
+              <li>🚶 たくさん歩く</li>
+              <li>📍 いろんなスポットに行く</li>
+              <li>📷 写真をたくさん撮る</li>
+              <li>🏷️ 写真にスポットのタグを付ける</li>
+              <li>📝 感想や写真コメントを書く</li>
+              <li>⏱️ 1時間以内におわらせる</li>
+              <li>🎯 Googleの所要時間に近いペースで歩く</li>
+            </ul>
+          </details>
+
+          <!-- 個別アドバイス（弱点ピックアップ） -->
+          <div id="score-advice" class="score-advice hidden"></div>
+
           <label class="score-name-label">
             <span data-i18n="scoreNameLabel">✏️ 名前（ニックネームでもOK）</span>
             <input id="score-player-name" type="text" data-i18n-placeholder="scoreNamePh" placeholder="（探検者の名前）" maxlength="30" />
@@ -339,6 +357,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=59"></script>
+  <script type="module" src="src/main.js?v=60"></script>
 </body>
 </html>

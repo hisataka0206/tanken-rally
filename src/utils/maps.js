@@ -1,5 +1,5 @@
 // Google Maps API の動的ロードとユーティリティ
-import { apiLang } from './i18n.js?v=59';
+import { apiLang } from './i18n.js?v=60';
 
 let mapsLoaded = false;
 
@@ -228,6 +228,8 @@ function _searchWithService(service, location) {
     // === スイーツ ===
     { keyword: 'ケーキ',   category: 'sweets',   label: 'スイーツ・菓子店' },
     { keyword: '和菓子',   category: 'sweets',   label: 'スイーツ・菓子店' },
+    // === 駄菓子屋 ===
+    { keyword: '駄菓子',   category: 'dagashi',  label: '駄菓子屋' },
     // === 公園・自然 ===
     { keyword: '公園',     category: 'nature',   label: '公園・自然' },
     // === 玩具・おもちゃ ===
@@ -244,7 +246,7 @@ function _searchWithService(service, location) {
   let pending = queries.length;
 
   // 同じ place_id が複数クエリにマッチした場合、優先度の高いカテゴリで上書き
-  const CAT_PRIORITY = { historic: 6, science: 5, museum: 4, nature: 3, toy: 2, sweets: 1, other: 0 };
+  const CAT_PRIORITY = { historic: 7, science: 6, museum: 5, nature: 4, toy: 3, dagashi: 2, sweets: 1, other: 0 };
   // 1クエリあたりの最大取得件数（少なくして全体件数を抑える）
   const RESULTS_PER_QUERY = 3;
   // 駅からの検索半径（徒歩往復で60分に収まりやすい範囲に絞る）

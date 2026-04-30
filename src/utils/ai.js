@@ -1,5 +1,5 @@
 // OpenAI API ユーティリティ（PoC: ブラウザから直接呼び出し）
-import { LANG } from './i18n.js?v=59';
+import { LANG } from './i18n.js?v=60';
 
 export async function fetchOriginStory(stationName, apiKey) {
   // キー未設定時は早期リターン（無駄な401を避け、UI上は静かに無効化）
@@ -58,7 +58,7 @@ Tone: friendly, polite English. 3-5 sentences. Vocabulary suitable for an 8-year
 }
 
 export async function enrichSpotDescription(spotName, category, apiKey) {
-  const catLabel = { historic: '史跡・文化財', sweets: 'スイーツ・お菓子', nature: '自然・公園' }[category] || 'スポット';
+  const catLabel = { historic: '史跡・文化財', sweets: 'スイーツ・お菓子', nature: '自然・公園', toy: '玩具屋', museum: '美術館・博物館', science: '科学館', dagashi: '駄菓子屋' }[category] || 'スポット';
   const prompt = `「${spotName}」（${catLabel}）について、小学生が行きたくなるような紹介文を2文で書いてください。`;
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {

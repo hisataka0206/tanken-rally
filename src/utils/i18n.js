@@ -750,16 +750,11 @@ export function applyI18n(root = document) {
 // および OpenAI で使う言語コード。
 //   en          → 'en' （結果も全部英語：Tokyo Station, Senso-ji Temple ...）
 //   ja          → 'ja'
-//   elementary  → 'ja-Hrkt' （ひらがな・カタカナ表記をリクエスト。Google が
-//                  対応していない場合は ja と同じ kanji が返るため、フォールバック挙動）
+//   elementary  → 'ja' （振り仮名は UI 側で表記。Google には日本語で返してもらう）
+//
+// 補足: 過去に `ja-Hrkt` を試したが、Google Places/Geocoding は
+// テキスト結果（施設名・住所）には反映してくれなかった（地図タイル上の
+// 街路名のみカタカナ化）。よって `ja` に戻している。
 export function apiLang() {
-  if (LANG === 'en') return 'en';
-  if (LANG === 'elementary') return 'ja-Hrkt';
-  return 'ja';
-}
-
-// OpenAI 用の言語ヒント（こちらは「自然な日本語/英語」を優先するため
-// elementary でも ja として扱う。振り仮名は UI 側で付与）
-export function openAiLang() {
   return LANG === 'en' ? 'en' : 'ja';
 }

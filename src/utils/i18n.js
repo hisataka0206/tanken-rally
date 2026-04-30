@@ -115,11 +115,47 @@ const TRANSLATIONS = {
     btnSubmit: '送信',
 
     // 動的カウント・単位
-    suffPhotos: '枚',                // ◯枚
+    suffPhotos: '枚',
     suffPhotosTagged: '枚（うち{n}枚にタグあり）',
     suffPhotosIncluded: '枚（ノートに載せる: {n}枚）',
     suffPoints: '点',
     distanceFromStation: '駅から',
+
+    // 都市・タブ
+    cityOther: 'その他',
+
+    // カテゴリ（CAT.label）
+    catLabel_historic: '史跡・文化財',
+    catLabel_sweets:   'スイーツ・菓子店',
+    catLabel_nature:   '公園・自然',
+    catLabel_toy:      '玩具・おもちゃ',
+    catLabel_museum:   '美術館・博物館',
+    catLabel_science:  '科学館・自然史',
+    catLabel_other:    'その他',
+
+    // STEP 2 関連
+    badgeRequired: '必ず1つ',
+    hintHistoricRequired: '🏯 史跡（ピンク枠）から1つ以上選んでね',
+    routePreviewCalcing: '⏳ 計算中…',
+    routePreviewFmt: '約 {dist} / {min}分',
+    routePreviewFail: '⚠️ 計算失敗',
+
+    // 動的状態テキスト
+    statusSearching: '検索中…',
+    statusMakingRoute: 'ルート作成中…',
+    statusRestoringRoute: 'ルート復元中…',
+    statusReady: '準備中…',
+    statusGeneratingPdf: '📄 PDF生成中…',
+    statusUploading: '📤 アップロード中… {i}/{n}',
+    statusUploaded: '✅ {n}枚追加しました',
+    statusCheckingHours: '営業時間を確認中… ({i}/{n})',
+    statusLoadingSpots: 'スポットを検索中…',
+    statusSavingScore: '送信中…',
+    statusSavingReport: '保存中…',
+    statusSavedReport: '✅ 保存しました',
+
+    // 地名由来プレフィックス
+    originStoryPrefix: '🗣️ たんけん博士より：',
   },
 
 
@@ -217,6 +253,37 @@ const TRANSLATIONS = {
     suffPhotosIncluded: ' photos ({n} in note)',
     suffPoints: ' pts',
     distanceFromStation: 'from station',
+
+    cityOther: 'Other',
+
+    catLabel_historic: 'Historic Sites',
+    catLabel_sweets:   'Sweets & Bakery',
+    catLabel_nature:   'Parks & Nature',
+    catLabel_toy:      'Toy Shops',
+    catLabel_museum:   'Museums & Galleries',
+    catLabel_science:  'Science Museums',
+    catLabel_other:    'Other',
+
+    badgeRequired: 'Pick ≥ 1',
+    hintHistoricRequired: '🏯 Pick at least 1 historic site (pink border)',
+    routePreviewCalcing: '⏳ Calculating...',
+    routePreviewFmt: '~ {dist} / {min} min',
+    routePreviewFail: '⚠️ Calculation failed',
+
+    statusSearching: 'Searching...',
+    statusMakingRoute: 'Making route...',
+    statusRestoringRoute: 'Restoring route...',
+    statusReady: 'Preparing...',
+    statusGeneratingPdf: '📄 Generating PDF...',
+    statusUploading: '📤 Uploading {i}/{n}...',
+    statusUploaded: '✅ Added {n} photos',
+    statusCheckingHours: 'Checking hours... ({i}/{n})',
+    statusLoadingSpots: 'Searching spots...',
+    statusSavingScore: 'Submitting...',
+    statusSavingReport: 'Saving...',
+    statusSavedReport: '✅ Saved',
+
+    originStoryPrefix: '🗣️ From Explorer Doctor: ',
   },
 
 
@@ -314,6 +381,37 @@ const TRANSLATIONS = {
     suffPhotosIncluded: 'まい（ノートにのせる: {n}まい）',
     suffPoints: '点（てん）',
     distanceFromStation: '駅から',
+
+    cityOther: 'そのほか',
+
+    catLabel_historic: '史跡（しせき）・文化財（ぶんかざい）',
+    catLabel_sweets:   'スイーツ・菓子店（かしてん）',
+    catLabel_nature:   '公園・自然（しぜん）',
+    catLabel_toy:      '玩具（がんぐ）・おもちゃ',
+    catLabel_museum:   '美術館（びじゅつかん）・博物館（はくぶつかん）',
+    catLabel_science:  '科学館（かがくかん）・自然史（しぜんし）',
+    catLabel_other:    'そのほか',
+
+    badgeRequired: 'ひとつは えらぼう',
+    hintHistoricRequired: '🏯 史跡（しせき）（ピンクのわく）から1つえらんでね',
+    routePreviewCalcing: '⏳ 計算（けいさん）中…',
+    routePreviewFmt: 'やく {dist} / {min}分',
+    routePreviewFail: '⚠️ 計算（けいさん）できなかった',
+
+    statusSearching: 'さがしています…',
+    statusMakingRoute: 'ルート作成（さくせい）中…',
+    statusRestoringRoute: 'ルート復元（ふくげん）中…',
+    statusReady: 'じゅんび中…',
+    statusGeneratingPdf: '📄 PDFを作（つく）っています…',
+    statusUploading: '📤 アップロード中… {i}/{n}',
+    statusUploaded: '✅ {n}まいついかしました',
+    statusCheckingHours: '営業（えいぎょう）時間（じかん）を確認（かくにん）中… ({i}/{n})',
+    statusLoadingSpots: 'スポットを検索（けんさく）中…',
+    statusSavingScore: '送信（そうしん）中…',
+    statusSavingReport: '保存（ほぞん）中…',
+    statusSavedReport: '✅ 保存（ほぞん）しました',
+
+    originStoryPrefix: '🗣️ たんけん博士（はかせ）より：',
   },
 };
 

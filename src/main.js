@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=52';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=52';
-import { fetchOriginStory } from './utils/ai.js?v=52';
-import { generateMapPdf } from './utils/pdf.js?v=52';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=52';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=52';
-import { CITIES } from './data/cities.js?v=52';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=52';
-import { addReport as addIssueReport } from './utils/issues.js?v=52';
-import { applyI18n, LANG, t } from './utils/i18n.js?v=52';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=52';
+import { CONFIG } from '../config.js?v=53';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=53';
+import { fetchOriginStory } from './utils/ai.js?v=53';
+import { generateMapPdf } from './utils/pdf.js?v=53';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=53';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=53';
+import { CITIES } from './data/cities.js?v=53';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=53';
+import { addReport as addIssueReport } from './utils/issues.js?v=53';
+import { applyI18n, LANG, t } from './utils/i18n.js?v=53';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=53';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -32,24 +32,33 @@ const toLL = loc => {
   return { lat: loc.lat, lng: loc.lng };
 };
 
+// 都市・路線オブジェクトの言語別表示名（cities.js の name / nameEn を切替）
+const locName = obj => {
+  if (!obj) return '';
+  if (LANG === 'en' && obj.nameEn) return obj.nameEn;
+  return obj.name || '';
+};
+// CAT カテゴリのラベルを言語別に取得
+const catLabel = catKey => t(`catLabel_${catKey}`, (CAT[catKey] || CAT.other).label);
+
 // ===== STEP 1: 都市タブ + 路線/駅 セレクタ =====
 function initCityTabs() {
   const tabsEl = $('city-tabs');
   tabsEl.innerHTML = '';
   // 各都市タブ
   CITIES.forEach(city => {
-    const t = document.createElement('button');
-    t.className = 'city-tab';
-    t.dataset.cityId = city.id;
-    t.textContent = city.name;
-    t.addEventListener('click', () => selectCity(city.id));
-    tabsEl.appendChild(t);
+    const tab = document.createElement('button');
+    tab.className = 'city-tab';
+    tab.dataset.cityId = city.id;
+    tab.textContent = locName(city);
+    tab.addEventListener('click', () => selectCity(city.id));
+    tabsEl.appendChild(tab);
   });
   // 「その他」タブ
   const other = document.createElement('button');
   other.className = 'city-tab';
   other.dataset.cityId = 'other';
-  other.textContent = 'その他';
+  other.textContent = t('cityOther');
   other.addEventListener('click', () => selectCity('other'));
   tabsEl.appendChild(other);
 }
@@ -79,7 +88,7 @@ function selectCity(cityId, opts = {}) {
   city.lines.forEach((line, i) => {
     const opt = document.createElement('option');
     opt.value = String(i);
-    opt.textContent = line.name;
+    opt.textContent = locName(line);
     lineSel.appendChild(opt);
   });
   // 駅 select はリセット
@@ -197,7 +206,7 @@ async function onSearchStation(context) {
   clearError();
 
   const btn = $('search-btn');
-  btn.textContent = '検索中…';
+  btn.textContent = t('statusSearching');
   btn.disabled = true;
 
   // 別の駅で再検索する場合に備えて state を初期化
@@ -220,7 +229,7 @@ async function onSearchStation(context) {
 
     // ローディング表示 → そのあと一度だけ地図を初期化
     const mapEl = $('map');
-    mapEl.innerHTML = '<div class="loading">スポットを検索中…</div>';
+    mapEl.innerHTML = `<div class="loading">${escapeHtml(t('statusLoadingSpots'))}</div>`;
 
     // Places API は内部的に div を使うため、別途 PlacesService 用のダミー要素を作る
     // （map 要素を innerHTML で書き換えるため、Places の検索が終わるまで地図描画は待つ）
@@ -233,12 +242,12 @@ async function onSearchStation(context) {
     // 日時フィルタ（指定があれば、各スポットの営業時間を取得して閉まっているものを除外）
     const dtFilter = isCtx ? context.dateTimeFilter : null;
     if (dtFilter && dtFilter.date && resultSpots.length) {
-      mapEl.innerHTML = `<div class="loading">営業時間を確認中… (0/${resultSpots.length})</div>`;
+      mapEl.innerHTML = `<div class="loading">${escapeHtml(t('statusCheckingHours').replace('{i}', 0).replace('{n}', resultSpots.length))}</div>`;
       const filtered = [];
       for (let i = 0; i < resultSpots.length; i++) {
         const spot = resultSpots[i];
         // 進捗表示
-        mapEl.innerHTML = `<div class="loading">営業時間を確認中… (${i + 1}/${resultSpots.length})</div>`;
+        mapEl.innerHTML = `<div class="loading">${escapeHtml(t('statusCheckingHours').replace('{i}', i + 1).replace('{n}', resultSpots.length))}</div>`;
         try {
           const hours = await fetchOpeningHours(placesService, spot.id);
           const isOpen = isPlaceOpenInWindow(hours, dtFilter.date, dtFilter.startTime, dtFilter.endTime);
@@ -276,7 +285,7 @@ async function onSearchStation(context) {
     // 地名由来取得（並行実行）
     $('origin-story').textContent = '';
     fetchOriginStory(name, CONFIG.OPENAI_API_KEY)
-      .then(story => { $('origin-story').textContent = `🗣️ たんけん博士より：${story}`; })
+      .then(story => { $('origin-story').textContent = `${t('originStoryPrefix')}${story}`; })
       .catch(() => {});
 
     renderSpotsList(map);
@@ -341,8 +350,8 @@ function renderSpotsList(map) {
       <span class="spot-num" style="background:${cat.color}">${i + 1}</span>
       <span class="spot-check">⬜</span>
       <div class="spot-info">
-        <div class="spot-name">${spot.name}${spot.recommended ? ' <span class="spot-badge">必ず1つ</span>' : ''}</div>
-        <span class="spot-category ${cat.cls}">${cat.icon} ${cat.label}</span>
+        <div class="spot-name">${spot.name}${spot.recommended ? ` <span class="spot-badge">${escapeHtml(t('badgeRequired'))}</span>` : ''}</div>
+        <span class="spot-category ${cat.cls}">${cat.icon} ${escapeHtml(catLabel(spot.category))}</span>
         <div class="spot-desc">📏 ${t('distanceFromStation')} ${distLabel} ・ ${spot.address || ''}</div>
       </div>
       <button class="spot-delete" type="button" title="この場所を結果から削除（次回以降も非表示）" aria-label="削除">🗑</button>
@@ -394,7 +403,7 @@ function renderCategoryFilter() {
 
   const lbl = document.createElement('span');
   lbl.className = 'category-filter-label';
-  lbl.textContent = '🏷️ カテゴリで絞り込み:';
+  lbl.textContent = t('catFilterLabel');
   wrap.appendChild(lbl);
 
   Object.keys(CAT).forEach(catKey => {
@@ -408,7 +417,7 @@ function renderCategoryFilter() {
     chip.style.color = 'white';
     chip.style.background = cat.color;
     chip.style.borderColor = cat.color;
-    chip.textContent = `${cat.icon} ${cat.label}`;
+    chip.textContent = `${cat.icon} ${catLabel(catKey)}`;
     if (!state.visibleCategories.has(catKey)) chip.classList.add('off');
     chip.addEventListener('click', () => {
       if (state.visibleCategories.has(catKey)) {
@@ -515,7 +524,7 @@ function updateMakeRouteBtn() {
   btn.title = hasHistoric ? '' : '史跡を1つ以上選んでね';
   // ヒントメッセージ
   const hint = $('route-btn-hint');
-  if (hint) hint.textContent = hasHistoric ? '' : '🏯 史跡（ピンク枠）から1つ以上選んでね';
+  if (hint) hint.textContent = hasHistoric ? '' : t('hintHistoricRequired');
 }
 
 // ===== STEP 3 の UI 構築（state.orderedSpots / state.directionsResult から再描画） =====
@@ -645,7 +654,7 @@ async function ensureRouteStepReady() {
 // ===== STEP 2→3: ルート生成 =====
 async function onMakeRoute() {
   const btn = $('make-route-btn');
-  btn.textContent = 'ルート作成中…';
+  btn.textContent = t('statusMakingRoute');
   btn.disabled = true;
 
   try {
@@ -670,7 +679,7 @@ async function onMakeRoute() {
 // ===== STEP 3→4: 探検スタート =====
 async function onStartExplore() {
   const btn = $('start-explore-btn');
-  btn.textContent = '準備中…';
+  btn.textContent = t('statusReady');
   btn.disabled = true;
 
   try {
@@ -759,7 +768,7 @@ async function onPhotoInputChange(e) {
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const spotName = ''; // 撮影後にタグ付けする運用に変更
-    progress.textContent = `📤 アップロード中… ${i + 1}/${files.length}`;
+    progress.textContent = t('statusUploading').replace('{i}', i + 1).replace('{n}', files.length);
 
     // グリッドにプレビューを先行表示（アップロード中状態）
     const tempId = `temp_${Date.now()}_${i}`;
@@ -813,7 +822,7 @@ async function onPhotoInputChange(e) {
     renderPhotosGrid();
   }
 
-  progress.textContent = `✅ ${files.length}枚追加しました`;
+  progress.textContent = t('statusUploaded').replace('{n}', files.length);
   setTimeout(() => progress.classList.add('hidden'), 2000);
   $('photo-input').value = ''; // 同じファイルの再選択を可能にする
   updatePhotosCount();
@@ -1162,7 +1171,7 @@ async function onSubmitScore() {
   const submitBtn = $('score-submit-btn');
   const original = submitBtn.textContent;
   submitBtn.disabled = true;
-  submitBtn.textContent = '送信中…';
+  submitBtn.textContent = t('statusSavingScore');
 
   if (!drive) {
     alert('Drive 連携が無効のため、ランキングに送信できません（GAS未設定）。');
@@ -1270,13 +1279,13 @@ async function onSaveReportToDrive() {
   const btn = $('save-report-btn');
   const original = btn.textContent;
   btn.disabled = true;
-  btn.textContent = '保存中…';
+  btn.textContent = t('statusSavingReport');
   try {
     await drive.saveReportData({
       sessionId: state.sessionId,
       reportData: serializeReportData(state.reportData),
     });
-    btn.textContent = '✅ 保存しました';
+    btn.textContent = t('statusSavedReport');
     setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
   } catch (e) {
     console.error(e);
@@ -1405,7 +1414,7 @@ function bindReportInputs() {
 async function onReportPdf() {
   const btn = $('report-pdf-btn');
   const original = btn.textContent;
-  btn.textContent = '📄 PDF生成中…（少し時間がかかるよ）';
+  btn.textContent = t('statusGeneratingPdf');
   btn.disabled = true;
 
   // PDF生成用に固定幅で描画
@@ -1501,7 +1510,7 @@ async function onReportPdf() {
 async function onDownloadPdf() {
   const btn = $('download-pdf-btn');
   const original = btn.textContent;
-  btn.textContent = '📄 PDF生成中…';
+  btn.textContent = t('statusGeneratingPdf');
   btn.disabled = true;
   try {
     await generateMapPdf({
@@ -1614,7 +1623,7 @@ $('issue-submit-btn').addEventListener('click', async () => {
   const submitBtn = $('issue-submit-btn');
   const original = submitBtn.textContent;
   submitBtn.disabled = true;
-  submitBtn.textContent = '送信中…';
+  submitBtn.textContent = t('statusSavingScore');
   try {
     // ローカル保存（オフラインバックアップ）
     addIssueReport({ types, detail, context });

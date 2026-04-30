@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>たんけんラリー — 言語リダイレクト</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>
+    // GitHub Pages の 404 にあたったとき、URL末尾が言語コードなら ?lang= に変換して
+    // index.html へリダイレクトする。
+    //   /tanken-rally/EN          → /tanken-rally/?lang=en
+    //   /tanken-rally/Elementary  → /tanken-rally/?lang=elementary
+    //   /tanken-rally/Kids        → /tanken-rally/?lang=elementary
+    //   それ以外 → /tanken-rally/ （ホームへ）
+    (function () {
+      var path = location.pathname.replace(/\/+$/, ''); // 末尾スラッシュを除去
+      var segs = path.split('/').filter(Boolean);
+      var last = segs.length ? segs[segs.length - 1] : '';
+      var lower = (last || '').toLowerCase();
+      var langMap = { en: 'en', english: 'en', elementary: 'elementary', kids: 'elementary', easy: 'elementary', ja: 'ja' };
+      var base = '/' + segs.slice(0, -1).join('/') + '/';
+      if (langMap[lower]) {
+        var lang = langMap[lower];
+        location.replace(base + (lang === 'ja' ? '' : ('?lang=' + lang)));
+      } else {
+        // 無関係な404 → トップへ戻す
+        location.replace(base);
+      }
+    })();
+  </script>
+</head>
+<body style="font-family:sans-serif;padding:24px;">
+  <p>リダイレクト中です…</p>
+  <p><a href="./">トップに戻る</a></p>
+</body>
+</html>

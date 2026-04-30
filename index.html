@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=22" />
+  <link rel="stylesheet" href="src/style.css?v=23" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -34,14 +34,15 @@
     <!-- ヘッダー -->
     <header class="header">
       <span class="header-icon">🗺️</span>
-      <h1>たんけんラリー</h1>
-      <span class="header-sub">駅から街を探検しよう</span>
+      <h1 data-i18n="appTitle">たんけんラリー</h1>
+      <span class="header-version" id="header-version">v1.0.0</span>
+      <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
     </header>
 
     <!-- STEP 1: 駅名入力 -->
     <section id="step-station" class="step active">
       <div class="card">
-        <h2 class="step-title"><span class="step-num">1</span> 探検する駅をえらぼう</h2>
+        <h2 class="step-title"><span class="step-num">1</span> <span data-i18n="step1Title">探検する駅をえらぼう</span></h2>
 
         <!-- 免責 -->
         <p class="disclaimer">
@@ -51,7 +52,7 @@
 
         <!-- 前回の続きを開く（セッションID入力） -->
         <details class="resume-section">
-          <summary>🔑 前回のたんけんを開く（パスワード入力）</summary>
+          <summary data-i18n="resumeSummary">🔑 前回のたんけんを開く（パスワード入力）</summary>
           <p class="resume-hint">
             前回の探検時に Drive 上に作成されたフォルダ名の末尾にあるランダムな文字列（例：<code>lwgvzs6b9k2</code>）を入力すると、
             そのときの写真を読み込んで「たんけんノート」の続きが書けます。
@@ -81,7 +82,7 @@
             </select>
           </div>
           <div class="step-actions">
-            <button id="search-by-select-btn" class="btn-primary" disabled>この駅でさがす →</button>
+            <button id="search-by-select-btn" class="btn-primary" disabled data-i18n="btnSearchSelect">この駅でさがす →</button>
           </div>
         </div>
 
@@ -94,7 +95,7 @@
               placeholder="例：高円寺、鎌倉、浅草 ..."
               autocomplete="off"
             />
-            <button id="search-btn" class="btn-primary">さがす</button>
+            <button id="search-btn" class="btn-primary" data-i18n="btnSearch">さがす</button>
           </div>
         </div>
 
@@ -102,16 +103,16 @@
 
         <!-- 詳細絞り込み（任意・日時で営業時間フィルタ） -->
         <details class="filter-section">
-          <summary>🔍 詳細絞り込み（任意）</summary>
+          <summary data-i18n="filterSummary">🔍 詳細絞り込み（任意）</summary>
           <p class="filter-hint">
             探検する日時を入れると、<strong>その時間に開いていないお店や施設は結果から自動で除外</strong>します。
           </p>
           <div class="filter-form">
-            <label for="filter-date">📅 日にち</label>
+            <label for="filter-date" data-i18n="filterDate">📅 日にち</label>
             <input type="date" id="filter-date" />
-            <label for="filter-start-time">⏰ 開始</label>
+            <label for="filter-start-time" data-i18n="filterStart">⏰ 開始</label>
             <input type="time" id="filter-start-time" value="10:00" />
-            <label for="filter-end-time">⏰ 終了</label>
+            <label for="filter-end-time" data-i18n="filterEnd">⏰ 終了</label>
             <input type="time" id="filter-end-time" value="17:00" />
           </div>
           <p class="filter-disclaimer">
@@ -126,7 +127,7 @@
     <!-- STEP 2: スポット一覧 + 地図 -->
     <section id="step-spots" class="step hidden">
       <div class="card">
-        <h2 class="step-title"><span class="step-num">2</span> 行きたい場所を選ぼう</h2>
+        <h2 class="step-title"><span class="step-num">2</span> <span data-i18n="step2Title">行きたい場所を選ぼう</span></h2>
         <p id="origin-story" class="origin-story"></p>
         <div id="category-filter" class="category-filter"></div>
         <div class="spots-layout">
@@ -134,10 +135,10 @@
           <div id="map" class="map-container"></div>
         </div>
         <div class="step-actions">
-          <button id="back-to-station" class="btn-secondary">← 駅を変える</button>
+          <button id="back-to-station" class="btn-secondary" data-i18n="btnBackStation">← 駅を変える</button>
           <span id="route-btn-hint" class="route-btn-hint"></span>
           <span id="route-preview" class="route-preview"></span>
-          <button id="make-route-btn" class="btn-primary" disabled>ルートをつくる →</button>
+          <button id="make-route-btn" class="btn-primary" disabled data-i18n="btnMakeRoute">ルートをつくる →</button>
         </div>
       </div>
     </section>
@@ -145,7 +146,7 @@
     <!-- STEP 4: 写真アップロード -->
     <section id="step-photos" class="step hidden">
       <div class="card">
-        <h2 class="step-title"><span class="step-num">4</span> 探検しながら写真を撮ろう</h2>
+        <h2 class="step-title"><span class="step-num">4</span> <span data-i18n="step4Title">探検しながら写真を撮ろう</span></h2>
         <div id="photos-session-info" class="session-info"></div>
         <div class="photo-upload-area">
           <label for="photo-input" class="photo-upload-btn">
@@ -157,9 +158,9 @@
         <div id="upload-progress" class="upload-progress hidden"></div>
         <div id="photos-grid" class="photos-grid"></div>
         <div class="step-actions">
-          <button id="back-to-route" class="btn-secondary">← マップに戻る</button>
+          <button id="back-to-route" class="btn-secondary" data-i18n="btnBackRoute">← マップに戻る</button>
           <span id="photos-count" class="photos-count">0枚</span>
-          <button id="finish-explore-btn" class="btn-primary">探検おわり！ノートへ →</button>
+          <button id="finish-explore-btn" class="btn-primary" data-i18n="btnFinishExplore">探検おわり！ノートへ →</button>
         </div>
       </div>
     </section>
@@ -167,7 +168,7 @@
     <!-- STEP 5: たんけんノート編集 -->
     <section id="step-report" class="step hidden">
       <div class="card">
-        <h2 class="step-title"><span class="step-num">5</span> たんけんノートをつくろう</h2>
+        <h2 class="step-title"><span class="step-num">5</span> <span data-i18n="step5Title">たんけんノートをつくろう</span></h2>
         <p class="report-intro">
           ✏️ 自分のことばで、感じたこと・見つけたこと・気になったことを書いてみよう。
           PDFにして印刷すると、B3ポスターサイズのたんけんノートになるよ。
@@ -217,15 +218,15 @@
         </div>
 
         <div class="step-actions">
-          <button id="back-to-photos" class="btn-secondary">← 写真にもどる</button>
-          <button id="report-pdf-btn" class="btn-primary">📄 ノートをPDF（B3）で出力</button>
+          <button id="back-to-photos" class="btn-secondary" data-i18n="btnBackPhotos">← 写真にもどる</button>
+          <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf">📄 ノートをPDF（B3）で出力</button>
         </div>
       </div>
     </section>
 
     <!-- 不具合報告：フローティングボタン（全ステップ共通） -->
     <button id="report-issue-btn" type="button" class="report-issue-fab"
-      title="アプリの不具合を報告" aria-label="不具合を報告">
+      title="アプリの不具合を報告" aria-label="不具合を報告" data-i18n="btnReportIssue">
       🐛 不具合を報告
     </button>
 
@@ -276,15 +277,15 @@
     <!-- STEP 3: ルート確認 + PDF出力 -->
     <section id="step-route" class="step hidden">
       <div class="card">
-        <h2 class="step-title"><span class="step-num">3</span> 探検マップを確認しよう</h2>
+        <h2 class="step-title"><span class="step-num">3</span> <span data-i18n="step3Title">探検マップを確認しよう</span></h2>
         <div id="route-info" class="route-info"></div>
         <div id="route-map" class="map-container"></div>
         <div id="route-spots" class="route-spots-list"></div>
         <div class="step-actions">
-          <button id="back-to-spots" class="btn-secondary">← スポットを変える</button>
+          <button id="back-to-spots" class="btn-secondary" data-i18n="btnBackSpots">← スポットを変える</button>
           <div style="display:flex;gap:10px">
-            <button id="download-pdf-btn" class="btn-secondary">📄 地図PDFをダウンロード</button>
-            <button id="start-explore-btn" class="btn-primary">探検スタート！ →</button>
+            <button id="download-pdf-btn" class="btn-secondary" data-i18n="btnDownloadPdf">📄 地図PDFをダウンロード</button>
+            <button id="start-explore-btn" class="btn-primary" data-i18n="btnStartExplore">探検スタート！ →</button>
           </div>
         </div>
       </div>
@@ -293,6 +294,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=44"></script>
+  <script type="module" src="src/main.js?v=46"></script>
 </body>
 </html>

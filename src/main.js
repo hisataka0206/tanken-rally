@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=49';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=49';
-import { fetchOriginStory } from './utils/ai.js?v=49';
-import { generateMapPdf } from './utils/pdf.js?v=49';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=49';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=49';
-import { CITIES } from './data/cities.js?v=49';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=49';
-import { addReport as addIssueReport } from './utils/issues.js?v=49';
-import { applyI18n, LANG } from './utils/i18n.js?v=49';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=49';
+import { CONFIG } from '../config.js?v=50';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=50';
+import { fetchOriginStory } from './utils/ai.js?v=50';
+import { generateMapPdf } from './utils/pdf.js?v=50';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=50';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=50';
+import { CITIES } from './data/cities.js?v=50';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=50';
+import { addReport as addIssueReport } from './utils/issues.js?v=50';
+import { applyI18n, LANG } from './utils/i18n.js?v=50';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=50';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -768,6 +768,7 @@ async function onPhotoInputChange(e) {
       thumbnailUrl: tempUrl,
       spotName: spotName || '',
       fileName: file.name,
+      uploadedAt: new Date().toISOString(), // ローカルでも記録（DriveなしモードでもOK）
       uploading: true,
     });
     renderPhotosGrid();
@@ -790,7 +791,8 @@ async function onPhotoInputChange(e) {
             fileId: result.fileId,          // Drive のファイルID で置き換え
             driveUrl: result.url,
             driveThumbnailUrl: result.thumbnailUrl,
-            takenAt: result.takenAt,        // EXIF DateTimeOriginal が反映される
+            takenAt: result.takenAt || null,         // EXIF DateTimeOriginal（無ければ null）
+            uploadedAt: result.uploadedAt || state.uploadedPhotos[idx].uploadedAt,
             lat: result.lat ?? null,
             lng: result.lng ?? null,
             uploading: false,
@@ -954,7 +956,8 @@ async function onResumeSession() {
       driveThumbnailUrl: p.thumbnailUrl,
       spotName: p.spotName || '',
       fileName: p.fileName || '',
-      takenAt: p.takenAt || '',
+      takenAt:    p.takenAt    || '',
+      uploadedAt: p.uploadedAt || '',
       lat: p.lat ?? null,
       lng: p.lng ?? null,
       uploading: false,
@@ -1018,15 +1021,20 @@ async function onResumeSession() {
 
 // ===== スコア計算 & ランキング =====
 //
-// スコア構成（todo L45 に基づく8要素）：
-//   1. 移動距離            (km × 30)
-//   2. 写真の枚数          (× 10)
-//   3. タグ付き写真の枚数   (× 5)
-//   4. スポットの数         (× 100)
-//   5. 1時間以内であること   (200 ボーナス。実時間がEXIFで取れた場合に判定)
-//   6. コメントの総数        (× 20)
-//   7. コメントの文字数      (× 1, 上限500点)
-//   8. Google時間との一致度   (理想 0.8〜1.5x で200点)
+// ⚠️ 配点ロジックは秘匿対象（ユーザーには合計点のみ表示）。
+// ここでは内部計算のみ行い、UI には breakdown を出さない。
+//
+// 評価する要素（順不同）：
+//   - 訪問スポットの数
+//   - 写真の枚数 / タグ付き写真の枚数
+//   - コメントの総数 / 文字数（写真ごと + 感想欄）
+//   - 移動距離
+//   - 1時間以内に収まったか
+//   - Google算出の移動時間（=滞在時間を除く実移動時間）との一致度
+//
+// 撮影時刻の取得優先順位：
+//   1. EXIF DateTimeOriginal（最優先）
+//   2. クライアントが記録したアップロード時刻（フォールバック）
 function calculateScore() {
   const visitCount = state.orderedSpots.length;
   const photos = state.uploadedPhotos.filter(p => !p.uploading);
@@ -1047,66 +1055,95 @@ function calculateScore() {
   const distanceKm  = distanceM / 1000;
   const estimatedMin = state.routeStats?.durationMin || 0;
 
-  // 写真撮影時刻ベースの所要時間（最初〜最後の写真の差分）
-  const photoTimes = photos
-    .map(p => p.takenAt ? new Date(p.takenAt).getTime() : null)
-    .filter(t => t && !isNaN(t));
-  let actualMin = 0;
-  if (photoTimes.length >= 2) {
-    actualMin = (Math.max(...photoTimes) - Math.min(...photoTimes)) / 60000;
-  }
-
-  // 1時間以内ボーナス（実時間が取れていて、かつ <=60分）
-  const within60bonus = (actualMin > 0 && actualMin <= 60) ? 200 : 0;
-
-  // Google算出時間との比率（理想 0.8〜1.5）
-  let paceScore = 0;
-  let paceLabel = '計測なし';
-  if (estimatedMin > 0 && actualMin > 0) {
-    const ratio = actualMin / estimatedMin;
-    if (ratio >= 0.8 && ratio <= 1.5)        { paceScore = 200; paceLabel = `理想ペース (${ratio.toFixed(2)}x)`; }
-    else if (ratio >= 0.5 && ratio < 0.8)    { paceScore = 100; paceLabel = `すこし急ぎ (${ratio.toFixed(2)}x)`; }
-    else if (ratio > 1.5  && ratio <= 2.5)   { paceScore = 100; paceLabel = `すこしゆっくり (${ratio.toFixed(2)}x)`; }
-    else                                      { paceScore = 50;  paceLabel = `ペースずれ (${ratio.toFixed(2)}x)`; }
-  }
-
-  const breakdown = {
-    '🏯 訪問スポット (×100)':         visitCount * 100,
-    '📷 写真 (×10)':                   photoCount * 10,
-    '📍 タグ付き写真 (×5)':            taggedPhotoCount * 5,
-    '💬 コメント数 (×20)':             photoCommentCount * 20,
-    '✍️ コメント総文字数 (上限500)':   Math.min(totalCommentChars, 500),
-    '⏰ 1時間以内ボーナス':            within60bonus,
-    '🚶 歩いた距離 (km×30)':           Math.round(distanceKm * 30),
-    [`⏱ ペース: ${paceLabel}`]:        paceScore,
+  // 写真の有効時刻：EXIF があれば EXIF、無ければアップロード時刻
+  const getEffectiveMs = p => {
+    const t = p.takenAt || p.uploadedAt;
+    if (!t) return null;
+    const ms = new Date(t).getTime();
+    return (ms && !isNaN(ms)) ? ms : null;
   };
-  const total = Object.values(breakdown).reduce((a, b) => a + b, 0);
+  const photoTimes = photos.map(getEffectiveMs).filter(Boolean);
+
+  // 総経過時間（最初〜最後の写真の差分）
+  let totalElapsedMin = 0;
+  if (photoTimes.length >= 2) {
+    totalElapsedMin = (Math.max(...photoTimes) - Math.min(...photoTimes)) / 60000;
+  }
+
+  // 各スポットの滞在時間 = そのスポットでタグ付き写真の最初〜最後の差分
+  // タグなし写真は無視。スポット内に写真1枚しかない場合は滞在 0 とみなす。
+  const stayBySpot = {};
+  photos.forEach(p => {
+    if (!p.spotName) return;
+    const ms = getEffectiveMs(p);
+    if (!ms) return;
+    if (!stayBySpot[p.spotName]) {
+      stayBySpot[p.spotName] = { min: ms, max: ms };
+    } else {
+      stayBySpot[p.spotName].min = Math.min(stayBySpot[p.spotName].min, ms);
+      stayBySpot[p.spotName].max = Math.max(stayBySpot[p.spotName].max, ms);
+    }
+  });
+  const totalStayMin = Object.values(stayBySpot)
+    .reduce((sum, r) => sum + (r.max - r.min), 0) / 60000;
+
+  // Google が算出する移動時間（滞在は含まない）と比較するため、
+  // ユーザーの「移動時間」も滞在を除いて算出する。
+  const userMoveMin = Math.max(0, totalElapsedMin - totalStayMin);
+
+  // 1時間以内ボーナス（総経過時間ベース）
+  const within60bonus = (totalElapsedMin > 0 && totalElapsedMin <= 60) ? 200 : 0;
+
+  // Google移動時間との一致度（移動時間ベースで比較。理想 0.8〜1.5）
+  let paceScore = 0;
+  if (estimatedMin > 0 && userMoveMin > 0) {
+    const ratio = userMoveMin / estimatedMin;
+    if (ratio >= 0.8 && ratio <= 1.5)        paceScore = 200;
+    else if (ratio >= 0.5 && ratio < 0.8)    paceScore = 100;
+    else if (ratio > 1.5  && ratio <= 2.5)   paceScore = 100;
+    else                                      paceScore = 50;
+  }
+
+  // 内部計算（外部には公開しない）
+  const _internalBreakdown = {
+    visit:    visitCount * 100,
+    photo:    photoCount * 10,
+    tagged:   taggedPhotoCount * 5,
+    cmtNum:   photoCommentCount * 20,
+    cmtChar:  Math.min(totalCommentChars, 500),
+    within60: within60bonus,
+    distance: Math.round(distanceKm * 30),
+    pace:     paceScore,
+  };
+  const total = Object.values(_internalBreakdown).reduce((a, b) => a + b, 0);
+
   return {
     total,
-    breakdown,
+    // breakdown は内部計算のみで、UIへは渡さない（秘匿）
     visitCount,
     photoCount,
     distanceM,
-    actualMin,
+    totalElapsedMin,
+    totalStayMin,
+    userMoveMin,
     estimatedMin,
     reportWordCount: overviewLen + afterwordLen,
   };
 }
 
+// 合計点の絶対値で簡単な気分メッセージを返す（内訳の代わり）
+function scoreMoodLabel(score) {
+  if (score >= 1500) return '🌟 たんけんマスター！';
+  if (score >= 1000) return '✨ たんけん上手！';
+  if (score >=  500) return '🎉 おつかれさま！';
+  if (score >=  200) return '🌱 もう少しでハイスコア！';
+  return '🌱 また来てね！';
+}
+
 function openScoreModal() {
   const result = calculateScore();
   $('score-total').textContent = `${result.total} 点`;
-  const ul = $('score-breakdown');
-  ul.innerHTML = '';
-  Object.entries(result.breakdown).forEach(([label, pts]) => {
-    const li = document.createElement('li');
-    li.innerHTML = `<span>${label}</span><span>+${pts} 点</span>`;
-    ul.appendChild(li);
-  });
-  // 合計行
-  const total = document.createElement('li');
-  total.innerHTML = `<span>合計</span><span>${result.total} 点</span>`;
-  ul.appendChild(total);
+  $('score-rank-label').textContent = scoreMoodLabel(result.total);
 
   $('score-player-name').value = state.reportData.author || '';
   $('score-phase-input').classList.remove('hidden');

@@ -69,23 +69,28 @@ export class DriveClient {
     return data;
   }
 
-  /** 写真をアップロード（EXIF から撮影日時と GPS を抽出して送る） */
+  /** 写真をアップロード
+   *   - takenAt: EXIF DateTimeOriginal（取れない場合は null）
+   *   - uploadedAt: アップロード時のクライアント時刻（常に記録）
+   *   - lat/lng: EXIF GPS（取れない場合は null） */
   async uploadPhoto({ folderId, file, spotName }) {
     const { base64, mimeType, fileName } = await fileToBase64(file);
     const meta = await extractPhotoMeta(file);
+    const uploadedAt = new Date().toISOString();
     const data = await this._post({
       action: 'uploadPhoto',
       folderId,
       base64Data: base64,
       mimeType,
       fileName,
-      takenAt: meta.takenAt,
+      takenAt: meta.takenAt,    // EXIF のみ（無ければ null）
+      uploadedAt,                // アップロード時刻（フォールバック用）
       lat: meta.lat,
       lng: meta.lng,
       spotName: spotName || '',
     });
     if (!data.ok) throw new Error(data.error);
-    return data; // { fileId, url, thumbnailUrl, takenAt, lat, lng, spotName }
+    return data; // { fileId, url, thumbnailUrl, takenAt, uploadedAt, lat, lng, spotName }
   }
 
   /** フォルダ内の写真一覧を取得 */
@@ -132,7 +137,9 @@ function fileToBase64(file) {
 
 /**
  * EXIF から撮影日時 (DateTimeOriginal) と GPS 座標 (latitude / longitude) を抽出。
- * 取れない場合は file.lastModified にフォールバック、座標は null。
+ *   - takenAt: EXIF が無い場合は null（lastModified にはフォールバックしない。
+ *              呼び出し側で uploadedAt を別途記録する）
+ *   - lat/lng: 取れない場合は null
  */
 async function extractPhotoMeta(file) {
   let takenAt = null, lat = null, lng = null;
@@ -148,11 +155,6 @@ async function extractPhotoMeta(file) {
     }
   } catch (e) {
     console.warn('[exifr] EXIF抽出失敗:', e);
-  }
-  if (!takenAt) {
-    takenAt = file.lastModified
-      ? new Date(file.lastModified).toISOString()
-      : new Date().toISOString();
   }
   return { takenAt, lat, lng };
 }

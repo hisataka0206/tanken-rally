@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=24" />
+  <link rel="stylesheet" href="src/style.css?v=25" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -219,12 +219,12 @@
           </div>
         </div>
 
-        <div class="step-actions">
+        <div class="step-actions step-actions-report">
           <button id="back-to-photos" class="btn-secondary" data-i18n="btnBackPhotos">← 写真にもどる</button>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button id="save-report-btn" class="btn-secondary" data-i18n="btnSaveReport">💾 ノートを保存</button>
-            <button id="submit-score-btn" class="btn-secondary" data-i18n="btnSubmitScore">🏆 スコアを記録</button>
-            <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf">📄 ノートをPDF（B3）で出力</button>
+          <div class="report-action-group">
+            <button id="save-report-btn" class="btn-secondary" data-i18n="btnSaveReport">💾 保存</button>
+            <button id="submit-score-btn" class="btn-secondary" data-i18n="btnSubmitScore">🏆 スコア</button>
+            <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf">📄 PDF出力</button>
           </div>
         </div>
       </div>
@@ -236,10 +236,10 @@
       <div class="modal-content modal-content-wide">
         <h3 id="score-modal-title">🏆 たんけんスコア</h3>
 
-        <!-- フェーズ1: スコア表示 + 名前入力 -->
+        <!-- フェーズ1: スコア表示 + 名前入力（内訳・係数は秘匿） -->
         <div id="score-phase-input">
           <div id="score-total" class="score-total">0 点</div>
-          <ul id="score-breakdown" class="score-breakdown"></ul>
+          <p id="score-rank-label" class="score-rank-label"></p>
           <label class="score-name-label">
             ✏️ 名前（ニックネームでもOK）
             <input id="score-player-name" type="text" placeholder="（探検者の名前）" maxlength="30" />
@@ -335,6 +335,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=49"></script>
+  <script type="module" src="src/main.js?v=50"></script>
 </body>
 </html>

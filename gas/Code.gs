@@ -335,9 +335,9 @@ function saveIssueReport(body) {
   }
 }
 
-/** 写真をDriveに保存（撮影時刻・GPS座標も保存） */
+/** 写真をDriveに保存（撮影時刻・アップロード時刻・GPS座標を保存） */
 function uploadPhoto(body) {
-  const { folderId, fileName, base64Data, mimeType, takenAt, spotName, lat, lng } = body;
+  const { folderId, fileName, base64Data, mimeType, takenAt, uploadedAt, spotName, lat, lng } = body;
   if (!folderId || !base64Data) return { ok: false, error: 'folderId と base64Data が必要です' };
 
   const folder = DriveApp.getFolderById(folderId);
@@ -348,9 +348,15 @@ function uploadPhoto(body) {
   );
   const file = folder.createFile(blob);
 
-  // メタデータをプロパティに保存（撮影時刻・スポット名・GPS）
+  // メタデータをプロパティに保存：
+  //   takenAt    : EXIF DateTimeOriginal （無ければ null）
+  //   uploadedAt : クライアントが送ってきたアップロード時刻 （無ければサーバ now）
+  //   spotName   : ユーザーが付けたタグ
+  //   lat / lng  : EXIF GPS座標
+  const serverNow = new Date().toISOString();
   file.setDescription(JSON.stringify({
-    takenAt,
+    takenAt: takenAt || null,
+    uploadedAt: uploadedAt || serverNow,
     spotName: spotName || '',
     lat: (lat == null) ? null : Number(lat),
     lng: (lng == null) ? null : Number(lng),
@@ -365,7 +371,8 @@ function uploadPhoto(body) {
     fileName: file.getName(),
     url: `https://drive.google.com/uc?id=${file.getId()}`,
     thumbnailUrl: `https://drive.google.com/thumbnail?id=${file.getId()}&sz=w400`,
-    takenAt,
+    takenAt: takenAt || null,
+    uploadedAt: uploadedAt || serverNow,
     spotName,
     lat,
     lng,
@@ -390,8 +397,9 @@ function listPhotos(body) {
       fileName: file.getName(),
       url: `https://drive.google.com/uc?id=${file.getId()}`,
       thumbnailUrl: `https://drive.google.com/thumbnail?id=${file.getId()}&sz=w400`,
-      takenAt: meta.takenAt || null,
-      spotName: meta.spotName || '',
+      takenAt:    meta.takenAt    || null,
+      uploadedAt: meta.uploadedAt || null,
+      spotName:   meta.spotName   || '',
       lat: (meta.lat == null) ? null : Number(meta.lat),
       lng: (meta.lng == null) ? null : Number(meta.lng),
     });

@@ -315,6 +315,26 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* レポート画面（STEP5）のアクション行：右側3ボタンを横並びでバランスよく */
+.step-actions-report .report-action-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.step-actions-report .report-action-group .btn-secondary,
+.step-actions-report .report-action-group .btn-primary {
+  white-space: nowrap;
+  padding: 10px 16px;
+}
+.step-actions-report .report-action-group .btn-primary {
+  /* PDFが主役。少し大きめに */
+  padding: 12px 22px;
+  font-size: 15px;
 }
 
 /* ===== 地名由来 ===== */
@@ -677,22 +697,15 @@ body {
   letter-spacing: 0.04em;
   text-shadow: 2px 2px 0 rgba(118,187,118,.25);
 }
-.score-breakdown {
-  background: #f9f6f0;
-  border-radius: 8px;
-  padding: 12px 18px;
+/* 気分ラベル（内訳の代わりに表示） */
+.score-rank-label {
+  text-align: center;
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 18px;
+  color: var(--green-mid);
   margin: 0 0 16px;
-  list-style: none;
+  letter-spacing: 0.04em;
 }
-.score-breakdown li {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-  font-size: 13px;
-  color: var(--brown);
-  border-bottom: 1px dashed #d6c9aa;
-}
-.score-breakdown li:last-child { border-bottom: none; font-weight: 700; color: var(--green-dark); }
 .score-name-label {
   display: flex;
   flex-direction: column;
@@ -1212,12 +1225,23 @@ body {
   }
   .step-actions > div {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
   }
   .step-actions > div .btn-primary,
   .step-actions > div .btn-secondary {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  /* レポート画面：3ボタンが詰まらないように、PDFを主役に大きく */
+  .step-actions-report .report-action-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .step-actions-report .report-action-group #report-pdf-btn {
+    grid-column: 1 / -1;  /* 2列ぶん使う */
+    width: 100%;
   }
   /* スポット一覧と地図のレイアウト：縦積み */
   .spots-layout {

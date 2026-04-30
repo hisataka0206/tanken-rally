@@ -32,7 +32,9 @@ const TRANSLATIONS = {
     btnBackRoute: '← マップに戻る',
     btnFinishExplore: '探検おわり！ノートへ →',
     btnBackPhotos: '← 写真にもどる',
-    btnReportPdf: '📄 ノートをPDF（B3）で出力',
+    btnReportPdf: '📄 PDF出力',
+    btnSaveReport: '💾 保存',
+    btnSubmitScore: '🏆 スコア',
     btnReportIssue: '🐛 不具合を報告',
 
     resumeSummary: '🔑 前回のたんけんを開く（パスワード入力）',
@@ -62,7 +64,9 @@ const TRANSLATIONS = {
     btnBackRoute: '← Back to map',
     btnFinishExplore: 'Done! → Note',
     btnBackPhotos: '← Back to photos',
-    btnReportPdf: '📄 Export note as PDF (B3)',
+    btnReportPdf: '📄 Export PDF',
+    btnSaveReport: '💾 Save',
+    btnSubmitScore: '🏆 Score',
     btnReportIssue: '🐛 Report an issue',
 
     resumeSummary: '🔑 Open your previous exploration (password)',
@@ -98,7 +102,9 @@ const TRANSLATIONS = {
     btnBackRoute: '← マップにもどる',
     btnFinishExplore: '探検（たんけん）おわり！ノートへ →',
     btnBackPhotos: '← 写真（しゃしん）にもどる',
-    btnReportPdf: '📄 ノートをPDF（B3）でだす',
+    btnReportPdf: '📄 PDFにだす',
+    btnSaveReport: '💾 保存（ほぞん）',
+    btnSubmitScore: '🏆 スコア',
     btnReportIssue: '🐛 不具合（ふぐあい）を報告（ほうこく）',
 
     resumeSummary: '🔑 前のたんけんを開く（パスワード入力）',

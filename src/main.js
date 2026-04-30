@@ -1,12 +1,12 @@
-import { CONFIG } from '../config.js?v=42';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=42';
-import { fetchOriginStory } from './utils/ai.js?v=42';
-import { generateMapPdf } from './utils/pdf.js?v=42';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=42';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=42';
-import { CITIES } from './data/cities.js?v=42';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=42';
-import { addReport as addIssueReport } from './utils/issues.js?v=42';
+import { CONFIG } from '../config.js?v=43';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats } from './utils/maps.js?v=43';
+import { fetchOriginStory } from './utils/ai.js?v=43';
+import { generateMapPdf } from './utils/pdf.js?v=43';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=43';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=43';
+import { CITIES } from './data/cities.js?v=43';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=43';
+import { addReport as addIssueReport } from './utils/issues.js?v=43';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'

@@ -143,86 +143,104 @@ export function searchNearbySpotsWith(service, location) {
 }
 
 function _searchWithService(service, location) {
-  // クエリ設計：
-  //   - type ベース検索（信頼性高い・名前に特定の漢字が無くてもヒットする）
-  //   - keyword ベース検索（type で拾えない史跡・古墳・碑石などを補完）
-  //   各カテゴリごとに複数クエリを組み合わせて取りこぼし防止
+  // 教訓：
+  //   - 旧 PlacesService.nearbySearch の `type` パラメータは現行 API では実質的に効かないことがあり、
+  //     結果がプロミネンス順の汎用近傍リスト（=飲食店等）になりがち。⛔️
+  //   - `keyword` の OR 連結（"神社 OR 寺 OR ..."）も期待通りに動かないケースが多く、
+  //     特定名称（例: "大須観音"）を取り逃すことが頻発。⛔️
+  //   - 最も信頼性が高いのは **単一キーワードの個別検索 + 結果マージ**。
+  //     1キーワード=1リクエストでコストはかかるが、網羅性と精度を両立できる。✅
+  //   - "観音" を独立クエリにすることで大須観音などの観音堂を確実にヒット。
+  //   - 加えて place.types を見て「明らかに違うカテゴリ」を後段で除外する防御フィルタを併用。
   const queries = [
     // === 史跡・文化財 ===
-    // place_of_worship: 神社・寺・観音堂などを名前に「寺」の字がなくても確実に拾う
-    //   （例: 大須観音 — 名前に「寺」が入らないので「寺」keyword では拾えない）
-    { type: 'place_of_worship',                              category: 'historic', label: '史跡・文化財' },
-    // 古墳・城跡・碑石は type が無いので keyword で補完
-    { keyword: '史跡 OR 城跡 OR 古墳 OR 記念碑 OR 石碑',     category: 'historic', label: '史跡・文化財' },
-
+    { keyword: '神社',     category: 'historic', label: '史跡・文化財' },
+    { keyword: '寺',       category: 'historic', label: '史跡・文化財' },
+    { keyword: '観音',     category: 'historic', label: '史跡・文化財' },
+    { keyword: '史跡',     category: 'historic', label: '史跡・文化財' },
+    { keyword: '古墳',     category: 'historic', label: '史跡・文化財' },
     // === スイーツ ===
-    { type: 'bakery',                                        category: 'sweets',   label: 'スイーツ・菓子店' },
-    { keyword: 'ケーキ屋 OR 和菓子 OR 洋菓子 OR スイーツ',   category: 'sweets',   label: 'スイーツ・菓子店' },
-
+    { keyword: 'ケーキ',   category: 'sweets',   label: 'スイーツ・菓子店' },
+    { keyword: '和菓子',   category: 'sweets',   label: 'スイーツ・菓子店' },
     // === 公園・自然 ===
-    { type: 'park',                                          category: 'nature',   label: '公園・自然' },
-
+    { keyword: '公園',     category: 'nature',   label: '公園・自然' },
     // === 玩具・おもちゃ ===
-    { keyword: 'おもちゃ屋 OR 玩具店 OR キャラクターショップ', category: 'toy',    label: '玩具・おもちゃ' },
-
+    { keyword: 'おもちゃ', category: 'toy',      label: '玩具・おもちゃ' },
     // === 美術館・博物館 ===
-    { type: 'museum',                                        category: 'museum',   label: '美術館・博物館' },
-    { type: 'art_gallery',                                   category: 'museum',   label: '美術館・博物館' },
-
+    { keyword: '美術館',   category: 'museum',   label: '美術館・博物館' },
+    { keyword: '博物館',   category: 'museum',   label: '美術館・博物館' },
     // === 科学館・自然史 ===
-    // type=museum で拾った中から「科学館」を別カテゴリとして上書きするため、優先度高めで実行
-    { keyword: '科学館 OR プラネタリウム OR 天文台',          category: 'science',  label: '科学館・自然史' },
+    { keyword: '科学館',   category: 'science',  label: '科学館・自然史' },
   ];
 
   const allSpots = [];
-  const seenIds = new Set(); // place_id 重複除去（複数クエリで同じ場所がヒットすることがある）
+  const seenIds = new Set();
   let pending = queries.length;
 
-  // カテゴリ優先度: historic > science > museum > nature > toy > sweets > other
-  // 同じ place_id が複数クエリにマッチした場合、優先度の高いカテゴリで保持
-  // 例: 科学館は type=museum でも拾えるが、keyword='科学館' で science として上書きしたい
+  // 同じ place_id が複数クエリにマッチした場合、優先度の高いカテゴリで上書き
   const CAT_PRIORITY = { historic: 6, science: 5, museum: 4, nature: 3, toy: 2, sweets: 1, other: 0 };
-  const RESULTS_PER_QUERY = 6; // 4 → 6 に増量（有名スポットの取り逃し低減）
+  const RESULTS_PER_QUERY = 6;
+
+  // 史跡カテゴリに混入したくない place.types
+  // （keyword='神社' でも稀に「神社町○○店」のような飲食店が混ざるため）
+  const FORBIDDEN_TYPES_FOR_HISTORIC = new Set([
+    'restaurant', 'cafe', 'food', 'bar', 'meal_takeaway', 'meal_delivery',
+    'convenience_store', 'supermarket', 'lodging', 'gas_station',
+    'pharmacy', 'doctor', 'dentist', 'hospital', 'school',
+    'clothing_store', 'shoe_store', 'jewelry_store',
+  ]);
+  // 公園カテゴリに混入したくないもの
+  const FORBIDDEN_TYPES_FOR_NATURE = new Set([
+    'restaurant', 'cafe', 'food', 'bar', 'lodging', 'parking',
+  ]);
 
   return new Promise((resolve) => {
     queries.forEach(q => {
-      const params = {
-        location,
-        radius: 1500,           // 駅から半径1.5km
-        language: 'ja',
-      };
-      if (q.type) params.type = q.type;
-      if (q.keyword) params.keyword = q.keyword;
-      service.nearbySearch(params, (results, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          results.slice(0, RESULTS_PER_QUERY).forEach(place => {
-            const newSpot = {
-              id: place.place_id,
-              name: place.name,
-              category: q.category,
-              label: q.label,
-              address: place.vicinity || '',
-              lat: place.geometry.location.lat(),
-              lng: place.geometry.location.lng(),
-              rating: place.rating || null,
-              desc: place.types?.join('、') || '',
-              recommended: q.category === 'historic',  // 史跡は推奨表示。最低1件必要
-            };
-            if (seenIds.has(place.place_id)) {
-              // 既に登録済み: 優先度の高いカテゴリで上書き
-              const existing = allSpots.find(s => s.id === place.place_id);
-              if (existing && CAT_PRIORITY[q.category] > CAT_PRIORITY[existing.category]) {
-                Object.assign(existing, newSpot);
+      service.nearbySearch(
+        {
+          location,
+          radius: 1500,
+          keyword: q.keyword,
+          language: 'ja',
+        },
+        (results, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            results.slice(0, RESULTS_PER_QUERY).forEach(place => {
+              const types = place.types || [];
+
+              // カテゴリ別の防御フィルタ
+              if (q.category === 'historic'
+                  && types.some(t => FORBIDDEN_TYPES_FOR_HISTORIC.has(t))) return;
+              if (q.category === 'nature'
+                  && types.some(t => FORBIDDEN_TYPES_FOR_NATURE.has(t))) return;
+
+              const newSpot = {
+                id: place.place_id,
+                name: place.name,
+                category: q.category,
+                label: q.label,
+                address: place.vicinity || '',
+                lat: place.geometry.location.lat(),
+                lng: place.geometry.location.lng(),
+                rating: place.rating || null,
+                desc: types.join('、'),
+                recommended: q.category === 'historic',
+              };
+              if (seenIds.has(place.place_id)) {
+                const existing = allSpots.find(s => s.id === place.place_id);
+                if (existing && CAT_PRIORITY[q.category] > CAT_PRIORITY[existing.category]) {
+                  Object.assign(existing, newSpot);
+                }
+              } else {
+                seenIds.add(place.place_id);
+                allSpots.push(newSpot);
               }
-            } else {
-              seenIds.add(place.place_id);
-              allSpots.push(newSpot);
-            }
-          });
+            });
+          }
+          pending--;
+          if (pending === 0) resolve(allSpots);
         }
-        pending--;
-        if (pending === 0) resolve(allSpots);
-      });
+      );
     });
   });
 }

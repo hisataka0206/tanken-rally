@@ -667,6 +667,112 @@ body {
 }
 .modal-content-wide { width: min(560px, 92%); }
 
+/* ===== スコア & ランキング ===== */
+.score-total {
+  text-align: center;
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 48px;
+  color: var(--green-dark);
+  margin: 14px 0;
+  letter-spacing: 0.04em;
+  text-shadow: 2px 2px 0 rgba(118,187,118,.25);
+}
+.score-breakdown {
+  background: #f9f6f0;
+  border-radius: 8px;
+  padding: 12px 18px;
+  margin: 0 0 16px;
+  list-style: none;
+}
+.score-breakdown li {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--brown);
+  border-bottom: 1px dashed #d6c9aa;
+}
+.score-breakdown li:last-child { border-bottom: none; font-weight: 700; color: var(--green-dark); }
+.score-name-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--green-dark);
+  margin: 12px 0;
+}
+.score-name-label input {
+  padding: 10px 14px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+}
+.score-name-label input:focus { border-color: var(--green-dark); }
+
+.score-rank-message {
+  text-align: center;
+  background: linear-gradient(180deg, #fff8e1 0%, #fffde7 100%);
+  border: 2px solid #ffb74d;
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #5d4037;
+  margin: 14px 0;
+  line-height: 1.6;
+}
+.score-rank-message strong { color: #e65100; font-size: 22px; }
+
+.ranking-title {
+  font-family: 'Yusei Magic', sans-serif;
+  font-size: 17px;
+  color: var(--green-dark);
+  margin: 14px 0 8px;
+  text-align: center;
+}
+.ranking-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 14px;
+  max-height: 40vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.ranking-list li {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #eee;
+  font-size: 13px;
+}
+.ranking-list li:last-child { border-bottom: none; }
+.ranking-list li.you {
+  background: linear-gradient(90deg, #fff9c4 0%, #fffde7 100%);
+  font-weight: 700;
+}
+.ranking-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--green-dark);
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+.ranking-rank.gold   { background: #ffc107; color: #333; }
+.ranking-rank.silver { background: #b0bec5; color: #333; }
+.ranking-rank.bronze { background: #d7a07a; color: #fff; }
+.ranking-name { font-weight: 600; color: var(--brown); }
+.ranking-score { font-weight: 700; color: var(--green-dark); font-size: 14px; }
+
 /* ===== 不具合報告 ===== */
 .report-issue-fab {
   position: fixed;

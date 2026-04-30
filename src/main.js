@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=47';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=47';
-import { fetchOriginStory } from './utils/ai.js?v=47';
-import { generateMapPdf } from './utils/pdf.js?v=47';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=47';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=47';
-import { CITIES } from './data/cities.js?v=47';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=47';
-import { addReport as addIssueReport } from './utils/issues.js?v=47';
-import { applyI18n, LANG } from './utils/i18n.js?v=47';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=47';
+import { CONFIG } from '../config.js?v=48';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=48';
+import { fetchOriginStory } from './utils/ai.js?v=48';
+import { generateMapPdf } from './utils/pdf.js?v=48';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=48';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=48';
+import { CITIES } from './data/cities.js?v=48';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=48';
+import { addReport as addIssueReport } from './utils/issues.js?v=48';
+import { applyI18n, LANG } from './utils/i18n.js?v=48';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=48';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1003,6 +1003,139 @@ async function onResumeSession() {
   }
 }
 
+// ===== スコア計算 & ランキング =====
+//
+// スコアの考え方：探検の濃さを定量化する。歩いた距離・写真・タグ・感想文・スポット数。
+// 子どもが達成感を持てるよう、ちょっと頑張れば 1000 点を超えるレンジに調整。
+function calculateScore() {
+  const visitCount = state.orderedSpots.length;
+  const photos = state.uploadedPhotos.filter(p => !p.uploading);
+  const photoCount = photos.length;
+  const taggedPhotoCount = photos.filter(p => p.spotName).length;
+  const photoCommentCount = Object.values(state.reportData.photoComments || {})
+    .filter(c => (c || '').trim().length > 0).length;
+  const overviewLen  = (state.reportData.overview  || '').trim().length;
+  const afterwordLen = (state.reportData.afterword || '').trim().length;
+  const distanceM = state.routeStats?.distanceM || 0;
+  const distanceKm = distanceM / 1000;
+
+  const breakdown = {
+    '🏯 訪問スポット (×100)':       visitCount * 100,
+    '📷 写真 (×10)':                 photoCount * 10,
+    '📍 タグ付き写真 (×5)':          taggedPhotoCount * 5,
+    '💬 写真コメント (×20)':         photoCommentCount * 20,
+    '🌟 たんけんの感想':             overviewLen >= 30 ? 100 : (overviewLen > 0 ? 30 : 0),
+    '✏️ 振り返りの感想':             afterwordLen >= 30 ? 100 : (afterwordLen > 0 ? 30 : 0),
+    '🚶 歩いた距離 (km×30)':         Math.round(distanceKm * 30),
+  };
+  const total = Object.values(breakdown).reduce((a, b) => a + b, 0);
+  return {
+    total,
+    breakdown,
+    visitCount,
+    photoCount,
+    distanceM,
+    reportWordCount: overviewLen + afterwordLen,
+  };
+}
+
+function openScoreModal() {
+  const result = calculateScore();
+  $('score-total').textContent = `${result.total} 点`;
+  const ul = $('score-breakdown');
+  ul.innerHTML = '';
+  Object.entries(result.breakdown).forEach(([label, pts]) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${label}</span><span>+${pts} 点</span>`;
+    ul.appendChild(li);
+  });
+  // 合計行
+  const total = document.createElement('li');
+  total.innerHTML = `<span>合計</span><span>${result.total} 点</span>`;
+  ul.appendChild(total);
+
+  $('score-player-name').value = state.reportData.author || '';
+  $('score-phase-input').classList.remove('hidden');
+  $('score-phase-ranking').classList.add('hidden');
+  $('score-modal').classList.remove('hidden');
+}
+
+async function onSubmitScore() {
+  const playerName = $('score-player-name').value.trim() || '名無し';
+  const result = calculateScore();
+  const submitBtn = $('score-submit-btn');
+  const original = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = '送信中…';
+
+  if (!drive) {
+    alert('Drive 連携が無効のため、ランキングに送信できません（GAS未設定）。');
+    submitBtn.disabled = false;
+    submitBtn.textContent = original;
+    return;
+  }
+
+  try {
+    await drive.saveRanking({
+      stationName: state.stationName,
+      playerName,
+      score: result.total,
+      visitCount: result.visitCount,
+      distanceM: result.distanceM,
+      photoCount: result.photoCount,
+      reportWordCount: result.reportWordCount,
+    });
+    // 続けてランキング取得
+    const ranking = await drive.getRanking({ stationName: state.stationName, limit: 10 });
+    showRankingPhase(playerName, result.total, ranking);
+  } catch (e) {
+    alert('ランキング送信に失敗しました: ' + (e.message || e));
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = original;
+  }
+}
+
+function showRankingPhase(myName, myScore, ranking) {
+  // 自分の順位
+  const myRank = (ranking || []).findIndex(r =>
+    r['プレーヤー名'] === myName && Number(r['スコア']) === Number(myScore)
+  );
+  const totalCount = (ranking || []).length;
+  let msg;
+  if (myRank === 0) {
+    msg = `🥇 1位！ ${myName} さん、おめでとう！\n<strong>${myScore}</strong> 点 / ${state.stationName}駅`;
+  } else if (myRank > 0) {
+    msg = `🎉 ${myName} さんは <strong>${myRank + 1}位</strong>！\n${myScore} 点 / ${state.stationName}駅`;
+  } else {
+    msg = `🎉 ${myName} さん、お疲れさま！\n${myScore} 点を記録しました（${state.stationName}駅）`;
+  }
+  $('score-rank-message').innerHTML = msg.replace(/\n/g, '<br/>');
+
+  // ランキング一覧
+  $('ranking-station-name').textContent = `${state.stationName}駅`;
+  const ol = $('ranking-list');
+  ol.innerHTML = '';
+  if (!ranking || ranking.length === 0) {
+    ol.innerHTML = '<li style="text-align:center;color:#999;padding:20px;">まだ記録がありません</li>';
+  } else {
+    ranking.forEach((r, i) => {
+      const li = document.createElement('li');
+      const isYou = (r['プレーヤー名'] === myName && Number(r['スコア']) === Number(myScore));
+      if (isYou) li.classList.add('you');
+      const rankCls = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+      li.innerHTML = `
+        <span class="ranking-rank ${rankCls}">${i + 1}</span>
+        <span class="ranking-name">${escapeHtml(r['プレーヤー名'] || '名無し')}${isYou ? ' (あなた)' : ''}</span>
+        <span class="ranking-score">${r['スコア']} 点</span>
+      `;
+      ol.appendChild(li);
+    });
+  }
+  $('score-phase-input').classList.add('hidden');
+  $('score-phase-ranking').classList.remove('hidden');
+}
+
 // ===== STEP 5: レポート =====
 function onStartReport() {
   // メタ情報初期化（日付はシステム側で自動入力しない。ユーザーが date picker で入力）
@@ -1290,6 +1423,13 @@ $('tag-modal').addEventListener('click', e => {
 // STEP 5（レポート）
 $('back-to-photos').addEventListener('click', () => showStep('step-photos'));
 $('report-pdf-btn').addEventListener('click', onReportPdf);
+
+// スコア＆ランキング
+$('submit-score-btn').addEventListener('click', openScoreModal);
+$('score-submit-btn').addEventListener('click', onSubmitScore);
+$('score-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'close') $('score-modal').classList.add('hidden');
+});
 
 // セッション再開（パスワードで前回の写真を復元）
 $('resume-session-btn').addEventListener('click', onResumeSession);

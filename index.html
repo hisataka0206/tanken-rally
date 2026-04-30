@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=23" />
+  <link rel="stylesheet" href="src/style.css?v=24" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -219,10 +219,48 @@
 
         <div class="step-actions">
           <button id="back-to-photos" class="btn-secondary" data-i18n="btnBackPhotos">← 写真にもどる</button>
-          <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf">📄 ノートをPDF（B3）で出力</button>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button id="submit-score-btn" class="btn-secondary" data-i18n="btnSubmitScore">🏆 スコアを記録</button>
+            <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf">📄 ノートをPDF（B3）で出力</button>
+          </div>
         </div>
       </div>
     </section>
+
+    <!-- スコア提出 / ランキングモーダル -->
+    <div id="score-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="score-modal-title">
+      <div class="modal-backdrop" data-action="close"></div>
+      <div class="modal-content modal-content-wide">
+        <h3 id="score-modal-title">🏆 たんけんスコア</h3>
+
+        <!-- フェーズ1: スコア表示 + 名前入力 -->
+        <div id="score-phase-input">
+          <div id="score-total" class="score-total">0 点</div>
+          <ul id="score-breakdown" class="score-breakdown"></ul>
+          <label class="score-name-label">
+            ✏️ 名前（ニックネームでもOK）
+            <input id="score-player-name" type="text" placeholder="（探検者の名前）" maxlength="30" />
+          </label>
+          <p class="modal-desc">
+            ランキングに登録すると、同じ駅で探検した他の人と点数を比べられます。
+          </p>
+          <div class="modal-actions">
+            <button class="btn-secondary" data-action="close">閉じる</button>
+            <button id="score-submit-btn" class="btn-primary">ランキングに送信 →</button>
+          </div>
+        </div>
+
+        <!-- フェーズ2: 送信後のランキング表示 -->
+        <div id="score-phase-ranking" class="hidden">
+          <p id="score-rank-message" class="score-rank-message"></p>
+          <h4 class="ranking-title">🏆 <span id="ranking-station-name"></span> ランキング (上位10名)</h4>
+          <ol id="ranking-list" class="ranking-list"></ol>
+          <div class="modal-actions">
+            <button class="btn-primary" data-action="close">閉じる</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- 不具合報告：フローティングボタン（全ステップ共通） -->
     <button id="report-issue-btn" type="button" class="report-issue-fab"
@@ -294,6 +332,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=47"></script>
+  <script type="module" src="src/main.js?v=48"></script>
 </body>
 </html>

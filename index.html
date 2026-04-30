@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=21" />
+  <link rel="stylesheet" href="src/style.css?v=22" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -99,6 +99,27 @@
         </div>
 
         <div id="station-error" class="error-msg hidden"></div>
+
+        <!-- 詳細絞り込み（任意・日時で営業時間フィルタ） -->
+        <details class="filter-section">
+          <summary>🔍 詳細絞り込み（任意）</summary>
+          <p class="filter-hint">
+            探検する日時を入れると、<strong>その時間に開いていないお店や施設は結果から自動で除外</strong>します。
+          </p>
+          <div class="filter-form">
+            <label for="filter-date">📅 日にち</label>
+            <input type="date" id="filter-date" />
+            <label for="filter-start-time">⏰ 開始</label>
+            <input type="time" id="filter-start-time" value="10:00" />
+            <label for="filter-end-time">⏰ 終了</label>
+            <input type="time" id="filter-end-time" value="17:00" />
+          </div>
+          <p class="filter-disclaimer">
+            ⚠️ 営業時間情報は <strong>Google マップが提供する情報に依存</strong>しており、
+            正確性を保証するものではありません。実際にお出かけする前に、お店や施設の
+            公式サイト・電話などで営業時間を必ずご確認ください。
+          </p>
+        </details>
       </div>
     </section>
 

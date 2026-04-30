@@ -1,12 +1,12 @@
-import { CONFIG } from '../config.js?v=44';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine } from './utils/maps.js?v=44';
-import { fetchOriginStory } from './utils/ai.js?v=44';
-import { generateMapPdf } from './utils/pdf.js?v=44';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=44';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=44';
-import { CITIES } from './data/cities.js?v=44';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=44';
-import { addReport as addIssueReport } from './utils/issues.js?v=44';
+import { CONFIG } from '../config.js?v=45';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=45';
+import { fetchOriginStory } from './utils/ai.js?v=45';
+import { generateMapPdf } from './utils/pdf.js?v=45';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=45';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=45';
+import { CITIES } from './data/cities.js?v=45';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=45';
+import { addReport as addIssueReport } from './utils/issues.js?v=45';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -117,8 +117,17 @@ function selectCity(cityId, opts = {}) {
   }
 }
 
-// セレクタ「この駅でさがす」 → 都市名・路線名・bounds 付きで onSearchStation を呼ぶ
-// （同名駅の曖昧性解消のため。例: 名古屋の「吹上」と東京の「吹上」、名古屋の「荒畑」を別エリアの同名と区別）
+// 詳細絞り込みフォームから営業時間フィルタの値を取得
+//   { date: '2026-04-30', startTime: '10:00', endTime: '17:00' } | null
+function getDateTimeFilter() {
+  const date = $('filter-date').value;
+  if (!date) return null;
+  const startTime = $('filter-start-time').value || '10:00';
+  const endTime   = $('filter-end-time').value   || '17:00';
+  return { date, startTime, endTime };
+}
+
+// セレクタ「この駅でさがす」 → 都市名・路線名・bounds・日時フィルタ 付きで onSearchStation を呼ぶ
 function onSearchBySelect() {
   const stationName = $('station-select').value;
   if (!stationName) return;
@@ -134,8 +143,9 @@ function onSearchBySelect() {
     stationName,
     lineName,
     cityName,
-    bounds: city?.bounds,        // 都市矩形に検索を絞り込む
-    center: city?.center,        // 同点時のタイブレーク用
+    bounds: city?.bounds,
+    center: city?.center,
+    dateTimeFilter: getDateTimeFilter(),
   });
 }
 
@@ -214,7 +224,32 @@ async function onSearchStation(context) {
     const placesService = new google.maps.places.PlacesService(placesScratch);
     const spots = await searchNearbySpotsWith(placesService, state.stationLocation);
     // 不適切スポット（学習塾・予備校等のキーワード or ユーザーが過去削除した場所）を除外
-    state.allSpots = filterBlocked(spots);
+    let resultSpots = filterBlocked(spots);
+
+    // 日時フィルタ（指定があれば、各スポットの営業時間を取得して閉まっているものを除外）
+    const dtFilter = isCtx ? context.dateTimeFilter : null;
+    if (dtFilter && dtFilter.date && resultSpots.length) {
+      mapEl.innerHTML = `<div class="loading">営業時間を確認中… (0/${resultSpots.length})</div>`;
+      const filtered = [];
+      for (let i = 0; i < resultSpots.length; i++) {
+        const spot = resultSpots[i];
+        // 進捗表示
+        mapEl.innerHTML = `<div class="loading">営業時間を確認中… (${i + 1}/${resultSpots.length})</div>`;
+        try {
+          const hours = await fetchOpeningHours(placesService, spot.id);
+          const isOpen = isPlaceOpenInWindow(hours, dtFilter.date, dtFilter.startTime, dtFilter.endTime);
+          // false（確実に閉まっている）のみ除外。null（不明）は表示。
+          if (isOpen === false) continue;
+          filtered.push(spot);
+        } catch (e) {
+          console.warn('opening_hours fetch failed:', spot.name, e);
+          filtered.push(spot); // 取得失敗は除外しない
+        }
+      }
+      console.info(`[date-filter] ${dtFilter.date} ${dtFilter.startTime}-${dtFilter.endTime}: ${resultSpots.length} → ${filtered.length} 件`);
+      resultSpots = filtered;
+    }
+    state.allSpots = resultSpots;
 
     // 地図を1回だけ生成（後で fitBounds で全スポット入るように調整）
     mapEl.innerHTML = '';
@@ -1201,8 +1236,14 @@ async function onDownloadPdf() {
 }
 
 // ===== イベントリスナー =====
-$('search-btn').addEventListener('click', onSearchStation);
-$('station-input').addEventListener('keydown', e => { if (e.key === 'Enter') onSearchStation(); });
+// 自由入力モードからの検索もフィルタを渡す（駅名は input 値から取る）
+const searchFromInput = () => {
+  const stationName = $('station-input').value.trim();
+  if (!stationName) return;
+  onSearchStation({ stationName, dateTimeFilter: getDateTimeFilter() });
+};
+$('search-btn').addEventListener('click', searchFromInput);
+$('station-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchFromInput(); });
 $('search-by-select-btn').addEventListener('click', onSearchBySelect);
 $('make-route-btn').addEventListener('click', onMakeRoute);
 $('download-pdf-btn').addEventListener('click', onDownloadPdf);

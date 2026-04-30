@@ -142,6 +142,69 @@ export function searchNearbySpotsWith(service, location) {
   return _searchWithService(service, location);
 }
 
+// 個別スポットの営業時間（opening_hours）を取得。失敗時は null。
+// fields に opening_hours を含めることで Place Details (Contact Data) を取得する。
+export function fetchOpeningHours(service, placeId) {
+  return new Promise(resolve => {
+    service.getDetails(
+      { placeId, fields: ['opening_hours'] },
+      (place, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+          resolve(place.opening_hours || null);
+        } else {
+          resolve(null); // 取れなかったら不明扱い
+        }
+      }
+    );
+  });
+}
+
+// opening_hours と「日付＋開始/終了時刻」から、指定時間帯のいずれかでお店が
+// 営業しているかを判定。
+//   true  : 重なる営業時間あり（=この時間帯に開いている）
+//   false : 重なる営業時間なし（=確実に閉まっている）
+//   null  : opening_hours が不明・解釈不能（=判定保留 → 表示すべき）
+export function isPlaceOpenInWindow(opening_hours, dateStr, startTime, endTime) {
+  if (!opening_hours) return null;
+  const periods = opening_hours.periods || [];
+  if (periods.length === 0) return null;
+
+  // 24時間営業の特殊ケース
+  if (periods.length === 1 && periods[0].open
+      && periods[0].open.time === '0000' && !periods[0].close) {
+    return true;
+  }
+
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return null;
+  const day = date.getDay(); // 0=Sun
+  const [sh, sm] = (startTime || '10:00').split(':').map(Number);
+  const [eh, em] = (endTime   || '17:00').split(':').map(Number);
+  const startMin = sh * 60 + sm;
+  const endMin   = eh * 60 + em;
+
+  for (const p of periods) {
+    if (!p.open) continue;
+    if (p.open.day !== day) continue;
+    const openMin = parseInt(p.open.time.slice(0, 2), 10) * 60
+                  + parseInt(p.open.time.slice(2, 4), 10);
+    let closeMin;
+    if (p.close) {
+      closeMin = parseInt(p.close.time.slice(0, 2), 10) * 60
+               + parseInt(p.close.time.slice(2, 4), 10);
+      // 翌日にまたがる場合（例: 22:00〜02:00）は close を +24h
+      if (p.close.day !== p.open.day) closeMin += 24 * 60;
+    } else {
+      closeMin = 24 * 60; // close 情報なし → 1日中営業扱い
+    }
+    // [startMin, endMin] と [openMin, closeMin] が重なるか判定
+    if (Math.max(startMin, openMin) < Math.min(endMin, closeMin)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function _searchWithService(service, location) {
   // 教訓：
   //   - 旧 PlacesService.nearbySearch の `type` パラメータは現行 API では実質的に効かないことがあり、

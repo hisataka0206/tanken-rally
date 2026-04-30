@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=48';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=48';
-import { fetchOriginStory } from './utils/ai.js?v=48';
-import { generateMapPdf } from './utils/pdf.js?v=48';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=48';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=48';
-import { CITIES } from './data/cities.js?v=48';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=48';
-import { addReport as addIssueReport } from './utils/issues.js?v=48';
-import { applyI18n, LANG } from './utils/i18n.js?v=48';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=48';
+import { CONFIG } from '../config.js?v=49';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=49';
+import { fetchOriginStory } from './utils/ai.js?v=49';
+import { generateMapPdf } from './utils/pdf.js?v=49';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=49';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=49';
+import { CITIES } from './data/cities.js?v=49';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=49';
+import { addReport as addIssueReport } from './utils/issues.js?v=49';
+import { applyI18n, LANG } from './utils/i18n.js?v=49';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=49';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -788,9 +788,11 @@ async function onPhotoInputChange(e) {
           state.uploadedPhotos[idx] = {
             ...state.uploadedPhotos[idx],   // ローカル情報を保持（url, thumbnailUrl は blob:）
             fileId: result.fileId,          // Drive のファイルID で置き換え
-            driveUrl: result.url,           // Drive の表示URL
+            driveUrl: result.url,
             driveThumbnailUrl: result.thumbnailUrl,
-            takenAt: result.takenAt,
+            takenAt: result.takenAt,        // EXIF DateTimeOriginal が反映される
+            lat: result.lat ?? null,
+            lng: result.lng ?? null,
             uploading: false,
           };
         }
@@ -953,14 +955,25 @@ async function onResumeSession() {
       spotName: p.spotName || '',
       fileName: p.fileName || '',
       takenAt: p.takenAt || '',
+      lat: p.lat ?? null,
+      lng: p.lng ?? null,
       uploading: false,
     }));
     state.selectedPhotoIds.clear();
-    state.reportData = {
-      date: '', author: '', overview: '', afterword: '',
-      photoComments: {},
-      excludedPhotoIds: new Set(),
-    };
+    // Drive に保存されている過去のノートを取得（あれば）
+    let restoredReport = null;
+    try {
+      const r = await drive.loadReportData({ sessionId });
+      if (r && r.reportData) restoredReport = r.reportData;
+    } catch (e) {
+      console.warn('[resume] loadReportData failed:', e);
+    }
+    state.reportData = restoredReport
+      ? deserializeReportData(restoredReport)
+      : { date: '', author: '', overview: '', afterword: '', photoComments: {}, excludedPhotoIds: new Set() };
+    if (restoredReport) {
+      console.info('[resume] Driveから過去のノートを復元しました');
+    }
 
     // 5) STEP 4 ヘ：セッション情報を見やすく表示
     const info = $('photos-session-info');
@@ -1005,28 +1018,67 @@ async function onResumeSession() {
 
 // ===== スコア計算 & ランキング =====
 //
-// スコアの考え方：探検の濃さを定量化する。歩いた距離・写真・タグ・感想文・スポット数。
-// 子どもが達成感を持てるよう、ちょっと頑張れば 1000 点を超えるレンジに調整。
+// スコア構成（todo L45 に基づく8要素）：
+//   1. 移動距離            (km × 30)
+//   2. 写真の枚数          (× 10)
+//   3. タグ付き写真の枚数   (× 5)
+//   4. スポットの数         (× 100)
+//   5. 1時間以内であること   (200 ボーナス。実時間がEXIFで取れた場合に判定)
+//   6. コメントの総数        (× 20)
+//   7. コメントの文字数      (× 1, 上限500点)
+//   8. Google時間との一致度   (理想 0.8〜1.5x で200点)
 function calculateScore() {
   const visitCount = state.orderedSpots.length;
   const photos = state.uploadedPhotos.filter(p => !p.uploading);
   const photoCount = photos.length;
   const taggedPhotoCount = photos.filter(p => p.spotName).length;
-  const photoCommentCount = Object.values(state.reportData.photoComments || {})
-    .filter(c => (c || '').trim().length > 0).length;
+
+  // コメント関連（写真コメント + 感想文）
+  const photoComments = Object.values(state.reportData.photoComments || {})
+    .map(c => (c || '').trim())
+    .filter(c => c.length > 0);
+  const photoCommentCount = photoComments.length;
+  const photoCommentChars = photoComments.reduce((s, c) => s + c.length, 0);
   const overviewLen  = (state.reportData.overview  || '').trim().length;
   const afterwordLen = (state.reportData.afterword || '').trim().length;
-  const distanceM = state.routeStats?.distanceM || 0;
-  const distanceKm = distanceM / 1000;
+  const totalCommentChars = photoCommentChars + overviewLen + afterwordLen;
+
+  const distanceM   = state.routeStats?.distanceM   || 0;
+  const distanceKm  = distanceM / 1000;
+  const estimatedMin = state.routeStats?.durationMin || 0;
+
+  // 写真撮影時刻ベースの所要時間（最初〜最後の写真の差分）
+  const photoTimes = photos
+    .map(p => p.takenAt ? new Date(p.takenAt).getTime() : null)
+    .filter(t => t && !isNaN(t));
+  let actualMin = 0;
+  if (photoTimes.length >= 2) {
+    actualMin = (Math.max(...photoTimes) - Math.min(...photoTimes)) / 60000;
+  }
+
+  // 1時間以内ボーナス（実時間が取れていて、かつ <=60分）
+  const within60bonus = (actualMin > 0 && actualMin <= 60) ? 200 : 0;
+
+  // Google算出時間との比率（理想 0.8〜1.5）
+  let paceScore = 0;
+  let paceLabel = '計測なし';
+  if (estimatedMin > 0 && actualMin > 0) {
+    const ratio = actualMin / estimatedMin;
+    if (ratio >= 0.8 && ratio <= 1.5)        { paceScore = 200; paceLabel = `理想ペース (${ratio.toFixed(2)}x)`; }
+    else if (ratio >= 0.5 && ratio < 0.8)    { paceScore = 100; paceLabel = `すこし急ぎ (${ratio.toFixed(2)}x)`; }
+    else if (ratio > 1.5  && ratio <= 2.5)   { paceScore = 100; paceLabel = `すこしゆっくり (${ratio.toFixed(2)}x)`; }
+    else                                      { paceScore = 50;  paceLabel = `ペースずれ (${ratio.toFixed(2)}x)`; }
+  }
 
   const breakdown = {
-    '🏯 訪問スポット (×100)':       visitCount * 100,
-    '📷 写真 (×10)':                 photoCount * 10,
-    '📍 タグ付き写真 (×5)':          taggedPhotoCount * 5,
-    '💬 写真コメント (×20)':         photoCommentCount * 20,
-    '🌟 たんけんの感想':             overviewLen >= 30 ? 100 : (overviewLen > 0 ? 30 : 0),
-    '✏️ 振り返りの感想':             afterwordLen >= 30 ? 100 : (afterwordLen > 0 ? 30 : 0),
-    '🚶 歩いた距離 (km×30)':         Math.round(distanceKm * 30),
+    '🏯 訪問スポット (×100)':         visitCount * 100,
+    '📷 写真 (×10)':                   photoCount * 10,
+    '📍 タグ付き写真 (×5)':            taggedPhotoCount * 5,
+    '💬 コメント数 (×20)':             photoCommentCount * 20,
+    '✍️ コメント総文字数 (上限500)':   Math.min(totalCommentChars, 500),
+    '⏰ 1時間以内ボーナス':            within60bonus,
+    '🚶 歩いた距離 (km×30)':           Math.round(distanceKm * 30),
+    [`⏱ ペース: ${paceLabel}`]:        paceScore,
   };
   const total = Object.values(breakdown).reduce((a, b) => a + b, 0);
   return {
@@ -1035,6 +1087,8 @@ function calculateScore() {
     visitCount,
     photoCount,
     distanceM,
+    actualMin,
+    estimatedMin,
     reportWordCount: overviewLen + afterwordLen,
   };
 }
@@ -1134,6 +1188,53 @@ function showRankingPhase(myName, myScore, ranking) {
   }
   $('score-phase-input').classList.add('hidden');
   $('score-phase-ranking').classList.remove('hidden');
+}
+
+// reportData の JSON 直列化／復元（Setはそのままだと JSON にならないので配列で扱う）
+function serializeReportData(rd) {
+  return {
+    date: rd.date || '',
+    author: rd.author || '',
+    overview: rd.overview || '',
+    afterword: rd.afterword || '',
+    photoComments: rd.photoComments || {},
+    excludedPhotoIds: Array.from(rd.excludedPhotoIds || []),
+  };
+}
+function deserializeReportData(obj) {
+  return {
+    date: obj?.date || '',
+    author: obj?.author || '',
+    overview: obj?.overview || '',
+    afterword: obj?.afterword || '',
+    photoComments: obj?.photoComments || {},
+    excludedPhotoIds: new Set(obj?.excludedPhotoIds || []),
+  };
+}
+
+// ノートの状態を Drive へ保存（手動 + 「ノートを保存」ボタン）
+async function onSaveReportToDrive() {
+  if (!drive || !state.sessionId) {
+    alert('Drive 連携が無効です（GAS未設定）。レポートのDrive保存は使えません。');
+    return;
+  }
+  const btn = $('save-report-btn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '保存中…';
+  try {
+    await drive.saveReportData({
+      sessionId: state.sessionId,
+      reportData: serializeReportData(state.reportData),
+    });
+    btn.textContent = '✅ 保存しました';
+    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
+  } catch (e) {
+    console.error(e);
+    alert('Drive 保存に失敗しました: ' + (e.message || e));
+    btn.textContent = original;
+    btn.disabled = false;
+  }
 }
 
 // ===== STEP 5: レポート =====
@@ -1423,6 +1524,9 @@ $('tag-modal').addEventListener('click', e => {
 // STEP 5（レポート）
 $('back-to-photos').addEventListener('click', () => showStep('step-photos'));
 $('report-pdf-btn').addEventListener('click', onReportPdf);
+
+// ノートを Drive に保存
+$('save-report-btn').addEventListener('click', onSaveReportToDrive);
 
 // スコア＆ランキング
 $('submit-score-btn').addEventListener('click', openScoreModal);

@@ -32,6 +32,20 @@ export class DriveClient {
     return data; // { folderId, folderName, folderUrl, stationName, orderedSpots, routeStats, ... }
   }
 
+  /** たんけんノート（レポート編集状態）を Drive の report.json に保存 */
+  async saveReportData({ sessionId, reportData }) {
+    const data = await this._post({ action: 'saveReportData', sessionId, reportData });
+    if (!data.ok) throw new Error(data.error);
+    return data;
+  }
+
+  /** Drive の report.json を読み込む（無ければ reportData: null） */
+  async loadReportData({ sessionId }) {
+    const data = await this._post({ action: 'loadReportData', sessionId });
+    if (!data.ok) throw new Error(data.error);
+    return data; // { reportData }
+  }
+
   /** 探検開始時にセッションのメタデータを Sheet に保存 */
   async saveSession({ sessionId, stationName, playerName, folderUrl, orderedSpots, routeStats }) {
     const data = await this._post({
@@ -55,21 +69,23 @@ export class DriveClient {
     return data;
   }
 
-  /** 写真をアップロード */
+  /** 写真をアップロード（EXIF から撮影日時と GPS を抽出して送る） */
   async uploadPhoto({ folderId, file, spotName }) {
     const { base64, mimeType, fileName } = await fileToBase64(file);
-    const takenAt = extractExifDate(file) || new Date().toISOString();
+    const meta = await extractPhotoMeta(file);
     const data = await this._post({
       action: 'uploadPhoto',
       folderId,
       base64Data: base64,
       mimeType,
       fileName,
-      takenAt,
+      takenAt: meta.takenAt,
+      lat: meta.lat,
+      lng: meta.lng,
       spotName: spotName || '',
     });
     if (!data.ok) throw new Error(data.error);
-    return data; // { fileId, url, thumbnailUrl, takenAt, spotName }
+    return data; // { fileId, url, thumbnailUrl, takenAt, lat, lng, spotName }
   }
 
   /** フォルダ内の写真一覧を取得 */
@@ -114,12 +130,31 @@ function fileToBase64(file) {
   });
 }
 
-/** EXIF から撮影日時を取得（簡易版：ファイルの lastModified を使用）*/
-function extractExifDate(file) {
-  if (file.lastModified) {
-    return new Date(file.lastModified).toISOString();
+/**
+ * EXIF から撮影日時 (DateTimeOriginal) と GPS 座標 (latitude / longitude) を抽出。
+ * 取れない場合は file.lastModified にフォールバック、座標は null。
+ */
+async function extractPhotoMeta(file) {
+  let takenAt = null, lat = null, lng = null;
+  try {
+    if (typeof window !== 'undefined' && window.exifr) {
+      const exif = await window.exifr.parse(file, { gps: true, pick: ['DateTimeOriginal', 'CreateDate'] });
+      if (exif) {
+        const dt = exif.DateTimeOriginal || exif.CreateDate;
+        if (dt instanceof Date && !isNaN(dt.getTime())) takenAt = dt.toISOString();
+        if (typeof exif.latitude === 'number'  && !isNaN(exif.latitude))  lat = exif.latitude;
+        if (typeof exif.longitude === 'number' && !isNaN(exif.longitude)) lng = exif.longitude;
+      }
+    }
+  } catch (e) {
+    console.warn('[exifr] EXIF抽出失敗:', e);
   }
-  return null;
+  if (!takenAt) {
+    takenAt = file.lastModified
+      ? new Date(file.lastModified).toISOString()
+      : new Date().toISOString();
+  }
+  return { takenAt, lat, lng };
 }
 
 /** セッション ID を生成 */

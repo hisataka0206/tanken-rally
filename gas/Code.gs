@@ -54,6 +54,12 @@ function doPost(e) {
     if (action === 'loadSession') {
       return respond(headers, loadSession(body));
     }
+    if (action === 'saveReportData') {
+      return respond(headers, saveReportData(body));
+    }
+    if (action === 'loadReportData') {
+      return respond(headers, loadReportData(body));
+    }
     if (action === 'uploadPhoto') {
       return respond(headers, uploadPhoto(body));
     }
@@ -135,13 +141,7 @@ function resumeSession(body) {
   try {
     const { sessionId } = body;
     if (!sessionId) return { ok: false, error: 'sessionId が必要です' };
-    const root = getRootFolder();
-    const folders = root.getFolders();
-    let folder = null;
-    while (folders.hasNext()) {
-      const f = folders.next();
-      if (f.getName().endsWith('_' + sessionId)) { folder = f; break; }
-    }
+    const folder = findSessionFolder(sessionId);
     if (!folder) {
       return { ok: false, error: 'セッションフォルダが見つかりません。IDを確認してください（古いセッションは7日で自動削除されます）。' };
     }
@@ -259,6 +259,58 @@ function loadSession(body) {
   }
 }
 
+/** sessionId から該当のセッションフォルダを探す（共通ヘルパ） */
+function findSessionFolder(sessionId) {
+  const root = getRootFolder();
+  const folders = root.getFolders();
+  while (folders.hasNext()) {
+    const f = folders.next();
+    if (f.getName().endsWith('_' + sessionId)) return f;
+  }
+  return null;
+}
+
+/** たんけんノート（レポート編集状態）をセッションフォルダの report.json に保存 */
+function saveReportData(body) {
+  try {
+    const { sessionId, reportData } = body;
+    if (!sessionId)   return { ok: false, error: 'sessionId が必要です' };
+    if (!reportData)  return { ok: false, error: 'reportData が必要です' };
+    const folder = findSessionFolder(sessionId);
+    if (!folder) return { ok: false, error: 'セッションフォルダが見つかりません' };
+
+    // 既存の report.json があれば trash → 新規作成
+    const existing = folder.getFilesByName('report.json');
+    while (existing.hasNext()) existing.next().setTrashed(true);
+
+    const content = JSON.stringify(reportData, null, 2);
+    const file = folder.createFile('report.json', content, 'application/json');
+    return { ok: true, fileId: file.getId(), savedAt: new Date().toISOString() };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** report.json を読み込んで返す。無ければ reportData: null */
+function loadReportData(body) {
+  try {
+    const { sessionId } = body;
+    if (!sessionId) return { ok: false, error: 'sessionId が必要です' };
+    const folder = findSessionFolder(sessionId);
+    if (!folder) return { ok: false, error: 'セッションフォルダが見つかりません' };
+
+    const files = folder.getFilesByName('report.json');
+    if (!files.hasNext()) return { ok: true, reportData: null };
+    const file = files.next();
+    const content = file.getBlob().getDataAsString();
+    let reportData = null;
+    try { reportData = JSON.parse(content); } catch (_) {}
+    return { ok: true, reportData };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
 /** ユーザーからの不具合報告を Sheet に保存 */
 function saveIssueReport(body) {
   try {
@@ -283,9 +335,9 @@ function saveIssueReport(body) {
   }
 }
 
-/** 写真をDriveに保存 */
+/** 写真をDriveに保存（撮影時刻・GPS座標も保存） */
 function uploadPhoto(body) {
-  const { folderId, fileName, base64Data, mimeType, takenAt, spotName } = body;
+  const { folderId, fileName, base64Data, mimeType, takenAt, spotName, lat, lng } = body;
   if (!folderId || !base64Data) return { ok: false, error: 'folderId と base64Data が必要です' };
 
   const folder = DriveApp.getFolderById(folderId);
@@ -296,8 +348,13 @@ function uploadPhoto(body) {
   );
   const file = folder.createFile(blob);
 
-  // メタデータをプロパティに保存（撮影時刻・スポット名）
-  file.setDescription(JSON.stringify({ takenAt, spotName: spotName || '' }));
+  // メタデータをプロパティに保存（撮影時刻・スポット名・GPS）
+  file.setDescription(JSON.stringify({
+    takenAt,
+    spotName: spotName || '',
+    lat: (lat == null) ? null : Number(lat),
+    lng: (lng == null) ? null : Number(lng),
+  }));
 
   // 共有リンクを公開に設定（プレビュー用）
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -310,6 +367,8 @@ function uploadPhoto(body) {
     thumbnailUrl: `https://drive.google.com/thumbnail?id=${file.getId()}&sz=w400`,
     takenAt,
     spotName,
+    lat,
+    lng,
   };
 }
 
@@ -333,6 +392,8 @@ function listPhotos(body) {
       thumbnailUrl: `https://drive.google.com/thumbnail?id=${file.getId()}&sz=w400`,
       takenAt: meta.takenAt || null,
       spotName: meta.spotName || '',
+      lat: (meta.lat == null) ? null : Number(meta.lat),
+      lng: (meta.lng == null) ? null : Number(meta.lng),
     });
   }
 

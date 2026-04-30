@@ -26,6 +26,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <!-- html2canvas (地図スクリーンショット→PDF) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- exifr (写真の EXIF: 撮影日時 + GPS座標を抽出) -->
+  <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/lite.umd.js"></script>
 </head>
 <body>
 
@@ -220,6 +222,7 @@
         <div class="step-actions">
           <button id="back-to-photos" class="btn-secondary" data-i18n="btnBackPhotos">← 写真にもどる</button>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button id="save-report-btn" class="btn-secondary" data-i18n="btnSaveReport">💾 ノートを保存</button>
             <button id="submit-score-btn" class="btn-secondary" data-i18n="btnSubmitScore">🏆 スコアを記録</button>
             <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf">📄 ノートをPDF（B3）で出力</button>
           </div>
@@ -332,6 +335,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=48"></script>
+  <script type="module" src="src/main.js?v=49"></script>
 </body>
 </html>

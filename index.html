@@ -10,7 +10,7 @@
     HTTPS→HTTPS 間ではフル URL を送信する。
   -->
   <meta name="referrer" content="no-referrer-when-downgrade">
-  <title>たんけんラリー</title>
+  <title data-i18n="appTitle">たんけんラリー</title>
 
   <!-- 子供向け手書き風フォント (Google Fonts):
        - Yusei Magic: 元気でやわらかい手書き風（タイトル用）
@@ -47,7 +47,7 @@
         <h2 class="step-title"><span class="step-num">1</span> <span data-i18n="step1Title">探検する駅をえらぼう</span></h2>
 
         <!-- 免責 -->
-        <p class="disclaimer">
+        <p class="disclaimer" data-i18n-html="disclaimer">
           ⚠️ <strong>すべての駅で適切なルートが確保できていることを確約していません。</strong>
           スポットが少なかったり、目安時間（約60分）に収まらないこともあります。気になったら別の駅も試してみてね。
         </p>
@@ -55,13 +55,13 @@
         <!-- 前回の続きを開く（セッションID入力） -->
         <details class="resume-section">
           <summary data-i18n="resumeSummary">🔑 前回のたんけんを開く（パスワード入力）</summary>
-          <p class="resume-hint">
+          <p class="resume-hint" data-i18n-html="resumeHint">
             前回の探検時に Drive 上に作成されたフォルダ名の末尾にあるランダムな文字列（例：<code>lwgvzs6b9k2</code>）を入力すると、
             そのときの写真を読み込んで「たんけんノート」の続きが書けます。
           </p>
           <div class="resume-form">
-            <input id="resume-session-input" type="text" placeholder="セッションID を貼り付け..." autocomplete="off" />
-            <button id="resume-session-btn" class="btn-secondary">前回を開く →</button>
+            <input id="resume-session-input" type="text" data-i18n-placeholder="resumeInputPh" placeholder="セッションID を貼り付け..." autocomplete="off" />
+            <button id="resume-session-btn" class="btn-secondary" data-i18n="btnResume">前回を開く →</button>
           </div>
           <div id="resume-error" class="error-msg hidden"></div>
         </details>
@@ -72,15 +72,15 @@
         <!-- 都市選択 → 路線/駅セレクタ -->
         <div id="city-selector" class="city-selector hidden">
           <div class="selector-row">
-            <label>路線</label>
+            <label data-i18n="labelLine">路線</label>
             <select id="line-select">
-              <option value="">── 路線をえらんでね ──</option>
+              <option value="" data-i18n="optLineEmpty">── 路線をえらんでね ──</option>
             </select>
           </div>
           <div class="selector-row">
-            <label>駅</label>
+            <label data-i18n="labelStation">駅</label>
             <select id="station-select" disabled>
-              <option value="">── 先に路線をえらんでね ──</option>
+              <option value="" data-i18n="optStationEmpty">── 先に路線をえらんでね ──</option>
             </select>
           </div>
           <div class="step-actions">
@@ -94,6 +94,7 @@
             <input
               id="station-input"
               type="text"
+              data-i18n-placeholder="stationInputPh"
               placeholder="例：高円寺、鎌倉、浅草 ..."
               autocomplete="off"
             />
@@ -106,7 +107,7 @@
         <!-- 詳細絞り込み（任意・日時で営業時間フィルタ） -->
         <details class="filter-section">
           <summary data-i18n="filterSummary">🔍 詳細絞り込み（任意）</summary>
-          <p class="filter-hint">
+          <p class="filter-hint" data-i18n-html="filterHint">
             探検する日時を入れると、<strong>その時間に開いていないお店や施設は結果から自動で除外</strong>します。
           </p>
           <div class="filter-form">
@@ -117,7 +118,7 @@
             <label for="filter-end-time" data-i18n="filterEnd">⏰ 終了</label>
             <input type="time" id="filter-end-time" value="17:00" />
           </div>
-          <p class="filter-disclaimer">
+          <p class="filter-disclaimer" data-i18n-html="filterDisclaimer">
             ⚠️ 営業時間情報は <strong>Google マップが提供する情報に依存</strong>しており、
             正確性を保証するものではありません。実際にお出かけする前に、お店や施設の
             公式サイト・電話などで営業時間を必ずご確認ください。
@@ -152,10 +153,10 @@
         <div id="photos-session-info" class="session-info"></div>
         <div class="photo-upload-area">
           <label for="photo-input" class="photo-upload-btn">
-            📷 写真を撮る / 選ぶ
+            <span data-i18n="photoUploadLabel">📷 写真を撮る / 選ぶ</span>
             <input id="photo-input" type="file" accept="image/*" capture="environment" multiple hidden />
           </label>
-          <p class="photo-hint">💡 撮影あとに写真をタップして、場所のタグ（任意）を付けられるよ。</p>
+          <p class="photo-hint" data-i18n="photoHint">💡 撮影あとに写真をタップして、場所のタグ（任意）を付けられるよ。</p>
         </div>
         <div id="upload-progress" class="upload-progress hidden"></div>
         <div id="photos-grid" class="photos-grid"></div>
@@ -171,7 +172,7 @@
     <section id="step-report" class="step hidden">
       <div class="card">
         <h2 class="step-title"><span class="step-num">5</span> <span data-i18n="step5Title">たんけんノートをつくろう</span></h2>
-        <p class="report-intro">
+        <p class="report-intro" data-i18n="reportIntro">
           ✏️ 自分のことばで、感じたこと・見つけたこと・気になったことを書いてみよう。
           PDFにして印刷すると、B3ポスターサイズのたんけんノートになるよ。
         </p>
@@ -179,32 +180,33 @@
         <div id="report-editor" class="report-editor">
           <div class="report-page">
             <header class="report-page-header">
-              <h1 class="report-title">🗺 たんけんノート</h1>
+              <h1 class="report-title" data-i18n="reportTitleH1">🗺 たんけんノート</h1>
               <div class="report-meta-row">
                 <div class="report-meta">
-                  <label>📅 たんけん日</label>
+                  <label data-i18n="reportDate">📅 たんけん日</label>
                   <input type="text" id="report-date" />
                 </div>
                 <div class="report-meta">
-                  <label>✏️ きろくした人</label>
-                  <input type="text" id="report-author" placeholder="（あなたの名前）" />
+                  <label data-i18n="reportAuthor">✏️ きろくした人</label>
+                  <input type="text" id="report-author" data-i18n-placeholder="reportAuthorPh" placeholder="（あなたの名前）" />
                 </div>
                 <div class="report-meta">
-                  <label>🚉 たんけんした駅</label>
+                  <label data-i18n="reportStation">🚉 たんけんした駅</label>
                   <span id="report-station" class="report-meta-static"></span>
                 </div>
               </div>
             </header>
 
             <section class="report-section">
-              <h3>🌟 たんけんを終えて思ったこと</h3>
+              <h3 data-i18n="reportSecOverview">🌟 たんけんを終えて思ったこと</h3>
               <textarea id="report-overview" rows="5"
+                data-i18n-placeholder="reportOverviewPh"
                 placeholder="ここに自由に感想を書こう。一番たのしかったこと、びっくりしたこと、気になったこと…"></textarea>
             </section>
 
             <section class="report-section">
-              <h3>📷 とった写真と思い出</h3>
-              <p class="report-hint">
+              <h3 data-i18n="reportSecPhotos">📷 とった写真と思い出</h3>
+              <p class="report-hint" data-i18n="reportPhotosHint">
                 行った順に並べてあるよ。ノートに載せたくない写真は STEP 4 で外しておこう。
                 写真ごとに思ったこと・気づいたことを書きこめます（任意）。
               </p>
@@ -212,8 +214,9 @@
             </section>
 
             <section class="report-section">
-              <h3>✏️ ノートを書いてみて</h3>
+              <h3 data-i18n="reportSecAfterword">✏️ ノートを書いてみて</h3>
               <textarea id="report-afterword" rows="4"
+                data-i18n-placeholder="reportAfterwordPh"
                 placeholder="ノートを書いてみて、新しく気づいたことや、もっと知りたくなったことがあれば書こう"></textarea>
             </section>
           </div>
@@ -234,32 +237,32 @@
     <div id="score-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="score-modal-title">
       <div class="modal-backdrop" data-action="close"></div>
       <div class="modal-content modal-content-wide">
-        <h3 id="score-modal-title">🏆 たんけんスコア</h3>
+        <h3 id="score-modal-title" data-i18n="scoreModalTitle">🏆 たんけんスコア</h3>
 
         <!-- フェーズ1: スコア表示 + 名前入力（内訳・係数は秘匿） -->
         <div id="score-phase-input">
           <div id="score-total" class="score-total">0 点</div>
           <p id="score-rank-label" class="score-rank-label"></p>
           <label class="score-name-label">
-            ✏️ 名前（ニックネームでもOK）
-            <input id="score-player-name" type="text" placeholder="（探検者の名前）" maxlength="30" />
+            <span data-i18n="scoreNameLabel">✏️ 名前（ニックネームでもOK）</span>
+            <input id="score-player-name" type="text" data-i18n-placeholder="scoreNamePh" placeholder="（探検者の名前）" maxlength="30" />
           </label>
-          <p class="modal-desc">
-            ランキングに登録すると、同じ駅で探検した他の人と点数を比べられます。
+          <p class="modal-desc" data-i18n="scoreDesc">
+            ランキングに登録すると、同じ地域で探検した他の人と点数を比べられます。
           </p>
           <div class="modal-actions">
-            <button class="btn-secondary" data-action="close">閉じる</button>
-            <button id="score-submit-btn" class="btn-primary">ランキングに送信 →</button>
+            <button class="btn-secondary" data-action="close" data-i18n="btnClose">閉じる</button>
+            <button id="score-submit-btn" class="btn-primary" data-i18n="btnSubmitRanking">ランキングに送信 →</button>
           </div>
         </div>
 
         <!-- フェーズ2: 送信後のランキング表示 -->
         <div id="score-phase-ranking" class="hidden">
           <p id="score-rank-message" class="score-rank-message"></p>
-          <h4 class="ranking-title">🏆 <span id="ranking-station-name"></span> ランキング (上位10名)</h4>
+          <h4 class="ranking-title" data-i18n-html="rankingTitle">🏆 <span id="ranking-station-name"></span> ランキング (上位10名)</h4>
           <ol id="ranking-list" class="ranking-list"></ol>
           <div class="modal-actions">
-            <button class="btn-primary" data-action="close">閉じる</button>
+            <button class="btn-primary" data-action="close" data-i18n="btnClose">閉じる</button>
           </div>
         </div>
       </div>
@@ -275,26 +278,27 @@
     <div id="issue-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="issue-modal-title">
       <div class="modal-backdrop" data-action="close"></div>
       <div class="modal-content modal-content-wide">
-        <h3 id="issue-modal-title">🐛 不具合を報告</h3>
-        <p class="modal-desc">
+        <h3 id="issue-modal-title" data-i18n="issueTitle">🐛 不具合を報告</h3>
+        <p class="modal-desc" data-i18n-html="issueDesc">
           困ったことや、おかしな動きがあったら教えてください。<br />
           開発者がこの情報をもとに、ちょっとずつ良くしていきます。
         </p>
         <div class="issue-types">
-          <label><input type="checkbox" data-issue-type="station-location" /> 駅の位置がおかしい（別の場所に飛んだ）</label>
-          <label><input type="checkbox" data-issue-type="spots-bad" /> スポットの内容が不適切・少なすぎる</label>
-          <label><input type="checkbox" data-issue-type="route-weird" /> ルートが変（遠回り・通れない道など）</label>
-          <label><input type="checkbox" data-issue-type="streetview-empty" /> ストリートビュー写真が出ない</label>
-          <label><input type="checkbox" data-issue-type="pdf-broken" /> PDFが正しく出力されない</label>
-          <label><input type="checkbox" data-issue-type="photo-upload" /> 写真のアップロード・タグがおかしい</label>
-          <label><input type="checkbox" data-issue-type="report-edit" /> たんけんノートの編集で困った</label>
-          <label><input type="checkbox" data-issue-type="other" /> その他</label>
+          <label><input type="checkbox" data-issue-type="station-location" /> <span data-i18n="issueT_stationLocation">駅の位置がおかしい（別の場所に飛んだ）</span></label>
+          <label><input type="checkbox" data-issue-type="spots-bad" /> <span data-i18n="issueT_spotsBad">スポットの内容が不適切・少なすぎる</span></label>
+          <label><input type="checkbox" data-issue-type="route-weird" /> <span data-i18n="issueT_routeWeird">ルートが変（遠回り・通れない道など）</span></label>
+          <label><input type="checkbox" data-issue-type="streetview-empty" /> <span data-i18n="issueT_streetviewEmpty">ストリートビュー写真が出ない</span></label>
+          <label><input type="checkbox" data-issue-type="pdf-broken" /> <span data-i18n="issueT_pdfBroken">PDFが正しく出力されない</span></label>
+          <label><input type="checkbox" data-issue-type="photo-upload" /> <span data-i18n="issueT_photoUpload">写真のアップロード・タグがおかしい</span></label>
+          <label><input type="checkbox" data-issue-type="report-edit" /> <span data-i18n="issueT_reportEdit">たんけんノートの編集で困った</span></label>
+          <label><input type="checkbox" data-issue-type="other" /> <span data-i18n="issueT_other">その他</span></label>
         </div>
         <textarea id="issue-detail" rows="4"
+          data-i18n-placeholder="issueDetailPh"
           placeholder="詳しく書きたい場合はこちらに自由に記入してください（任意）"></textarea>
         <div class="modal-actions">
-          <button class="btn-secondary" data-action="close">キャンセル</button>
-          <button id="issue-submit-btn" class="btn-primary">送信</button>
+          <button class="btn-secondary" data-action="close" data-i18n="btnCancel">キャンセル</button>
+          <button id="issue-submit-btn" class="btn-primary" data-i18n="btnSubmit">送信</button>
         </div>
       </div>
     </div>
@@ -303,14 +307,14 @@
     <div id="tag-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="tag-modal-title">
       <div class="modal-backdrop" data-action="close"></div>
       <div class="modal-content">
-        <h3 id="tag-modal-title">📍 タグをつける</h3>
-        <p class="modal-desc">この写真を撮った場所を選んでね（任意）。</p>
+        <h3 id="tag-modal-title" data-i18n="tagModalTitle">📍 タグをつける</h3>
+        <p class="modal-desc" data-i18n="tagModalDesc">この写真を撮った場所を選んでね（任意）。</p>
         <select id="tag-modal-select" class="spot-select">
-          <option value="">── タグなし ──</option>
+          <option value="" data-i18n="tagModalEmpty">── タグなし ──</option>
         </select>
         <div class="modal-actions">
-          <button class="btn-secondary" data-action="close">キャンセル</button>
-          <button id="tag-modal-save" class="btn-primary">保存</button>
+          <button class="btn-secondary" data-action="close" data-i18n="btnCancel">キャンセル</button>
+          <button id="tag-modal-save" class="btn-primary" data-i18n="btnSave">保存</button>
         </div>
       </div>
     </div>
@@ -335,6 +339,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=51"></script>
+  <script type="module" src="src/main.js?v=52"></script>
 </body>
 </html>

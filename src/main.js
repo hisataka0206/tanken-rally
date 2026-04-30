@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=51';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=51';
-import { fetchOriginStory } from './utils/ai.js?v=51';
-import { generateMapPdf } from './utils/pdf.js?v=51';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=51';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=51';
-import { CITIES } from './data/cities.js?v=51';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=51';
-import { addReport as addIssueReport } from './utils/issues.js?v=51';
-import { applyI18n, LANG } from './utils/i18n.js?v=51';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=51';
+import { CONFIG } from '../config.js?v=52';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=52';
+import { fetchOriginStory } from './utils/ai.js?v=52';
+import { generateMapPdf } from './utils/pdf.js?v=52';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=52';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=52';
+import { CITIES } from './data/cities.js?v=52';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=52';
+import { addReport as addIssueReport } from './utils/issues.js?v=52';
+import { applyI18n, LANG, t } from './utils/i18n.js?v=52';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=52';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -75,7 +75,7 @@ function selectCity(cityId, opts = {}) {
   // 路線 select 構築
   const city = CITIES.find(c => c.id === cityId);
   const lineSel = $('line-select');
-  lineSel.innerHTML = '<option value="">── 路線をえらんでね ──</option>';
+  lineSel.innerHTML = `<option value="">${t('optLineEmpty')}</option>`;
   city.lines.forEach((line, i) => {
     const opt = document.createElement('option');
     opt.value = String(i);
@@ -84,14 +84,14 @@ function selectCity(cityId, opts = {}) {
   });
   // 駅 select はリセット
   const stationSel = $('station-select');
-  stationSel.innerHTML = '<option value="">── 先に路線をえらんでね ──</option>';
+  stationSel.innerHTML = `<option value="">${t('optStationEmpty')}</option>`;
   stationSel.disabled = true;
   $('search-by-select-btn').disabled = true;
 
   // 路線変更ハンドラ
   lineSel.onchange = () => {
     const idx = lineSel.value;
-    stationSel.innerHTML = '<option value="">── 駅をえらんでね ──</option>';
+    stationSel.innerHTML = `<option value="">${t('optStationPick')}</option>`;
     if (idx === '') {
       stationSel.disabled = true;
       $('search-by-select-btn').disabled = true;
@@ -343,7 +343,7 @@ function renderSpotsList(map) {
       <div class="spot-info">
         <div class="spot-name">${spot.name}${spot.recommended ? ' <span class="spot-badge">必ず1つ</span>' : ''}</div>
         <span class="spot-category ${cat.cls}">${cat.icon} ${cat.label}</span>
-        <div class="spot-desc">📏 駅から ${distLabel} ・ ${spot.address || ''}</div>
+        <div class="spot-desc">📏 ${t('distanceFromStation')} ${distLabel} ・ ${spot.address || ''}</div>
       </div>
       <button class="spot-delete" type="button" title="この場所を結果から削除（次回以降も非表示）" aria-label="削除">🗑</button>
     `;
@@ -864,13 +864,16 @@ function updatePhotosCount() {
   const excluded = state.reportData.excludedPhotoIds.size;
   const included = total - excluded;
   if (total === 0) {
-    $('photos-count').textContent = '0枚';
+    $('photos-count').textContent = `0${t('suffPhotos')}`;
     return;
   }
   const tagged = state.uploadedPhotos.filter(p => p.spotName).length;
-  let txt = `${total}枚`;
-  if (excluded > 0) txt += `（ノートに載せる: ${included}枚）`;
-  else if (tagged > 0) txt += `（うち${tagged}枚にタグあり）`;
+  let txt = `${total}${t('suffPhotos')}`;
+  if (excluded > 0) {
+    txt = `${total}${t('suffPhotosIncluded').replace('{n}', included)}`;
+  } else if (tagged > 0) {
+    txt = `${total}${t('suffPhotosTagged').replace('{n}', tagged)}`;
+  }
   $('photos-count').textContent = txt;
 }
 
@@ -1144,7 +1147,7 @@ function scoreMoodLabel(score) {
 
 function openScoreModal() {
   const result = calculateScore();
-  $('score-total').textContent = `${result.total} 点`;
+  $('score-total').textContent = `${result.total}${t('suffPoints')}`;
   $('score-rank-label').textContent = scoreMoodLabel(result.total);
 
   $('score-player-name').value = state.reportData.author || '';

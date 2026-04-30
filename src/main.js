@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=54';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=54';
-import { fetchOriginStory } from './utils/ai.js?v=54';
-import { generateMapPdf } from './utils/pdf.js?v=54';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=54';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=54';
-import { CITIES, localizeStationName } from './data/cities.js?v=54';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=54';
-import { addReport as addIssueReport } from './utils/issues.js?v=54';
-import { applyI18n, LANG, t } from './utils/i18n.js?v=54';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=54';
+import { CONFIG } from '../config.js?v=55';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=55';
+import { fetchOriginStory } from './utils/ai.js?v=55';
+import { generateMapPdf } from './utils/pdf.js?v=55';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=55';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=55';
+import { CITIES, localizeStationName } from './data/cities.js?v=55';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=55';
+import { addReport as addIssueReport } from './utils/issues.js?v=55';
+import { applyI18n, LANG, t } from './utils/i18n.js?v=55';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=55';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -578,18 +578,17 @@ function renderRouteStepUI() {
   $('route-info').innerHTML = `
     ${overLimit ? `
       <div class="route-warning">
-        ⚠️ <strong>このコースは約${durationMin}分かかります。</strong>
-        1時間以内が目安だよ。スポットを減らすか、別の駅で試してみよう！
+        ${t('routeWarningTpl').replace('{n}', durationMin)}
         <div class="route-warning-actions">
-          <button id="warn-back-spots" class="btn-secondary">スポットを減らす</button>
-          <button id="warn-back-station" class="btn-secondary">別の駅にする</button>
+          <button id="warn-back-spots" class="btn-secondary">${escapeHtml(t('btnReduceSpots'))}</button>
+          <button id="warn-back-station" class="btn-secondary">${escapeHtml(t('btnDifferentStation'))}</button>
         </div>
       </div>
     ` : ''}
     <div class="route-stats">
-      <div><span>総距離</span><br/><strong>${distanceText}</strong></div>
-      <div><span>推定時間</span><br/><strong>約${durationMin}分</strong></div>
-      <div><span>スポット数</span><br/><strong>${state.orderedSpots.length}件</strong></div>
+      <div><span>${escapeHtml(t('statsTotalDistance'))}</span><br/><strong>${distanceText}</strong></div>
+      <div><span>${escapeHtml(t('statsEstTime'))}</span><br/><strong>${escapeHtml(t('approxMin').replace('{n}', durationMin))}</strong></div>
+      <div><span>${escapeHtml(t('statsSpotCount'))}</span><br/><strong>${state.orderedSpots.length}${escapeHtml(t('suffSpots'))}</strong></div>
     </div>
   `;
   if (overLimit) {
@@ -601,18 +600,25 @@ function renderRouteStepUI() {
     });
   }
 
+  // 駅名（EN モードでは Romanji 化）
+  const localStationName = localizeStationName(state.stationName, LANG);
+
   // スポット順リスト（駅 → スポット1 → ... → 駅 のループ、区間時間付き）
   const legs = state.directionsResult.routes[0].legs;
-  const legHtml = (leg) => `
-    <div class="route-leg">
-      <span class="leg-icon">🚶</span>
-      <span>約 ${Math.max(1, Math.round(leg.duration.value / 60))}分・${leg.distance.text}</span>
-    </div>`;
+  const legHtml = (leg) => {
+    const min = Math.max(1, Math.round(leg.duration.value / 60));
+    const dist = leg.distance.text;
+    return `
+      <div class="route-leg">
+        <span class="leg-icon">🚶</span>
+        <span>${escapeHtml(t('approxMinKm').replace('{min}', min).replace('{km}', dist))}</span>
+      </div>`;
+  };
   const parts = [];
   parts.push(`
     <div class="route-spot-item route-station">
       <span class="route-spot-num start">S</span>
-      <span>🚉 <strong>${state.stationName}駅</strong>（スタート）</span>
+      <span>${t('routeFlowStart').replace('{name}', escapeHtml(localStationName))}</span>
     </div>`);
   state.orderedSpots.forEach((s, i) => {
     const cat = CAT[s.category] || CAT.other;
@@ -620,7 +626,7 @@ function renderRouteStepUI() {
     parts.push(`
       <div class="route-spot-item">
         <span class="route-spot-num">${i + 1}</span>
-        <span>${cat.icon} <strong>${s.name}</strong> — ${s.address || ''}</span>
+        <span>${cat.icon} <strong>${escapeHtml(s.name)}</strong> — ${escapeHtml(s.address || '')}</span>
       </div>`);
   });
   const lastLeg = legs[legs.length - 1];
@@ -628,7 +634,7 @@ function renderRouteStepUI() {
   parts.push(`
     <div class="route-spot-item route-station">
       <span class="route-spot-num goal">G</span>
-      <span>🚉 <strong>${state.stationName}駅</strong>（ゴール）</span>
+      <span>${t('routeFlowGoal').replace('{name}', escapeHtml(localStationName))}</span>
     </div>`);
   $('route-spots').innerHTML = parts.join('');
 }

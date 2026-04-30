@@ -156,6 +156,42 @@ const TRANSLATIONS = {
 
     // 地名由来プレフィックス
     originStoryPrefix: '🗣️ たんけん博士より：',
+
+    // STEP 3 統計
+    statsTotalDistance: '総距離',
+    statsEstTime: '推定時間',
+    statsSpotCount: 'スポット数',
+    suffSpots: '件',
+    approxMin: '約{n}分',          // "約30分"
+    approxMinKm: '約 {min}分・{km}', // 区間
+    approxMinDot: '約 {min}分',
+    legAboutMin: '約{n}分',
+    routeWarningTpl: '⚠️ <strong>このコースは約{n}分かかります。</strong> 1時間以内が目安だよ。スポットを減らすか、別の駅で試してみよう！',
+    btnReduceSpots: 'スポットを減らす',
+    btnDifferentStation: '別の駅にする',
+    routeFlowStart: '🚉 <strong>{name}駅</strong>（スタート）',
+    routeFlowGoal:  '🚉 <strong>{name}駅</strong>（ゴール）',
+
+    // PDF (地図PDF)
+    pdfStationLabel: '{name} 探検マップ',
+    pdfSecRoute: 'たんけんルート',
+    pdfSecTurnpoints: '曲がるところ・目印',
+    pdfTurnHint: 'ストリートビューの写真を目印にしてね。実際の景色とすこし違うこともあります。',
+    pdfFlowStart: '🚉 <strong>{name}駅</strong>（スタート）',
+    pdfFlowGoal:  '🚉 <strong>{name}駅</strong>（ゴール）',
+    pdfStartCardTitle: '{name}駅',
+    pdfStartCardSubtitle: 'スタート — ここから探検をはじめよう',
+    pdfGoalCardTitle: '{name}駅',
+    pdfGoalCardSubtitle: 'ゴール — おつかれさま！',
+    pdfNextDirection: '→ 次は{name}方面',
+    pdfFooter: 'たんけんラリー — {name} 探検マップ',
+    pdfNoTurns: '曲がる場所はありません。まっすぐ進んでね。',
+    pdfNoApiKey: '（地図画像はAPIキー未設定のため省略）',
+
+    // 進捗ラベル / 単位
+    suffMin: '分',
+    suffKm: 'km',
+    suffM: 'm',
   },
 
 
@@ -284,6 +320,40 @@ const TRANSLATIONS = {
     statusSavedReport: '✅ Saved',
 
     originStoryPrefix: '🗣️ From Explorer Doctor: ',
+
+    // STEP 3 統計
+    statsTotalDistance: 'Total distance',
+    statsEstTime: 'Estimated time',
+    statsSpotCount: 'Spots',
+    suffSpots: '',
+    approxMin: '~ {n} min',
+    approxMinKm: '~ {min} min · {km}',
+    approxMinDot: '~ {min} min',
+    legAboutMin: '~ {n} min',
+    routeWarningTpl: '⚠️ <strong>This route takes about {n} minutes.</strong> 60 min is the target. Try removing spots, or pick another station!',
+    btnReduceSpots: 'Remove spots',
+    btnDifferentStation: 'Pick another station',
+    routeFlowStart: '🚉 <strong>{name} Sta.</strong> (Start)',
+    routeFlowGoal:  '🚉 <strong>{name} Sta.</strong> (Goal)',
+
+    pdfStationLabel: '{name} Exploration Map',
+    pdfSecRoute: 'Exploration Route',
+    pdfSecTurnpoints: 'Turn points & Landmarks',
+    pdfTurnHint: 'Use the Street View photos as landmarks. The actual scenery may differ slightly.',
+    pdfFlowStart: '🚉 <strong>{name} Sta.</strong> (Start)',
+    pdfFlowGoal:  '🚉 <strong>{name} Sta.</strong> (Goal)',
+    pdfStartCardTitle: '{name} Sta.',
+    pdfStartCardSubtitle: 'Start — let your exploration begin here',
+    pdfGoalCardTitle: '{name} Sta.',
+    pdfGoalCardSubtitle: 'Goal — well done!',
+    pdfNextDirection: '→ next: toward {name}',
+    pdfFooter: 'Tanken Rally — {name} Exploration Map',
+    pdfNoTurns: 'No turns. Go straight ahead.',
+    pdfNoApiKey: '(Map image omitted: API key not set)',
+
+    suffMin: ' min',
+    suffKm: 'km',
+    suffM: 'm',
   },
 
 
@@ -412,6 +482,39 @@ const TRANSLATIONS = {
     statusSavedReport: '✅ 保存（ほぞん）しました',
 
     originStoryPrefix: '🗣️ たんけん博士（はかせ）より：',
+
+    statsTotalDistance: '総距離（そうきょり）',
+    statsEstTime: '推定時間（すいていじかん）',
+    statsSpotCount: 'スポット数（すう）',
+    suffSpots: '件（けん）',
+    approxMin: '約（やく）{n}分',
+    approxMinKm: '約（やく） {min}分・{km}',
+    approxMinDot: '約（やく） {min}分',
+    legAboutMin: '約（やく）{n}分',
+    routeWarningTpl: '⚠️ <strong>このコースは約（やく）{n}分かかります。</strong> 1時間（じかん）以内（いない）が目安（めやす）だよ。スポットを減（へ）らすか、別（べつ）の駅でためしてみよう！',
+    btnReduceSpots: 'スポットを減（へ）らす',
+    btnDifferentStation: '別（べつ）の駅にする',
+    routeFlowStart: '🚉 <strong>{name}駅</strong>（スタート）',
+    routeFlowGoal:  '🚉 <strong>{name}駅</strong>（ゴール）',
+
+    pdfStationLabel: '{name} 探検（たんけん）マップ',
+    pdfSecRoute: 'たんけんルート',
+    pdfSecTurnpoints: '曲（ま）がるところ・目印（めじるし）',
+    pdfTurnHint: 'ストリートビューの写真（しゃしん）を目印（めじるし）にしてね。実際（じっさい）の景色（けしき）とすこし違（ちが）うこともあります。',
+    pdfFlowStart: '🚉 <strong>{name}駅</strong>（スタート）',
+    pdfFlowGoal:  '🚉 <strong>{name}駅</strong>（ゴール）',
+    pdfStartCardTitle: '{name}駅',
+    pdfStartCardSubtitle: 'スタート — ここから探検（たんけん）をはじめよう',
+    pdfGoalCardTitle: '{name}駅',
+    pdfGoalCardSubtitle: 'ゴール — おつかれさま！',
+    pdfNextDirection: '→ 次（つぎ）は{name}方面（ほうめん）',
+    pdfFooter: 'たんけんラリー — {name} 探検（たんけん）マップ',
+    pdfNoTurns: '曲（ま）がる場所はありません。まっすぐ進（すす）んでね。',
+    pdfNoApiKey: '（地図画像（がぞう）はAPIキー未設定（みせってい）のため省略（しょうりゃく））',
+
+    suffMin: '分',
+    suffKm: 'km',
+    suffM: 'm',
   },
 };
 

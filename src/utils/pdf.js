@@ -4,8 +4,9 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=54';
-import { apiLang } from './i18n.js?v=54';
+import { toLatLngLiteral } from './maps.js?v=55';
+import { apiLang, t, LANG } from './i18n.js?v=55';
+import { localizeStationName } from '../data/cities.js?v=55';
 
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
@@ -122,7 +123,8 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
 // ===== 内部ヘルパー =====
 
 function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, apiKey }) {
-  const today = new Date().toLocaleDateString('ja-JP');
+  const today = new Date().toLocaleDateString(LANG === 'en' ? 'en-US' : 'ja-JP');
+  const localStation = localizeStationName(stationName, LANG);
 
   // PDF 用の隠しコンテナ（A4 幅相当 = 794px ≒ 210mm @96dpi）
   const wrap = document.createElement('div');
@@ -145,44 +147,44 @@ function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, ap
   wrap.innerHTML = `
     <div style="background:#004029;color:#fff;padding:12px 20px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;">
       <div>
-        <div style="font-size:20px;font-weight:700;letter-spacing:.05em;">🗺️ たんけんラリー</div>
-        <div style="font-size:12px;margin-top:2px;opacity:.95;">${escapeHtml(stationName)} 探検マップ</div>
+        <div style="font-size:20px;font-weight:700;letter-spacing:.05em;">🗺️ ${escapeHtml(t('appTitle'))}</div>
+        <div style="font-size:12px;margin-top:2px;opacity:.95;">${escapeHtml(t('pdfStationLabel').replace('{name}', localStation))}</div>
       </div>
       <div style="font-size:11px;opacity:.85;">${today}</div>
     </div>
 
     <div style="display:flex;gap:18px;background:#f5f0e8;padding:8px 20px;border-radius:0 0 8px 8px;font-size:12px;">
-      <div><span style="color:#666;">総距離</span> <strong style="font-size:14px;color:#004029;">${escapeHtml(stats?.distanceText || '-')}</strong></div>
-      <div><span style="color:#666;">推定時間</span> <strong style="font-size:14px;color:#004029;">約${stats?.durationMin ?? '-'}分</strong></div>
-      <div><span style="color:#666;">スポット数</span> <strong style="font-size:14px;color:#004029;">${orderedSpots.length}件</strong></div>
+      <div><span style="color:#666;">${escapeHtml(t('statsTotalDistance'))}</span> <strong style="font-size:14px;color:#004029;">${escapeHtml(stats?.distanceText || '-')}</strong></div>
+      <div><span style="color:#666;">${escapeHtml(t('statsEstTime'))}</span> <strong style="font-size:14px;color:#004029;">${escapeHtml(t('approxMin').replace('{n}', stats?.durationMin ?? '-'))}</strong></div>
+      <div><span style="color:#666;">${escapeHtml(t('statsSpotCount'))}</span> <strong style="font-size:14px;color:#004029;">${orderedSpots.length}${escapeHtml(t('suffSpots'))}</strong></div>
     </div>
 
     <div data-pdf-block style="margin-top:12px;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
       ${mapImgUrl
         ? `<img src="${mapImgUrl}" alt="map" crossorigin="anonymous" referrerpolicy="no-referrer-when-downgrade" style="display:block;width:100%;" />`
-        : `<div style="padding:80px 24px;text-align:center;color:#888;background:#f4f4f4;">（地図画像はAPIキー未設定のため省略）</div>`}
+        : `<div style="padding:80px 24px;text-align:center;color:#888;background:#f4f4f4;">${escapeHtml(t('pdfNoApiKey'))}</div>`}
     </div>
 
     <div style="margin-top:22px;background:#004029;color:#fff;padding:8px 16px;border-radius:6px;font-weight:700;font-size:15px;">
-      たんけんルート
+      ${escapeHtml(t('pdfSecRoute'))}
     </div>
 
     <div style="margin-top:8px;">
-      ${buildRouteFlowHtml({ stationName, orderedSpots, directions, catLabel })}
+      ${buildRouteFlowHtml({ stationName, localStation, orderedSpots, directions, catLabel })}
     </div>
 
     <div style="margin-top:24px;background:#004029;color:#fff;padding:8px 16px;border-radius:6px;font-weight:700;font-size:15px;">
-      曲がるところ・目印
+      ${escapeHtml(t('pdfSecTurnpoints'))}
     </div>
     <div style="margin-top:6px;font-size:11px;color:#666;line-height:1.5;">
-      ストリートビューの写真を目印にしてね。実際の景色とすこし違うこともあります。
+      ${escapeHtml(t('pdfTurnHint'))}
     </div>
     <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      ${buildTurnPointsHtml({ stationName, origin, orderedSpots, directions, apiKey })}
+      ${buildTurnPointsHtml({ stationName, localStation, origin, orderedSpots, directions, apiKey })}
     </div>
 
     <div style="margin-top:24px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:10px;">
-      たんけんラリー — ${escapeHtml(stationName)} 探検マップ
+      ${escapeHtml(t('pdfFooter').replace('{name}', localStation))}
     </div>
   `;
 
@@ -190,7 +192,7 @@ function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, ap
 }
 
 // 「駅(S) → 区間 → スポット1 → 区間 → ... → スポットN → 区間 → 駅(G)」のHTML
-function buildRouteFlowHtml({ stationName, orderedSpots, directions, catLabel }) {
+function buildRouteFlowHtml({ stationName, localStation, orderedSpots, directions, catLabel }) {
   const legs = directions?.routes?.[0]?.legs || [];
   const legHtml = (leg) => {
     if (!leg) return '';
@@ -198,18 +200,23 @@ function buildRouteFlowHtml({ stationName, orderedSpots, directions, catLabel })
     return `
       <div style="display:flex;align-items:center;gap:8px;margin-left:14px;padding:6px 0 6px 22px;border-left:2px dashed #bdbdbd;font-size:12px;color:#777;">
         <span style="font-size:14px;">🚶</span>
-        <span>約 ${min}分・${escapeHtml(leg.distance.text)}</span>
+        <span>${escapeHtml(t('approxMinKm').replace('{min}', min).replace('{km}', leg.distance.text))}</span>
       </div>`;
   };
-  const stationItem = (label, color) => `
+  const stationName2 = localStation || stationName;
+  const stationItem = (label, color) => {
+    const tpl = label === 'S' ? t('pdfFlowStart') : t('pdfFlowGoal');
+    const html = tpl.replace('{name}', escapeHtml(stationName2));
+    return `
     <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:#f0f7f0;border-radius:6px;margin:4px 0;">
       <div style="flex-shrink:0;width:30px;height:30px;background:${color};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.25);">
         ${label}
       </div>
       <div style="flex:1;">
-        <div style="font-weight:700;font-size:14px;">🚉 ${escapeHtml(stationName)}駅 <span style="font-size:11px;color:#666;">（${label === 'S' ? 'スタート' : 'ゴール'}）</span></div>
+        <div style="font-weight:700;font-size:14px;">${html}</div>
       </div>
     </div>`;
+  };
   const spotItem = (s, i) => `
     <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 4px;">
       <div style="flex-shrink:0;width:28px;height:28px;background:#004029;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.25);">
@@ -237,12 +244,13 @@ function buildRouteFlowHtml({ stationName, orderedSpots, directions, catLabel })
 // Directions API の各 leg.steps[] の中で、maneuver が設定されているものが
 // 「曲がるところ」。各 step.start_location でストリートビューを取得して、
 // 進行方向を heading として渡すことで、曲がった先の風景が映るようにする。
-function buildTurnPointsHtml({ stationName, origin, orderedSpots, directions, apiKey }) {
+function buildTurnPointsHtml({ stationName, localStation, origin, orderedSpots, directions, apiKey }) {
   if (!apiKey) {
-    return `<div style="padding:14px;background:#f5f0e8;border-radius:6px;font-size:12px;color:#666;">（APIキー未設定のためストリートビューを表示できません）</div>`;
+    return `<div style="padding:14px;background:#f5f0e8;border-radius:6px;font-size:12px;color:#666;">${escapeHtml(t('pdfNoApiKey'))}</div>`;
   }
   const legs = directions?.routes?.[0]?.legs || [];
   if (legs.length === 0) return '';
+  const stationDisp = localStation || stationName;
 
   // 出発地点：駅 → 1つ目のスポット方向のストリートビュー
   const cards = [];
@@ -254,8 +262,8 @@ function buildTurnPointsHtml({ stationName, origin, orderedSpots, directions, ap
     cards.push(buildTurnCard({
       label: 'S',
       labelColor: '#2e7d32',
-      title: `${stationName}駅`,
-      subtitle: 'スタート — ここから探検をはじめよう',
+      title: t('pdfStartCardTitle').replace('{name}', stationDisp),
+      subtitle: t('pdfStartCardSubtitle'),
       icon: '🚉',
       lat: o.lat,
       lng: o.lng,
@@ -267,22 +275,27 @@ function buildTurnPointsHtml({ stationName, origin, orderedSpots, directions, ap
   // 各 leg を走査し、maneuver 付き step を抽出
   let turnCount = 0;
   legs.forEach((leg, legIdx) => {
-    const nextSpotName = legIdx < orderedSpots.length
+    const nextRaw = legIdx < orderedSpots.length
       ? orderedSpots[legIdx].name
-      : `${stationName}駅（ゴール）`;
+      : stationDisp;
     (leg.steps || []).forEach(step => {
-      // straight や maneuver なしの直進ステップは省略
       if (!step.maneuver) return;
       if (step.maneuver === 'straight') return;
       turnCount++;
       const start = toLatLngLiteral(step.start_location);
       const end = toLatLngLiteral(step.end_location);
       const heading = (start && end) ? computeHeading(start, end) : 0;
+      const min = Math.max(1, Math.round((step.duration?.value || 0) / 60));
+      const distText = step.distance?.text || '';
+      // 区間（distance · 約N分） + 「次は ○○ 方面」
+      const subtitleHtml =
+        `${escapeHtml(distText)}・${escapeHtml(t('approxMinDot').replace('{min}', min))} ` +
+        `${escapeHtml(t('pdfNextDirection').replace('{name}', nextRaw))}`;
       cards.push(buildTurnCard({
         label: String(turnCount),
         labelColor: '#004029',
-        title: stripHtml(step.html_instructions || step.instructions || '進む'),
-        subtitle: `${escapeHtml(step.distance?.text || '')}・約${Math.max(1, Math.round((step.duration?.value || 0) / 60))}分　→ 次は${escapeHtml(nextSpotName)}方面`,
+        title: stripHtml(step.html_instructions || step.instructions || ''),
+        subtitle: subtitleHtml,
         icon: maneuverIcon(step.maneuver),
         lat: start?.lat,
         lng: start?.lng,
@@ -292,7 +305,7 @@ function buildTurnPointsHtml({ stationName, origin, orderedSpots, directions, ap
     });
   });
 
-  // ゴール地点：最後のスポット → 駅 の方向
+  // ゴール地点
   const lastLeg = legs[legs.length - 1];
   const lastStep = lastLeg?.steps?.[lastLeg.steps.length - 1];
   if (lastStep && o) {
@@ -301,8 +314,8 @@ function buildTurnPointsHtml({ stationName, origin, orderedSpots, directions, ap
       cards.push(buildTurnCard({
         label: 'G',
         labelColor: '#c62828',
-        title: `${stationName}駅`,
-        subtitle: 'ゴール — おつかれさま！',
+        title: t('pdfGoalCardTitle').replace('{name}', stationDisp),
+        subtitle: t('pdfGoalCardSubtitle'),
         icon: '🏁',
         lat: endLoc.lat,
         lng: endLoc.lng,
@@ -313,7 +326,7 @@ function buildTurnPointsHtml({ stationName, origin, orderedSpots, directions, ap
   }
 
   if (cards.length === 0) {
-    return `<div style="padding:14px;background:#f5f0e8;border-radius:6px;font-size:12px;color:#666;">曲がる場所はありません。まっすぐ進んでね。</div>`;
+    return `<div style="padding:14px;background:#f5f0e8;border-radius:6px;font-size:12px;color:#666;">${escapeHtml(t('pdfNoTurns'))}</div>`;
   }
 
   return cards.join('');

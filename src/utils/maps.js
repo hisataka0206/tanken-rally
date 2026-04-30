@@ -143,63 +143,86 @@ export function searchNearbySpotsWith(service, location) {
 }
 
 function _searchWithService(service, location) {
+  // クエリ設計：
+  //   - type ベース検索（信頼性高い・名前に特定の漢字が無くてもヒットする）
+  //   - keyword ベース検索（type で拾えない史跡・古墳・碑石などを補完）
+  //   各カテゴリごとに複数クエリを組み合わせて取りこぼし防止
   const queries = [
-    { keyword: '神社 OR 寺 OR 史跡 OR 城跡 OR 記念碑',     category: 'historic', label: '史跡・文化財' },
-    { keyword: 'ケーキ屋 OR 和菓子 OR お菓子 OR スイーツ', category: 'sweets',   label: 'スイーツ・菓子店' },
-    { keyword: '公園 OR 庭園',                             category: 'nature',   label: '公園・自然' },
-    { keyword: 'おもちゃ屋 OR 玩具店 OR キャラクターショップ', category: 'toy',  label: '玩具・おもちゃ' },
-    { keyword: '美術館 OR 博物館 OR 資料館 OR ギャラリー',  category: 'museum',   label: '美術館・博物館' },
-    { keyword: '科学館 OR プラネタリウム OR 天文台',        category: 'science',  label: '科学館・自然史' },
+    // === 史跡・文化財 ===
+    // place_of_worship: 神社・寺・観音堂などを名前に「寺」の字がなくても確実に拾う
+    //   （例: 大須観音 — 名前に「寺」が入らないので「寺」keyword では拾えない）
+    { type: 'place_of_worship',                              category: 'historic', label: '史跡・文化財' },
+    // 古墳・城跡・碑石は type が無いので keyword で補完
+    { keyword: '史跡 OR 城跡 OR 古墳 OR 記念碑 OR 石碑',     category: 'historic', label: '史跡・文化財' },
+
+    // === スイーツ ===
+    { type: 'bakery',                                        category: 'sweets',   label: 'スイーツ・菓子店' },
+    { keyword: 'ケーキ屋 OR 和菓子 OR 洋菓子 OR スイーツ',   category: 'sweets',   label: 'スイーツ・菓子店' },
+
+    // === 公園・自然 ===
+    { type: 'park',                                          category: 'nature',   label: '公園・自然' },
+
+    // === 玩具・おもちゃ ===
+    { keyword: 'おもちゃ屋 OR 玩具店 OR キャラクターショップ', category: 'toy',    label: '玩具・おもちゃ' },
+
+    // === 美術館・博物館 ===
+    { type: 'museum',                                        category: 'museum',   label: '美術館・博物館' },
+    { type: 'art_gallery',                                   category: 'museum',   label: '美術館・博物館' },
+
+    // === 科学館・自然史 ===
+    // type=museum で拾った中から「科学館」を別カテゴリとして上書きするため、優先度高めで実行
+    { keyword: '科学館 OR プラネタリウム OR 天文台',          category: 'science',  label: '科学館・自然史' },
   ];
 
   const allSpots = [];
-  const seenIds = new Set(); // place_id 重複除去（複数カテゴリの keyword に同じ場所がヒットすることがある）
+  const seenIds = new Set(); // place_id 重複除去（複数クエリで同じ場所がヒットすることがある）
   let pending = queries.length;
 
-  // カテゴリ優先度: historic > museum/science > nature > toy > sweets > other
-  // 同じ place_id が複数カテゴリにマッチした場合、優先度の高いカテゴリで保持
-  const CAT_PRIORITY = { historic: 6, museum: 5, science: 5, nature: 4, toy: 3, sweets: 2, other: 0 };
+  // カテゴリ優先度: historic > science > museum > nature > toy > sweets > other
+  // 同じ place_id が複数クエリにマッチした場合、優先度の高いカテゴリで保持
+  // 例: 科学館は type=museum でも拾えるが、keyword='科学館' で science として上書きしたい
+  const CAT_PRIORITY = { historic: 6, science: 5, museum: 4, nature: 3, toy: 2, sweets: 1, other: 0 };
+  const RESULTS_PER_QUERY = 6; // 4 → 6 に増量（有名スポットの取り逃し低減）
 
   return new Promise((resolve) => {
     queries.forEach(q => {
-      service.nearbySearch(
-        {
-          location,
-          radius: 1500,           // 駅から半径1.5km。1時間以内のフィルタは Directions API 後に判定
-          keyword: q.keyword,
-          language: 'ja',
-        },
-        (results, status) => {
-          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            results.slice(0, 4).forEach(place => {
-              const newSpot = {
-                id: place.place_id,
-                name: place.name,
-                category: q.category,
-                label: q.label,
-                address: place.vicinity || '',
-                lat: place.geometry.location.lat(),
-                lng: place.geometry.location.lng(),
-                rating: place.rating || null,
-                desc: place.types?.join('、') || '',
-                recommended: q.category === 'historic',  // 史跡は推奨表示。選択は任意だが最低1件必要
-              };
-              if (seenIds.has(place.place_id)) {
-                // 既に登録済み: 優先度の高いカテゴリで上書き
-                const existing = allSpots.find(s => s.id === place.place_id);
-                if (existing && CAT_PRIORITY[q.category] > CAT_PRIORITY[existing.category]) {
-                  Object.assign(existing, newSpot);
-                }
-              } else {
-                seenIds.add(place.place_id);
-                allSpots.push(newSpot);
+      const params = {
+        location,
+        radius: 1500,           // 駅から半径1.5km
+        language: 'ja',
+      };
+      if (q.type) params.type = q.type;
+      if (q.keyword) params.keyword = q.keyword;
+      service.nearbySearch(params, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          results.slice(0, RESULTS_PER_QUERY).forEach(place => {
+            const newSpot = {
+              id: place.place_id,
+              name: place.name,
+              category: q.category,
+              label: q.label,
+              address: place.vicinity || '',
+              lat: place.geometry.location.lat(),
+              lng: place.geometry.location.lng(),
+              rating: place.rating || null,
+              desc: place.types?.join('、') || '',
+              recommended: q.category === 'historic',  // 史跡は推奨表示。最低1件必要
+            };
+            if (seenIds.has(place.place_id)) {
+              // 既に登録済み: 優先度の高いカテゴリで上書き
+              const existing = allSpots.find(s => s.id === place.place_id);
+              if (existing && CAT_PRIORITY[q.category] > CAT_PRIORITY[existing.category]) {
+                Object.assign(existing, newSpot);
               }
-            });
-          }
-          pending--;
-          if (pending === 0) resolve(allSpots);
+            } else {
+              seenIds.add(place.place_id);
+              allSpots.push(newSpot);
+            }
+          });
         }
-      );
+        pending--;
+        if (pending === 0) resolve(allSpots);
+      });
     });
   });
 }

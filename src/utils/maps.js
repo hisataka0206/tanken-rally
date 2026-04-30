@@ -1,4 +1,5 @@
 // Google Maps API の動的ロードとユーティリティ
+import { apiLang } from './i18n.js?v=47';
 
 let mapsLoaded = false;
 
@@ -6,7 +7,9 @@ export function loadGoogleMaps(apiKey) {
   if (mapsLoaded) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&language=ja`;
+    // language= に EN/ja を渡すことで Geocoding / Places / Directions の結果が
+    // 該当言語で返ってくる
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&language=${apiLang()}`;
     script.async = true;
     script.defer = true;
     script.onload = () => { mapsLoaded = true; resolve(); };
@@ -72,7 +75,7 @@ export function geocodeStation(stationName, opts = {}) {
         const req = {
           query: queries[i],
           fields: ['geometry', 'name'],
-          language: 'ja',
+          language: apiLang(),
         };
         // locationBias は SW/NE タプルか radius/center で指定（ここでは bounds の長方形で）
         if (gmBounds) req.locationBias = gmBounds;
@@ -96,7 +99,7 @@ export function geocodeStation(stationName, opts = {}) {
 
     // 1) Geocoding API を試す（bounds bias あり）
     const geocoder = new google.maps.Geocoder();
-    const baseReq = { address, region: 'JP', language: 'ja' };
+    const baseReq = { address, region: 'JP', language: apiLang() };
     if (gmBounds) baseReq.bounds = gmBounds;
 
     geocoder.geocode(baseReq, (results, status) => {
@@ -110,7 +113,7 @@ export function geocodeStation(stationName, opts = {}) {
       }
       // 結果0件 or 拾えなかった → コンテキスト無しで再試行
       if (parts.length > 1) {
-        const fallbackReq = { address: `${stationName}駅`, region: 'JP', language: 'ja' };
+        const fallbackReq = { address: `${stationName}駅`, region: 'JP', language: apiLang() };
         if (gmBounds) fallbackReq.bounds = gmBounds;
         geocoder.geocode(fallbackReq, (r2, s2) => {
           if (s2 === 'OK' && r2 && r2.length) {
@@ -267,7 +270,7 @@ function _searchWithService(service, location) {
           location,
           radius: SEARCH_RADIUS_M,
           keyword: q.keyword,
-          language: 'ja',
+          language: apiLang(),
         },
         (results, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK && results) {
@@ -367,7 +370,7 @@ export function getDirections(origin, orderedSpots) {
         destination: origin,
         waypoints,
         travelMode: google.maps.TravelMode.WALKING,
-        language: 'ja',
+        language: apiLang(),
       },
       (result, status) => {
         if (status === 'OK') resolve(result);

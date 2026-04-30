@@ -72,34 +72,40 @@ const TRANSLATIONS = {
     filterEnd:   '⏰ End',
   },
 
+  // Elementary 表記ルール：
+  //   - 漢字（かんじ）の形式で併記
+  //   - 小学2年生までに習う漢字（駅・地・図・前・後・本・行・来・思・話・書・読・聞・教
+  //     ・写・場・所・道・寺・神・社・町・市・村・店・家・天・山・川・木・園・公・新・
+  //     科・学・電・算・店・公・写  など多数）は併記しない
+  //   - G3以上の漢字を含む熟語は単語まるごとに振り仮名を付ける慣例
   elementary: {
-    appTitle: 'たんけんらりー',
-    headerSub: 'えきから まちを たんけんしよう',
+    appTitle: 'たんけんラリー',
+    headerSub: '駅から街（まち）を探検（たんけん）しよう',
 
-    step1Title: 'たんけんする えきを えらぼう',
-    step2Title: 'いきたい ばしょを えらぼう',
-    step3Title: 'たんけんまっぷを かくにんしよう',
-    step4Title: 'たんけんしながら しゃしんを とろう',
-    step5Title: 'たんけんのーとを つくろう',
+    step1Title: '探検（たんけん）する駅をえらぼう',
+    step2Title: '行きたい場所をえらぼう',
+    step3Title: '探検（たんけん）マップを確認（かくにん）しよう',
+    step4Title: '探検（たんけん）しながら写真（しゃしん）をとろう',
+    step5Title: 'たんけんノートをつくろう',
 
     btnSearch: 'さがす',
-    btnSearchSelect: 'この えきで さがす →',
-    btnBackStation: '← えきを かえる',
-    btnMakeRoute: 'るーとを つくる →',
-    btnBackSpots: '← すぽっとを かえる',
-    btnDownloadPdf: '📄 ちずぴーでぃーえふを だうんろーど',
-    btnStartExplore: 'たんけん すたーと！ →',
-    btnBackRoute: '← まっぷに もどる',
-    btnFinishExplore: 'たんけん おわり！ → のーと',
-    btnBackPhotos: '← しゃしんに もどる',
-    btnReportPdf: '📄 のーとを ぴーでぃーえふ (B3) で だす',
-    btnReportIssue: '🐛 ふぐあいを ほうこく',
+    btnSearchSelect: 'この駅でさがす →',
+    btnBackStation: '← 駅をかえる',
+    btnMakeRoute: 'ルートをつくる →',
+    btnBackSpots: '← スポットをかえる',
+    btnDownloadPdf: '📄 地図PDFをダウンロード',
+    btnStartExplore: '探検（たんけん）スタート！ →',
+    btnBackRoute: '← マップにもどる',
+    btnFinishExplore: '探検（たんけん）おわり！ノートへ →',
+    btnBackPhotos: '← 写真（しゃしん）にもどる',
+    btnReportPdf: '📄 ノートをPDF（B3）でだす',
+    btnReportIssue: '🐛 不具合（ふぐあい）を報告（ほうこく）',
 
-    resumeSummary: '🔑 まえの たんけんを ひらく（ぱすわーど）',
-    filterSummary: '🔍 くわしく しぼりこむ（にんい）',
-    filterDate:  '📅 ひにち',
-    filterStart: '⏰ はじまり',
-    filterEnd:   '⏰ おわり',
+    resumeSummary: '🔑 前のたんけんを開く（パスワード入力）',
+    filterSummary: '🔍 詳（くわ）しくしぼりこむ（任意（にんい））',
+    filterDate:  '📅 日にち',
+    filterStart: '⏰ 開始（かいし）',
+    filterEnd:   '⏰ 終了（しゅうりょう）',
   },
 };
 
@@ -135,8 +141,11 @@ export function applyI18n(root = document) {
   document.documentElement.lang = LANG === 'elementary' ? 'ja' : LANG;
 }
 
-// Places / Geocoding API に渡す language コード
-//   elementary → ja のまま（地名はGoogleが日本語で返す。UIだけひらがな化）
+// Google Maps / Places / Geocoding / Directions / Static Maps / Street View 全 API
+// および OpenAI で使う言語コード。
+//   en          → 'en' （結果も全部英語：Tokyo Station, Senso-ji Temple ...）
+//   ja          → 'ja'
+//   elementary  → 'ja' （振り仮名は UI 側で表記。Google には日本語で返してもらう）
 export function apiLang() {
   return LANG === 'en' ? 'en' : 'ja';
 }

@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=50';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=50';
-import { fetchOriginStory } from './utils/ai.js?v=50';
-import { generateMapPdf } from './utils/pdf.js?v=50';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=50';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=50';
-import { CITIES } from './data/cities.js?v=50';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=50';
-import { addReport as addIssueReport } from './utils/issues.js?v=50';
-import { applyI18n, LANG } from './utils/i18n.js?v=50';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=50';
+import { CONFIG } from '../config.js?v=51';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=51';
+import { fetchOriginStory } from './utils/ai.js?v=51';
+import { generateMapPdf } from './utils/pdf.js?v=51';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=51';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=51';
+import { CITIES } from './data/cities.js?v=51';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=51';
+import { addReport as addIssueReport } from './utils/issues.js?v=51';
+import { applyI18n, LANG } from './utils/i18n.js?v=51';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=51';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -55,6 +55,8 @@ function initCityTabs() {
 }
 
 function selectCity(cityId, opts = {}) {
+  // ランキングは地域単位で比較するので state にも保持する
+  state.cityId = cityId;
   // タブのアクティブ状態
   document.querySelectorAll('.city-tab').forEach(el => {
     el.classList.toggle('active', el.dataset.cityId === cityId);
@@ -1169,6 +1171,7 @@ async function onSubmitScore() {
   try {
     await drive.saveRanking({
       stationName: state.stationName,
+      cityId: state.cityId || 'other',          // 地域単位（東京/名古屋/大阪/神戸/京都/その他）
       playerName,
       score: result.total,
       visitCount: result.visitCount,
@@ -1176,8 +1179,8 @@ async function onSubmitScore() {
       photoCount: result.photoCount,
       reportWordCount: result.reportWordCount,
     });
-    // 続けてランキング取得
-    const ranking = await drive.getRanking({ stationName: state.stationName, limit: 10 });
+    // 同じ地域内（例: 名古屋）のランキングを取得
+    const ranking = await drive.getRanking({ cityId: state.cityId || 'other', limit: 10 });
     showRankingPhase(playerName, result.total, ranking);
   } catch (e) {
     alert('ランキング送信に失敗しました: ' + (e.message || e));
@@ -1188,23 +1191,26 @@ async function onSubmitScore() {
 }
 
 function showRankingPhase(myName, myScore, ranking) {
+  // 地域名を解決（東京/名古屋/大阪/神戸/京都/その他）
+  const cityIdToName = { tokyo: '東京', nagoya: '名古屋', osaka: '大阪', kobe: '神戸', kyoto: '京都', other: 'その他' };
+  const regionName = cityIdToName[state.cityId] || 'その他';
+
   // 自分の順位
   const myRank = (ranking || []).findIndex(r =>
     r['プレーヤー名'] === myName && Number(r['スコア']) === Number(myScore)
   );
-  const totalCount = (ranking || []).length;
   let msg;
   if (myRank === 0) {
-    msg = `🥇 1位！ ${myName} さん、おめでとう！\n<strong>${myScore}</strong> 点 / ${state.stationName}駅`;
+    msg = `🥇 1位！ ${myName} さん、おめでとう！\n<strong>${myScore}</strong> 点 / ${regionName}エリア`;
   } else if (myRank > 0) {
-    msg = `🎉 ${myName} さんは <strong>${myRank + 1}位</strong>！\n${myScore} 点 / ${state.stationName}駅`;
+    msg = `🎉 ${myName} さんは <strong>${myRank + 1}位</strong>！\n${myScore} 点 / ${regionName}エリア`;
   } else {
-    msg = `🎉 ${myName} さん、お疲れさま！\n${myScore} 点を記録しました（${state.stationName}駅）`;
+    msg = `🎉 ${myName} さん、お疲れさま！\n${myScore} 点を記録しました（${regionName}エリア）`;
   }
   $('score-rank-message').innerHTML = msg.replace(/\n/g, '<br/>');
 
-  // ランキング一覧
-  $('ranking-station-name').textContent = `${state.stationName}駅`;
+  // ランキング一覧（タイトルは地域名）
+  $('ranking-station-name').textContent = `${regionName}エリア`;
   const ol = $('ranking-list');
   ol.innerHTML = '';
   if (!ranking || ranking.length === 0) {
@@ -1215,9 +1221,12 @@ function showRankingPhase(myName, myScore, ranking) {
       const isYou = (r['プレーヤー名'] === myName && Number(r['スコア']) === Number(myScore));
       if (isYou) li.classList.add('you');
       const rankCls = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+      const stationLine = r['駅名']
+        ? `<span class="ranking-station">${escapeHtml(r['駅名'])}</span>`
+        : '';
       li.innerHTML = `
         <span class="ranking-rank ${rankCls}">${i + 1}</span>
-        <span class="ranking-name">${escapeHtml(r['プレーヤー名'] || '名無し')}${isYou ? ' (あなた)' : ''}</span>
+        <span class="ranking-name">${escapeHtml(r['プレーヤー名'] || '名無し')}${isYou ? ' (あなた)' : ''}${stationLine}</span>
         <span class="ranking-score">${r['スコア']} 点</span>
       `;
       ol.appendChild(li);

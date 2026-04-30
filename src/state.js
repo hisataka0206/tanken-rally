@@ -5,6 +5,7 @@ export const state = {
   // STEP 1
   stationName: '',
   stationLocation: null,        // google.maps.LatLng
+  cityId: '',                   // 'tokyo'/'nagoya'/'osaka'/'kobe'/'kyoto'/'other' — ランキングの地域単位に使う
 
   // STEP 2 (スポット選択)
   allSpots: [],                 // [{ id, name, category, address, lat, lng, ... }]

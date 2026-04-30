@@ -107,9 +107,9 @@ export class DriveClient {
     return data;
   }
 
-  /** ランキングを取得 */
-  async getRanking({ stationName, limit } = {}) {
-    const data = await this._post({ action: 'getRanking', stationName, limit });
+  /** ランキングを取得（cityId で地域絞り込み、stationName で駅絞り込み・両方任意） */
+  async getRanking({ stationName, cityId, limit } = {}) {
+    const data = await this._post({ action: 'getRanking', stationName, cityId, limit });
     if (!data.ok) throw new Error(data.error);
     return data.ranking;
   }

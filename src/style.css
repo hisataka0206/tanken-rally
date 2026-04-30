@@ -783,7 +783,19 @@ body {
 .ranking-rank.gold   { background: #ffc107; color: #333; }
 .ranking-rank.silver { background: #b0bec5; color: #333; }
 .ranking-rank.bronze { background: #d7a07a; color: #fff; }
-.ranking-name { font-weight: 600; color: var(--brown); }
+.ranking-name {
+  font-weight: 600;
+  color: var(--brown);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ranking-station {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
 .ranking-score { font-weight: 700; color: var(--green-dark); font-size: 14px; }
 
 /* ===== 不具合報告 ===== */

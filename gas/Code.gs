@@ -469,24 +469,51 @@ function getRankingSheet() {
     const ss = SpreadsheetApp.create(RANKING_SHEET_NAME);
     DriveApp.getFileById(ss.getId()).moveTo(root);
     sheet = ss.getActiveSheet();
-    sheet.appendRow(['日時', '駅名', 'プレーヤー名', 'スコア', '訪問スポット数', '移動距離(m)', '写真枚数', 'レポート文字数']);
+    sheet.appendRow(['日時', '地域', '駅名', 'プレーヤー名', 'スコア', '訪問スポット数', '移動距離(m)', '写真枚数', 'レポート文字数']);
+  }
+  // 既存シートのスキーマ移行：「地域」列が無ければ「駅名」の前に挿入
+  const lastCol = Math.max(sheet.getLastColumn(), 1);
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  if (headers.indexOf('地域') < 0) {
+    let insertIdx = headers.indexOf('駅名');
+    if (insertIdx < 0) insertIdx = headers.length;
+    sheet.insertColumnBefore(insertIdx + 1);
+    sheet.getRange(1, insertIdx + 1).setValue('地域');
   }
   return sheet;
 }
 
 function saveRanking(body) {
-  const { stationName, playerName, score, visitCount, distanceM, photoCount, reportWordCount } = body;
-  if (!stationName || score == null) return { ok: false, error: 'stationName と score が必要です' };
+  try {
+    const { stationName, cityId, playerName, score, visitCount, distanceM, photoCount, reportWordCount } = body;
+    if (!stationName || score == null) return { ok: false, error: 'stationName と score が必要です' };
 
-  const sheet = getRankingSheet();
-  const now = new Date().toISOString();
-  sheet.appendRow([now, stationName, playerName || '名無し', score, visitCount || 0, distanceM || 0, photoCount || 0, reportWordCount || 0]);
+    const sheet = getRankingSheet();
+    // ヘッダー順を読んで、その順番に値を組み立てる（スキーマ変動に強い）
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const now = new Date().toISOString();
+    const map = {
+      '日時': now,
+      '地域': cityId || 'other',
+      '駅名': stationName,
+      'プレーヤー名': playerName || '名無し',
+      'スコア': score,
+      '訪問スポット数': visitCount || 0,
+      '移動距離(m)': distanceM || 0,
+      '写真枚数': photoCount || 0,
+      'レポート文字数': reportWordCount || 0,
+    };
+    const row = headers.map(h => map[h] !== undefined ? map[h] : '');
+    sheet.appendRow(row);
 
-  return { ok: true, savedAt: now };
+    return { ok: true, savedAt: now };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
 }
 
 function getRanking(body) {
-  const { stationName, limit } = body;
+  const { stationName, cityId, limit } = body;
   const sheet = getRankingSheet();
   const rows = sheet.getDataRange().getValues();
   const headers = rows[0];
@@ -496,8 +523,13 @@ function getRanking(body) {
       headers.forEach((h, i) => { obj[h] = row[i]; });
       return obj;
     })
-    .filter(r => !stationName || r['駅名'] === stationName)
-    .sort((a, b) => b['スコア'] - a['スコア'])
+    // cityId が指定されたら同じ地域のみ。stationName 指定時は駅名でも絞る
+    .filter(r => {
+      if (cityId && (r['地域'] || '') !== cityId) return false;
+      if (stationName && r['駅名'] !== stationName) return false;
+      return true;
+    })
+    .sort((a, b) => Number(b['スコア']) - Number(a['スコア']))
     .slice(0, limit || 50);
 
   return { ok: true, ranking: data };

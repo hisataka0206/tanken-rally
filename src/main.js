@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=63';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=63';
-import { fetchOriginStory } from './utils/ai.js?v=63';
-import { generateMapPdf } from './utils/pdf.js?v=63';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=63';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=63';
-import { CITIES, localizeStationName } from './data/cities.js?v=63';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=63';
-import { addReport as addIssueReport } from './utils/issues.js?v=63';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=63';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=63';
+import { CONFIG } from '../config.js?v=64';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=64';
+import { fetchOriginStory } from './utils/ai.js?v=64';
+import { generateMapPdf } from './utils/pdf.js?v=64';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=64';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=64';
+import { CITIES, localizeStationName } from './data/cities.js?v=64';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=64';
+import { addReport as addIssueReport } from './utils/issues.js?v=64';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=64';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=64';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1525,8 +1525,15 @@ async function onReportPdf() {
     // windowWidth=1400 でモバイル用 @media (max-width: 768px) を無効化し、
     // PDF はデスクトップレイアウトで描画する
     // onclone でクローン側の form要素を「描画用テキスト」に置換する
+    //
+    // 写真ブロックの Y 範囲はライブDOMではなく **クローン側のDOM** で測定する必要がある。
+    //   - ライブDOMはユーザーのウィンドウ幅に依存（max-width: 100% で縮められる）
+    //   - クローンは windowWidth=1400 で再レイアウトされるので、canvas 座標と一致する
+    // クローンが破棄される前（onclone 内）に rect を取得して外スコープに保存する。
+    const SCALE = 2; // html2canvas の scale と一致
+    let blockRanges = [];
     const canvas = await html2canvas(page, {
-      scale: 2,
+      scale: SCALE,
       backgroundColor: '#ffffff',
       useCORS: true,
       allowTaint: false,
@@ -1564,6 +1571,26 @@ async function onReportPdf() {
           span.style.display = 'inline-block';
           inp.parentNode.replaceChild(span, inp);
         });
+
+        // 上記の表示変更後、レイアウトを強制計算してから写真ブロックの位置を取得。
+        // 取得した rect はクローンドキュメントの座標 → canvas 座標へは × SCALE で変換。
+        void clonedPage.offsetHeight; // force reflow
+        const pageRect = clonedPage.getBoundingClientRect();
+        const photos = clonedPage.querySelectorAll('.report-photo-item');
+        blockRanges = Array.from(photos)
+          .filter(el => {
+            // display:none を除外（excluded やレイアウト外のもの）
+            const r = el.getBoundingClientRect();
+            return r.height > 0 && r.width > 0;
+          })
+          .map(el => {
+            const r = el.getBoundingClientRect();
+            return {
+              top: (r.top - pageRect.top) * SCALE,
+              bottom: (r.bottom - pageRect.top) * SCALE,
+            };
+          })
+          .sort((a, b) => a.top - b.top);
       },
     });
 
@@ -1573,27 +1600,15 @@ async function onReportPdf() {
     const pdfW = pdf.internal.pageSize.getWidth();   // 364
     const pdfH = pdf.internal.pageSize.getHeight();  // 515
 
-    // 単純な image shift だと写真がページ境界で分断される。
-    // 写真ブロック（.report-photo-item）を「割らないブロック」とみなし、
-    // ページ境界がブロック内に来るときはそのブロックの上端で改ページする。
-    // generateMapPdf（pdf.js）と同じ手法。
-    const SCALE = 2; // html2canvas の scale と一致
-    const pageRect = page.getBoundingClientRect();
-    const photoBlocks = page.querySelectorAll('.report-photo-item:not(.excluded)');
-    const blockRanges = Array.from(photoBlocks).map(el => {
-      const r = el.getBoundingClientRect();
-      return {
-        top: (r.top - pageRect.top) * SCALE,
-        bottom: (r.bottom - pageRect.top) * SCALE,
-      };
-    }).sort((a, b) => a.top - b.top);
-
-    // desired Y で分割するとブロックを割ってしまう場合、上端まで戻して安全に分割
+    // desired Y で分割するとブロックを割ってしまう場合、そのブロックの上端まで戻して安全に分割。
+    // ブロックがページ高さより大きく minAdvance も確保できないケースは諦めて分割する（無限ループ防止）。
     const findSafeSplit = (desired, lowerBound) => {
-      const minAdvance = 200; // これより小さい slice は作らない（無限ループ防止）
+      const minAdvance = 200;
       let cutAt = desired;
       for (const r of blockRanges) {
         if (r.top < desired && r.bottom > desired) {
+          // r.top が現ページ内（lowerBound 以降）で、minAdvance より十分先にあれば
+          // そこを区切りにする。それより前なら諦め（ブロックがページ高さを超えている）。
           if (r.top > lowerBound + minAdvance && r.top < cutAt) {
             cutAt = r.top;
           }

@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=73';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=73';
-import { fetchOriginStory } from './utils/ai.js?v=73';
-import { generateMapPdf } from './utils/pdf.js?v=73';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=73';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=73';
-import { CITIES, localizeStationName } from './data/cities.js?v=73';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=73';
-import { addReport as addIssueReport } from './utils/issues.js?v=73';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=73';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=73';
+import { CONFIG } from '../config.js?v=74';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=74';
+import { fetchOriginStory } from './utils/ai.js?v=74';
+import { generateMapPdf } from './utils/pdf.js?v=74';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=74';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=74';
+import { CITIES, localizeStationName } from './data/cities.js?v=74';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=74';
+import { addReport as addIssueReport } from './utils/issues.js?v=74';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=74';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=74';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1758,8 +1758,21 @@ async function onReportPdf() {
     }
     btn.textContent = t('statusGeneratingPdf');
 
-    // Webフォント (Klee One / Yusei Magic) のロード完了を待つ
-    // → 待たないと html2canvas が初期表示時のフォールバックフォントで描画してしまうことがある
+    // Webフォント (Klee One / Yusei Magic / Hachi Maru Pop) のロード完了を待つ。
+    // → 待たないと html2canvas が初期表示時のフォールバックフォントで描画してしまう。
+    // Hachi Maru Pop は通常時は使われないので、明示的に load() を呼んでフェッチを発火させる必要がある。
+    if (document.fonts && document.fonts.load) {
+      try {
+        await Promise.all([
+          document.fonts.load("28px 'Klee One'"),
+          document.fonts.load("28px 'Yusei Magic'"),
+          document.fonts.load("28px 'Hachi Maru Pop'"),
+          document.fonts.load("18px 'Hachi Maru Pop'"),
+        ]);
+      } catch (e) {
+        console.warn('[pdf] font preload partial failure:', e);
+      }
+    }
     if (document.fonts && document.fonts.ready) {
       await document.fonts.ready;
     }
@@ -1794,10 +1807,14 @@ async function onReportPdf() {
           el.style.display = 'none';
         });
         // textarea / input を div / span へ置換（値が確実にレンダリングされる）
-        // 28px font × line-height 1.8 ≒ 50px/行 を minHeight の基準にする
+        // 28px font × line-height 1.8 ≒ 50px/行 を minHeight の基準にする。
+        // id を引き継ぐことで `#report-overview { font-size: 28px }` 等のルールが
+        // 置換後の要素にもそのまま効く（id 引き継ぎが無いと PDF でテキストが
+        // 16pxに縮んで出力される）。
         clonedPage.querySelectorAll('textarea').forEach(t => {
           const div = clonedDoc.createElement('div');
-          div.className = t.className + ' pdf-text-block';
+          if (t.id) div.id = t.id;
+          div.className = (t.className || '') + ' pdf-text-block';
           div.textContent = t.value || '';
           // 元のサイズを概ね継承（空欄でも rows 分の高さは確保）
           div.style.minHeight = (t.rows ? t.rows * 50 : 150) + 'px';
@@ -1807,11 +1824,14 @@ async function onReportPdf() {
         });
         clonedPage.querySelectorAll('input[type="text"], input[type="date"]').forEach(inp => {
           const span = clonedDoc.createElement('span');
+          if (inp.id) span.id = inp.id;
+          // .pdf-input-value は CSS でユーザーコメント用のフォント（Hachi Maru Pop）を指定する目印
+          span.className = 'pdf-input-value';
           span.textContent = inp.value || '';
-          span.style.borderBottom = '1.5px solid #999';
-          span.style.padding = '4px 6px';
-          span.style.fontSize = '14px';
-          span.style.minWidth = '140px';
+          span.style.borderBottom = '2px solid #999';
+          span.style.padding = '4px 8px';
+          span.style.fontSize = '22px';
+          span.style.minWidth = '180px';
           span.style.display = 'inline-block';
           inp.parentNode.replaceChild(span, inp);
         });

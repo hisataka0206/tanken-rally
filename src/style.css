@@ -1312,10 +1312,15 @@ body {
   margin-right: 6px;
 }
 
-/* PDF 生成中（一時的にデスクトップ表示固定するためのクラス） */
+/* PDF 生成中（一時的にデスクトップ表示固定するためのクラス）
+ * - 幅を 364mm 固定（モバイルの画面縮小を打ち消す）
+ * - テンプレ部分（ラベル・見出し近くの本文）は清潔なゴシック体に切替
+ *   → ユーザーコメント（Hachi Maru Pop）と明確に視覚区別する */
 .report-page.pdf-rendering {
   width: 364mm !important;
   max-width: none !important;
+  /* PDFのテンプレ部分は印刷向きの清潔なゴシック体にする */
+  font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
 }
 /* PDF出力時に隠す要素：エディタ専用UIや説明テキスト */
 .report-page.pdf-rendering .report-photo-include,
@@ -1325,6 +1330,28 @@ body {
 }
 .report-page.pdf-rendering .report-photo-item.excluded {
   display: none !important;
+}
+
+/* PDF出力時のみ：タイトル・見出しは Yusei Magic（手書き風アクセント）を維持 */
+.report-page.pdf-rendering .report-title,
+.report-page.pdf-rendering .report-section h3 {
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+}
+
+/* PDF出力時のみ：ユーザーが書いた部分は Hachi Maru Pop で
+ * 「丸くてポップな手書き感」を出して、テンプレ部分（ゴシック体）と
+ * ぱっと見で区別できるようにする。
+ * - .pdf-text-block / .pdf-input-value は onclone で textarea/input を
+ *   div/span に置換した際に付与しているマーカークラス
+ * - id 経由のセレクタは置換後も id を保持しているので念のため重ねている */
+.report-page.pdf-rendering #report-overview,
+.report-page.pdf-rendering #report-afterword,
+.report-page.pdf-rendering #report-author,
+.report-page.pdf-rendering #report-date,
+.report-page.pdf-rendering .report-photo-comment,
+.report-page.pdf-rendering .pdf-text-block,
+.report-page.pdf-rendering .pdf-input-value {
+  font-family: 'Hachi Maru Pop', 'Klee One', 'Hiragino Maru Gothic ProN', sans-serif !important;
 }
 
 /* ===== モバイル対応（編集画面のみ。PDF出力時は html2canvas に

@@ -1398,9 +1398,13 @@ body {
   font-family: 'Yusei Magic', 'Klee One', sans-serif;
 }
 
-/* PDF出力時のみ：ユーザーが書いた部分は Hachi Maru Pop で
- * 「丸くてポップな手書き感」を出して、テンプレ部分（ゴシック体）と
- * ぱっと見で区別できるようにする。
+/* PDF出力時のみ：ユーザーが書いた部分は Klee One Bold で
+ * 「教科書ふうの手書き感」を出す。Klee One は小学校の教科書フォントとして
+ * 設計されているので、手書きの親しみやすさと可読性を両立できる。
+ * テンプレ部分（Hiragino Kaku Gothic regular）とは
+ *   - 書体（ゴシック sans-serif vs 教科書手書き）
+ *   - ウェイト（regular vs bold 600）
+ * の二重で差別化される。
  * - .pdf-text-block / .pdf-input-value は onclone で textarea/input を
  *   div/span に置換した際に付与しているマーカークラス
  * - id 経由のセレクタは置換後も id を保持しているので念のため重ねている */
@@ -1411,7 +1415,8 @@ body {
 .report-page.pdf-rendering .report-photo-comment,
 .report-page.pdf-rendering .pdf-text-block,
 .report-page.pdf-rendering .pdf-input-value {
-  font-family: 'Hachi Maru Pop', 'Klee One', 'Hiragino Maru Gothic ProN', sans-serif !important;
+  font-family: 'Klee One', 'Hiragino Maru Gothic ProN', sans-serif !important;
+  font-weight: 600 !important;
 }
 
 /* ===== モバイル対応（編集画面のみ。PDF出力時は html2canvas に

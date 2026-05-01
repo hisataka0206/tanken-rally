@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=74';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=74';
-import { fetchOriginStory } from './utils/ai.js?v=74';
-import { generateMapPdf } from './utils/pdf.js?v=74';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=74';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=74';
-import { CITIES, localizeStationName } from './data/cities.js?v=74';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=74';
-import { addReport as addIssueReport } from './utils/issues.js?v=74';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=74';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=74';
+import { CONFIG } from '../config.js?v=75';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=75';
+import { fetchOriginStory } from './utils/ai.js?v=75';
+import { generateMapPdf } from './utils/pdf.js?v=75';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=75';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=75';
+import { CITIES, localizeStationName } from './data/cities.js?v=75';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=75';
+import { addReport as addIssueReport } from './utils/issues.js?v=75';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=75';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=75';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1758,16 +1758,16 @@ async function onReportPdf() {
     }
     btn.textContent = t('statusGeneratingPdf');
 
-    // Webフォント (Klee One / Yusei Magic / Hachi Maru Pop) のロード完了を待つ。
+    // Webフォント (Klee One regular/bold / Yusei Magic) のロード完了を待つ。
     // → 待たないと html2canvas が初期表示時のフォールバックフォントで描画してしまう。
-    // Hachi Maru Pop は通常時は使われないので、明示的に load() を呼んでフェッチを発火させる必要がある。
+    // Klee One bold (600) はユーザーコメント用なので、明示的に load() を呼んで
+    // フェッチを発火させる必要がある（普段の編集画面では 400 しか使っていない）。
     if (document.fonts && document.fonts.load) {
       try {
         await Promise.all([
           document.fonts.load("28px 'Klee One'"),
+          document.fonts.load("bold 28px 'Klee One'"),
           document.fonts.load("28px 'Yusei Magic'"),
-          document.fonts.load("28px 'Hachi Maru Pop'"),
-          document.fonts.load("18px 'Hachi Maru Pop'"),
         ]);
       } catch (e) {
         console.warn('[pdf] font preload partial failure:', e);

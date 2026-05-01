@@ -81,12 +81,12 @@ export const CITIES = [
     ],
   },
   {
-    id: 'hamamatsu',
-    name: '浜松', nameEn: 'Hamamatsu',
+    id: 'shizuoka',
+    name: '静岡', nameEn: 'Shizuoka',
     center: { lat: 34.7036, lng: 137.7349 },
     bounds: { sw: { lat: 34.65, lng: 137.50 }, ne: { lat: 34.80, lng: 137.95 } },
     lines: [
-      // 浜松エリアを横断する JR 東海道本線。弁天島駅を含む（湖西市〜浜松市〜磐田市〜袋井市）
+      // JR 東海道本線（湖西市〜浜松市〜磐田市〜袋井市）。弁天島駅を含む
       { name: 'JR東海道本線', nameEn: 'JR Tokaido Main Line',
         stations: ['新所原', '鷲津', '新居町', '弁天島', '舞阪', '高塚', '浜松', '天竜川', '磐田', '御厨', '袋井'] },
     ],

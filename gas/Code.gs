@@ -72,6 +72,9 @@ function doPost(e) {
     if (action === 'getPhotoThumbnail') {
       return respond(headers, getPhotoThumbnail(body));
     }
+    if (action === 'updatePhotoTag') {
+      return respond(headers, updatePhotoTag(body));
+    }
     if (action === 'saveIssueReport') {
       return respond(headers, saveIssueReport(body));
     }
@@ -385,7 +388,7 @@ function uploadPhoto(body) {
   };
 }
 
-/** フォルダ内の写真一覧を取得 */
+/** フォルダ内の写真一覧を取得（画像ファイルのみ・report.json などのメタファイルは除外） */
 function listPhotos(body) {
   const { folderId } = body;
   if (!folderId) return { ok: false, error: 'folderId が必要です' };
@@ -396,6 +399,12 @@ function listPhotos(body) {
 
   while (files.hasNext()) {
     const file = files.next();
+    // MIME タイプが image/* で無いファイルはスキップ
+    // （report.json (application/json)・summary.json などのメタファイルや、
+    //  ユーザーが手で置いた非画像ファイルが混入するのを防ぐ）
+    const mime = file.getMimeType() || '';
+    if (!mime.startsWith('image/')) continue;
+
     let meta = {};
     try { meta = JSON.parse(file.getDescription() || '{}'); } catch (_) {}
     photos.push({
@@ -459,6 +468,23 @@ function getPhotoData(body) {
  *   - 'w400' / 'w800' / 'w1000' / 'w1600' など（Google サムネ API の慣用記法）
  *   - 省略時は 'w800'（一般的なディスプレイで十分な解像度・容量も100KB前後と軽い）
  */
+/**
+ * 既存写真ファイルのタグ（spotName）を更新する。
+ * description JSON 内の spotName だけを差し替え、他のメタ情報（takenAt / lat / lng 等）は保持する。
+ * 復元時にタグ情報が消えてしまう問題を解決するために使用。
+ */
+function updatePhotoTag(body) {
+  const { fileId, spotName } = body;
+  if (!fileId) return { ok: false, error: 'fileId が必要です' };
+
+  const file = DriveApp.getFileById(fileId);
+  let meta = {};
+  try { meta = JSON.parse(file.getDescription() || '{}'); } catch (_) {}
+  meta.spotName = spotName || '';
+  file.setDescription(JSON.stringify(meta));
+  return { ok: true, fileId, spotName: meta.spotName };
+}
+
 function getPhotoThumbnail(body) {
   const { fileId, size } = body;
   if (!fileId) return { ok: false, error: 'fileId が必要です' };

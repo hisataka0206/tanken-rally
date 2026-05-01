@@ -100,6 +100,13 @@ export class DriveClient {
     return data.photos;
   }
 
+  /** 写真のタグ（spotName）を更新（Drive の file.description JSON を書き換え） */
+  async updatePhotoTag(fileId, spotName) {
+    const data = await this._post({ action: 'updatePhotoTag', fileId, spotName: spotName || '' });
+    if (!data.ok) throw new Error(data.error);
+    return data;
+  }
+
   /** 写真ファイルの実体（base64）を取得。CORS 回避用に blob URL 生成へ使う。 */
   async getPhotoData(fileId) {
     const data = await this._post({ action: 'getPhotoData', fileId });

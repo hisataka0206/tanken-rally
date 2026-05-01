@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=67';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=67';
-import { fetchOriginStory } from './utils/ai.js?v=67';
-import { generateMapPdf } from './utils/pdf.js?v=67';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=67';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=67';
-import { CITIES, localizeStationName } from './data/cities.js?v=67';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=67';
-import { addReport as addIssueReport } from './utils/issues.js?v=67';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=67';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=67';
+import { CONFIG } from '../config.js?v=68';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=68';
+import { fetchOriginStory } from './utils/ai.js?v=68';
+import { generateMapPdf } from './utils/pdf.js?v=68';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=68';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=68';
+import { CITIES, localizeStationName } from './data/cities.js?v=68';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=68';
+import { addReport as addIssueReport } from './utils/issues.js?v=68';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=68';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=68';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -956,15 +956,27 @@ function closeTagModal() {
   _tagEditTarget = null;
   $('tag-modal').classList.add('hidden');
 }
-function saveTagModal() {
+async function saveTagModal() {
   if (!_tagEditTarget) return;
   const sel = $('tag-modal-select');
   const photo = _tagEditTarget;
-  photo.spotName = sel.value || '';
+  const newTag = sel.value || '';
+  photo.spotName = newTag;
   closeTagModal();
   // 該当アイテムの overlay だけ更新（<img> は触らないので再描画が劇的に速い）
   updatePhotoItemTag(photo.fileId);
   updatePhotosCount();
+
+  // Drive にも書き戻す（復元時にタグが残るように）
+  // - 一時ID（temp_*）はまだアップロード未完了なのでスキップ
+  // - drive クライアントが無効な場合（ローカル運用）もスキップ
+  if (drive && photo.fileId && !photo.fileId.startsWith('temp_')) {
+    try {
+      await drive.updatePhotoTag(photo.fileId, newTag);
+    } catch (e) {
+      console.warn('[tag] Drive 永続化に失敗（ローカル状態は反映済）:', e);
+    }
+  }
 }
 
 // ===== セッション再開（パスワード入力） =====

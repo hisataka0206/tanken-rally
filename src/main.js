@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=76';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=76';
-import { fetchOriginStory } from './utils/ai.js?v=76';
-import { generateMapPdf } from './utils/pdf.js?v=76';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=76';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=76';
-import { CITIES, localizeStationName } from './data/cities.js?v=76';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=76';
-import { addReport as addIssueReport } from './utils/issues.js?v=76';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=76';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=76';
+import { CONFIG } from '../config.js?v=77';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=77';
+import { fetchOriginStory } from './utils/ai.js?v=77';
+import { generateMapPdf } from './utils/pdf.js?v=77';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=77';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=77';
+import { CITIES, localizeStationName } from './data/cities.js?v=77';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=77';
+import { addReport as addIssueReport } from './utils/issues.js?v=77';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=77';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=77';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1838,6 +1838,17 @@ async function onReportPdf() {
 
         // 上記の表示変更後、レイアウトを強制計算してから写真ブロックの位置を取得。
         // 取得した rect はクローンドキュメントの座標 → canvas 座標へは × SCALE で変換。
+        //
+        // ★ 視覚オーバーフロー対応 ★
+        // .report-photo-item は box-shadow（下にぼかし）、::before のマスキングテープ
+        // （上端 -10px）、transform: rotate(±0.9°) によって、要素本体の bbox
+        // よりも視覚的な描画範囲が広い。getBoundingClientRect は本体の bbox しか
+        // 返さないので、そのまま使うと findSafeSplit が「装飾の途中」で改ページしてしまい
+        // ・影だけ次ページに少し残る
+        // ・マステが前ページに見切れる
+        // などの「装飾が中途半端に切れる」問題が起きる。
+        // → 上下方向にバッファを足して「割らないゾーン」を装飾分まで広げる。
+        const VISUAL_OVERFLOW_PX = 28; // shadow ~14 + tape ~12 + rotation の余裕
         void clonedPage.offsetHeight; // force reflow
         const pageRect = clonedPage.getBoundingClientRect();
         const photos = clonedPage.querySelectorAll('.report-photo-item');
@@ -1850,8 +1861,8 @@ async function onReportPdf() {
           .map(el => {
             const r = el.getBoundingClientRect();
             return {
-              top: (r.top - pageRect.top) * SCALE,
-              bottom: (r.bottom - pageRect.top) * SCALE,
+              top:    ((r.top    - pageRect.top) - VISUAL_OVERFLOW_PX) * SCALE,
+              bottom: ((r.bottom - pageRect.top) + VISUAL_OVERFLOW_PX) * SCALE,
             };
           })
           .sort((a, b) => a.top - b.top);

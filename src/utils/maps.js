@@ -1,5 +1,5 @@
 // Google Maps API の動的ロードとユーティリティ
-import { apiLang } from './i18n.js?v=77';
+import { apiLang } from './i18n.js?v=78';
 
 let mapsLoaded = false;
 
@@ -47,16 +47,42 @@ export function geocodeStation(stationName, opts = {}) {
         )
       : null;
 
-    // bounds 内の結果を最優先で選ぶ。なければ最初の結果を返す。
+    // 結果の選定優先度（誤マッチ対策）：
+    //   1. bounds 内 かつ 駅型（train_station / transit_station / subway_station）
+    //   2. bounds 内（型は問わない）
+    //   3. 駅型（bounds は問わない）— 唯一の駅名なら別都市まで広げても正しいことが多い
+    //   4. 最初の結果（最終手段）
+    //
+    // 旧実装は (2) → (4) しかなかったため、たとえば「浜松 JR東海道本線 舞阪駅」で
+    // Google が「舞阪町（地域）」や「浜松（広域中心点）」を返したとき、それが bounds 内に
+    // 入ると駅本来の位置ではない場所が採用される問題があった。
+    const isStation = (r) => {
+      const types = r.types || [];
+      return types.includes('train_station')
+          || types.includes('transit_station')
+          || types.includes('subway_station')
+          || types.includes('light_rail_station');
+    };
     const pickBest = (results) => {
       if (!results || !results.length) return null;
       if (gmBounds) {
+        // (1) bounds 内 かつ 駅型
+        const insideStation = results.find(r => {
+          const loc = r.geometry?.location;
+          return loc && gmBounds.contains(loc) && isStation(r);
+        });
+        if (insideStation) return insideStation.geometry.location;
+        // (2) bounds 内（型は問わない）
         const inside = results.find(r => {
           const loc = r.geometry?.location;
           return loc && gmBounds.contains(loc);
         });
         if (inside) return inside.geometry.location;
       }
+      // (3) 駅型（bounds 外でも採用）
+      const stationResult = results.find(isStation);
+      if (stationResult) return stationResult.geometry.location;
+      // (4) 最終フォールバック
       return results[0].geometry.location;
     };
 
@@ -79,15 +105,23 @@ export function geocodeStation(stationName, opts = {}) {
         };
         // locationBias は SW/NE タプルか radius/center で指定（ここでは bounds の長方形で）
         if (gmBounds) req.locationBias = gmBounds;
+        // Places API では fields に 'types' を含めて駅型かどうかを判定
+        req.fields = ['geometry', 'name', 'types'];
         ps.findPlaceFromQuery(req, (results, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK
               && results && results[0] && results[0].geometry?.location) {
             console.warn(`[geocodeStation] Places API フォールバック成功 (Geocoding 失敗理由: ${reason})`);
-            // bounds がある場合は内側の結果を優先（誤マッチ回避）
+            // 同じ4段階の優先度で選定（駅型 + bounds 内が最優先）
             if (gmBounds) {
-              const inside = results.find(r => r.geometry?.location && gmBounds.contains(r.geometry.location));
+              const insideStation = results.find(r =>
+                r.geometry?.location && gmBounds.contains(r.geometry.location) && isStation(r));
+              if (insideStation) { resolve(insideStation.geometry.location); return; }
+              const inside = results.find(r =>
+                r.geometry?.location && gmBounds.contains(r.geometry.location));
               if (inside) { resolve(inside.geometry.location); return; }
             }
+            const stationResult = results.find(isStation);
+            if (stationResult) { resolve(stationResult.geometry.location); return; }
             resolve(results[0].geometry.location);
           } else {
             tryQuery(i + 1);

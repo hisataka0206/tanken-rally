@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=69';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=69';
-import { fetchOriginStory } from './utils/ai.js?v=69';
-import { generateMapPdf } from './utils/pdf.js?v=69';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=69';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=69';
-import { CITIES, localizeStationName } from './data/cities.js?v=69';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=69';
-import { addReport as addIssueReport } from './utils/issues.js?v=69';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=69';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=69';
+import { CONFIG } from '../config.js?v=70';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=70';
+import { fetchOriginStory } from './utils/ai.js?v=70';
+import { generateMapPdf } from './utils/pdf.js?v=70';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=70';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=70';
+import { CITIES, localizeStationName } from './data/cities.js?v=70';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=70';
+import { addReport as addIssueReport } from './utils/issues.js?v=70';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=70';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=70';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1535,11 +1535,18 @@ function renderReportPhotos() {
     const tagHtml = photo.spotName
       ? `<span class="report-photo-tag">📍 ${photo.spotName}</span>`
       : `<span class="report-photo-tag report-photo-tag-empty">${escapeHtml(t('photoTagless'))}</span>`;
-    // 表示には必ずローカルの blob: URL を使う（Drive の uc?id= は CORS で読めない）
-    const imgSrc = photo.url || photo.thumbnailUrl || photo.driveThumbnailUrl || photo.driveUrl || '';
+    // 画像ソース選択：blob URL（サムネ）→ Drive URL（フォールバック） の順で試す
+    // 最初の src が読めない場合に備えて候補チェーンを保存し、img.onerror で順送りに
+    const imgCandidates = [
+      photo.url,
+      photo.thumbnailUrl,
+      photo.driveThumbnailUrl,
+      photo.driveUrl,
+    ].filter(Boolean);
+    const imgSrc = imgCandidates[0] || '';
     item.innerHTML = `
       <div class="report-photo-img-wrap">
-        <img src="${imgSrc}" alt="${photo.fileName}" />
+        <img src="${imgSrc}" alt="${escapeHtml(photo.fileName || '')}" data-fallback-idx="0" />
       </div>
       <div class="report-photo-meta">
         <div>
@@ -1558,6 +1565,20 @@ function renderReportPhotos() {
     //  2) 横長判定（naturalWidth > naturalHeight）で .landscape クラス付与
     //     → CSS で「写真上 + コメント下」のレイアウトに切り替え
     const imgEl = item.querySelector('img');
+
+    // src が読めなかった場合は候補チェーンを順送りに試す（自己回復）
+    imgEl.addEventListener('error', () => {
+      const idx = parseInt(imgEl.dataset.fallbackIdx || '0', 10);
+      const next = idx + 1;
+      const nextSrc = imgCandidates[next];
+      if (nextSrc) {
+        console.warn(`[report] img ${idx} 失敗 (${imgEl.src.slice(0, 60)}...) → 候補${next} へフォールバック`);
+        imgEl.dataset.fallbackIdx = String(next);
+        imgEl.src = nextSrc;
+      } else {
+        console.error(`[report] 全画像候補が失敗:`, photo.fileName, imgCandidates);
+      }
+    });
     const ENVELOPE_MM = 148; // ハガキ長辺
     const applyImageSize = () => {
       if (!imgEl.naturalWidth || !imgEl.naturalHeight) return;

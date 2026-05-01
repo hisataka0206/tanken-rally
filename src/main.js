@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=66';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=66';
-import { fetchOriginStory } from './utils/ai.js?v=66';
-import { generateMapPdf } from './utils/pdf.js?v=66';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=66';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=66';
-import { CITIES, localizeStationName } from './data/cities.js?v=66';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=66';
-import { addReport as addIssueReport } from './utils/issues.js?v=66';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=66';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=66';
+import { CONFIG } from '../config.js?v=67';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=67';
+import { fetchOriginStory } from './utils/ai.js?v=67';
+import { generateMapPdf } from './utils/pdf.js?v=67';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=67';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=67';
+import { CITIES, localizeStationName } from './data/cities.js?v=67';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=67';
+import { addReport as addIssueReport } from './utils/issues.js?v=67';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=67';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=67';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1038,11 +1038,12 @@ async function onResumeSession() {
     }));
     state.selectedPhotoIds.clear();
 
-    // 4.5) 写真の実体を base64 で取得して blob URL を生成
+    // 4.5) 写真の表示用サムネイル（GAS 経由 base64 → blob URL）を取得
     //   - Drive の uc?id= / thumbnail?id= は CORS ヘッダ無し → html2canvas で tainted になる
     //   - uc?id= は時々ウィルス警告ページにリダイレクトされ <img> 自体も読み込み失敗する
-    //   - そこで GAS proxy 経由で base64 を取得 → 同一オリジン blob URL に変換し、
-    //     表示用 url を blob URL で上書きする（PDFも編集画面も両方ここで救う）
+    //   - そこで GAS proxy 経由で base64 を取得 → 同一オリジン blob URL に変換する
+    //   - **復元時はサムネ（w800, ~100KB）のみ取得して高速化**
+    //     PDF生成時のみ ensureFullResolutionPhotos() がオリジナルを取得し直す
     if (state.uploadedPhotos.length > 0) {
       const total = state.uploadedPhotos.length;
       let done = 0;
@@ -1057,15 +1058,18 @@ async function onResumeSession() {
         while (queue.length > 0) {
           const p = queue.shift();
           try {
-            const data = await drive.getPhotoData(p.fileId);
+            const data = await drive.getPhotoThumbnail(p.fileId, 'w800');
             const bytes = Uint8Array.from(atob(data.base64), c => c.charCodeAt(0));
             const blob = new Blob([bytes], { type: data.mimeType || 'image/jpeg' });
             // 既存の `url` を blob URL で上書き（Drive URL は driveUrl に保持済）
             p.url = URL.createObjectURL(blob);
-            p.thumbnailUrl = p.url; // サムネ用途も同じ blob でOK
+            p.thumbnailUrl = p.url;
+            // フル解像度はまだ未取得（PDF生成時にオンデマンドで取得）
+            p.fullResLoaded = false;
           } catch (e) {
-            console.warn('[resume] getPhotoData failed:', p.fileId, e);
+            console.warn('[resume] getPhotoThumbnail failed:', p.fileId, e);
             // フォールバック: Drive URL のまま（編集画面は <img> で表示できる可能性あり、PDFは失敗）
+            p.fullResLoaded = false;
           } finally {
             done++;
             updateBtn();
@@ -1582,6 +1586,44 @@ function bindReportInputs() {
   });
 }
 
+// 復元セッションは表示用にサムネ（w800）の blob URL を持つだけで、フル解像度は未取得。
+// PDF生成時にだけここでオリジナルを fetch し直し、blob URL をフル解像度に差し替える。
+// fullResLoaded === false の写真のみ対象。新規アップロード写真（fullResLoaded undefined or true）はスキップ。
+async function ensureFullResolutionPhotos(progressCb) {
+  const targets = state.uploadedPhotos.filter(p => p.fullResLoaded === false);
+  if (targets.length === 0) return;
+  let done = 0;
+  const total = targets.length;
+  if (progressCb) progressCb(done, total);
+  const CONCURRENCY = 3;
+  const queue = [...targets];
+  const worker = async () => {
+    while (queue.length > 0) {
+      const p = queue.shift();
+      try {
+        const data = await drive.getPhotoData(p.fileId);
+        const bytes = Uint8Array.from(atob(data.base64), c => c.charCodeAt(0));
+        const blob = new Blob([bytes], { type: data.mimeType || 'image/jpeg' });
+        // 旧サムネ blob URL を解放してから差し替え（メモリリーク防止）
+        const oldUrl = p.url;
+        p.url = URL.createObjectURL(blob);
+        p.thumbnailUrl = p.url;
+        if (oldUrl && oldUrl.startsWith('blob:') && oldUrl !== p.url) {
+          URL.revokeObjectURL(oldUrl);
+        }
+        p.fullResLoaded = true;
+      } catch (e) {
+        console.warn('[pdf] full-res fetch failed:', p.fileId, e);
+        // フォールバック：サムネのまま PDF を出す（品質は落ちるが生成自体は続行）
+      } finally {
+        done++;
+        if (progressCb) progressCb(done, total);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+}
+
 async function onReportPdf() {
   const btn = $('report-pdf-btn');
   const original = btn.textContent;
@@ -1593,6 +1635,26 @@ async function onReportPdf() {
   page.classList.add('pdf-rendering');
 
   try {
+    // 復元セッションでサムネのみ取得済みの写真は、PDF生成前にオリジナル解像度を取得する
+    await ensureFullResolutionPhotos((done, total) => {
+      btn.textContent = `${t('statusGeneratingPdf')} (${done}/${total})`;
+    });
+    // フル解像度に差し替えたので、レポート写真の <img src> を更新するため再レンダ
+    // （renderReportPhotos は state.uploadedPhotos[].url を読み直す）
+    if (state.uploadedPhotos.some(p => p.fullResLoaded === true)) {
+      renderReportPhotos();
+      // 新しい <img> がロード完了するまで待つ（complete を確認）
+      const imgs = page.querySelectorAll('.report-photo-img-wrap img');
+      await Promise.all(Array.from(imgs).map(img => {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        return new Promise(res => {
+          img.addEventListener('load', res, { once: true });
+          img.addEventListener('error', res, { once: true });
+        });
+      }));
+    }
+    btn.textContent = t('statusGeneratingPdf');
+
     // Webフォント (Klee One / Yusei Magic) のロード完了を待つ
     // → 待たないと html2canvas が初期表示時のフォールバックフォントで描画してしまうことがある
     if (document.fonts && document.fonts.ready) {

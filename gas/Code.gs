@@ -69,6 +69,9 @@ function doPost(e) {
     if (action === 'getPhotoData') {
       return respond(headers, getPhotoData(body));
     }
+    if (action === 'getPhotoThumbnail') {
+      return respond(headers, getPhotoThumbnail(body));
+    }
     if (action === 'saveIssueReport') {
       return respond(headers, saveIssueReport(body));
     }
@@ -436,6 +439,47 @@ function getPhotoData(body) {
     fileName: file.getName(),
     mimeType: blob.getContentType() || 'image/jpeg',
     base64,
+  };
+}
+
+/**
+ * 写真ファイルのサムネイル（中サイズ）を base64 で返す。
+ *
+ * 用途:
+ *   - 復元セッションの一覧表示・編集画面用に「軽量な画像」を素早く取得する
+ *   - PDF生成時のオリジナル画像取得（getPhotoData）と使い分ける
+ *
+ * 仕組み:
+ *   - Drive が自動生成するサムネ URL を UrlFetchApp で取得
+ *     ( https://drive.google.com/thumbnail?id=FILE_ID&sz=w800 )
+ *   - GAS 経由なので CORS 制約を回避できる
+ *   - ストレージは消費しない（Drive 内に新規ファイルを作らない）
+ *
+ * size パラメータ:
+ *   - 'w400' / 'w800' / 'w1000' / 'w1600' など（Google サムネ API の慣用記法）
+ *   - 省略時は 'w800'（一般的なディスプレイで十分な解像度・容量も100KB前後と軽い）
+ */
+function getPhotoThumbnail(body) {
+  const { fileId, size } = body;
+  if (!fileId) return { ok: false, error: 'fileId が必要です' };
+
+  const sz = size || 'w800';
+  const url = `https://drive.google.com/thumbnail?id=${fileId}&sz=${sz}`;
+  const resp = UrlFetchApp.fetch(url, {
+    followRedirects: true,
+    muteHttpExceptions: true,
+  });
+  const code = resp.getResponseCode();
+  if (code !== 200) {
+    return { ok: false, error: `thumbnail fetch failed (HTTP ${code})` };
+  }
+  const blob = resp.getBlob();
+  return {
+    ok: true,
+    fileId,
+    mimeType: blob.getContentType() || 'image/jpeg',
+    base64: Utilities.base64Encode(blob.getBytes()),
+    size: sz,
   };
 }
 

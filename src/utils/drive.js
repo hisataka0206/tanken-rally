@@ -107,6 +107,14 @@ export class DriveClient {
     return data; // { fileId, fileName, mimeType, base64 }
   }
 
+  /** 写真ファイルのサムネイル（中サイズ）を base64 で取得。表示用に軽量＆高速。
+   *  size: 'w400' / 'w800' / 'w1600' など。省略時は w800。 */
+  async getPhotoThumbnail(fileId, size) {
+    const data = await this._post({ action: 'getPhotoThumbnail', fileId, size });
+    if (!data.ok) throw new Error(data.error);
+    return data; // { fileId, mimeType, base64, size }
+  }
+
   /** ランキングを保存 */
   async saveRanking(payload) {
     const data = await this._post({ action: 'saveRanking', ...payload });

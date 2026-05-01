@@ -4,9 +4,9 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=64';
-import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=64';
-import { localizeStationName } from '../data/cities.js?v=64';
+import { toLatLngLiteral } from './maps.js?v=65';
+import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=65';
+import { localizeStationName } from '../data/cities.js?v=65';
 
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;

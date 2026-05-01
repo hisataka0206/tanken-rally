@@ -100,6 +100,13 @@ export class DriveClient {
     return data.photos;
   }
 
+  /** 写真ファイルの実体（base64）を取得。CORS 回避用に blob URL 生成へ使う。 */
+  async getPhotoData(fileId) {
+    const data = await this._post({ action: 'getPhotoData', fileId });
+    if (!data.ok) throw new Error(data.error);
+    return data; // { fileId, fileName, mimeType, base64 }
+  }
+
   /** ランキングを保存 */
   async saveRanking(payload) {
     const data = await this._post({ action: 'saveRanking', ...payload });

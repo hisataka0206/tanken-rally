@@ -66,6 +66,9 @@ function doPost(e) {
     if (action === 'listPhotos') {
       return respond(headers, listPhotos(body));
     }
+    if (action === 'getPhotoData') {
+      return respond(headers, getPhotoData(body));
+    }
     if (action === 'saveIssueReport') {
       return respond(headers, saveIssueReport(body));
     }
@@ -408,6 +411,32 @@ function listPhotos(body) {
   // 撮影時刻順にソート
   photos.sort((a, b) => (a.takenAt || '') < (b.takenAt || '') ? -1 : 1);
   return { ok: true, photos };
+}
+
+/**
+ * 写真ファイルの中身を base64 で返す（パスワード復元時のクライアント側 blob URL 生成用）。
+ *
+ * 背景:
+ *   - Drive の uc?id= / thumbnail?id= URL は CORS ヘッダを返さないため、
+ *     html2canvas で読み込もうとすると tainted canvas になり PDF生成が失敗する。
+ *   - また uc?id= は時々ウィルススキャン警告ページにリダイレクトされ <img> 自体も読めないことがある。
+ *   - そこで base64 をクライアントに渡し、createObjectURL で blob URL を生成して
+ *     同一オリジン扱いの安全な image source として利用する。
+ */
+function getPhotoData(body) {
+  const { fileId } = body;
+  if (!fileId) return { ok: false, error: 'fileId が必要です' };
+
+  const file = DriveApp.getFileById(fileId);
+  const blob = file.getBlob();
+  const base64 = Utilities.base64Encode(blob.getBytes());
+  return {
+    ok: true,
+    fileId,
+    fileName: file.getName(),
+    mimeType: blob.getContentType() || 'image/jpeg',
+    base64,
+  };
 }
 
 // ===== セッションフォルダ自動掃除 =====

@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=64';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=64';
-import { fetchOriginStory } from './utils/ai.js?v=64';
-import { generateMapPdf } from './utils/pdf.js?v=64';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=64';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=64';
-import { CITIES, localizeStationName } from './data/cities.js?v=64';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=64';
-import { addReport as addIssueReport } from './utils/issues.js?v=64';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=64';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=64';
+import { CONFIG } from '../config.js?v=65';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=65';
+import { fetchOriginStory } from './utils/ai.js?v=65';
+import { generateMapPdf } from './utils/pdf.js?v=65';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=65';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=65';
+import { CITIES, localizeStationName } from './data/cities.js?v=65';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=65';
+import { addReport as addIssueReport } from './utils/issues.js?v=65';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=65';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=65';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -996,6 +996,43 @@ async function onResumeSession() {
       uploading: false,
     }));
     state.selectedPhotoIds.clear();
+
+    // 4.5) 写真の実体を base64 で取得して blob URL を生成
+    //   - Drive の uc?id= / thumbnail?id= は CORS ヘッダ無し → html2canvas で tainted になる
+    //   - uc?id= は時々ウィルス警告ページにリダイレクトされ <img> 自体も読み込み失敗する
+    //   - そこで GAS proxy 経由で base64 を取得 → 同一オリジン blob URL に変換し、
+    //     表示用 url を blob URL で上書きする（PDFも編集画面も両方ここで救う）
+    if (state.uploadedPhotos.length > 0) {
+      const total = state.uploadedPhotos.length;
+      let done = 0;
+      const updateBtn = () => {
+        const btn = $('resume-session-btn');
+        if (btn) btn.textContent = `${t('btnLoadingResume')} (${done}/${total})`;
+      };
+      updateBtn();
+      const CONCURRENCY = 3;
+      const queue = [...state.uploadedPhotos];
+      const worker = async () => {
+        while (queue.length > 0) {
+          const p = queue.shift();
+          try {
+            const data = await drive.getPhotoData(p.fileId);
+            const bytes = Uint8Array.from(atob(data.base64), c => c.charCodeAt(0));
+            const blob = new Blob([bytes], { type: data.mimeType || 'image/jpeg' });
+            // 既存の `url` を blob URL で上書き（Drive URL は driveUrl に保持済）
+            p.url = URL.createObjectURL(blob);
+            p.thumbnailUrl = p.url; // サムネ用途も同じ blob でOK
+          } catch (e) {
+            console.warn('[resume] getPhotoData failed:', p.fileId, e);
+            // フォールバック: Drive URL のまま（編集画面は <img> で表示できる可能性あり、PDFは失敗）
+          } finally {
+            done++;
+            updateBtn();
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+    }
     // Drive に保存されている過去のノートを取得（あれば）
     let restoredReport = null;
     try {

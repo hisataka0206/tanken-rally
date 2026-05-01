@@ -1199,17 +1199,19 @@ body {
 
 #report-overview, #report-afterword,
 .report-photo-comment {
-  /* 本文: 22px ≒ 16.5pt（推奨 18-22pt の中央寄り） */
+  /* ユーザー記入欄: 28px ≒ 21pt（推奨 18-22pt の上限） */
   width: 100%;
   border: 1.5px dashed #bbb;
   border-radius: 6px;
   padding: 14px 16px;
-  font-size: 22px;
-  line-height: 1.9;
+  font-size: 28px;
+  line-height: 1.8;
   font-family: 'Klee One', 'Hiragino Maru Gothic ProN', sans-serif;
-  /* 罫線背景は line-height(1.9) × font-size(22px) ≒ 42px の間隔に合わせる */
-  background: repeating-linear-gradient(transparent, transparent 41px, #e8e5dc 41px, #e8e5dc 42px);
-  resize: vertical;
+  /* 罫線背景は line-height(1.8) × font-size(28px) ≒ 50px の間隔に合わせる */
+  background: repeating-linear-gradient(transparent, transparent 49px, #e8e5dc 49px, #e8e5dc 50px);
+  /* JS が input ごとに高さを scrollHeight と同期するので、手動 resize と内部スクロールは不要 */
+  resize: none;
+  overflow: hidden;
   outline: none;
   color: #2a3a2a;
 }
@@ -1285,16 +1287,17 @@ body {
 }
 .report-photo-comment {
   flex: none;
-  /* 1 行ぶんを目安にしつつ、書きながら手動で広げられる
-     22px font + line-height 1.7 ≒ 37px なので min-height はその少し上 */
-  min-height: 48px;
-  height: 56px;
+  /* 28px font + line-height 1.7 + padding ≒ 70px が1行ぶんの目安。
+     height は固定せず、JS で scrollHeight に合わせて自動拡張する。 */
+  min-height: 70px;
   line-height: 1.7;
-  padding: 10px 14px;
-  /* 罫線背景は 1 行用に白で上書き */
+  padding: 12px 16px;
+  /* 罫線背景は写真コメントには不要（白で上書き） */
   background: white;
   border: 1.5px dashed #bbb;
-  resize: vertical;
+  /* 手動 resize と内部スクロールは不要（auto-grow のため） */
+  resize: none;
+  overflow: hidden;
 }
 .report-photo-order {
   display: inline-block;

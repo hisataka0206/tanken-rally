@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=72';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=72';
-import { fetchOriginStory } from './utils/ai.js?v=72';
-import { generateMapPdf } from './utils/pdf.js?v=72';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=72';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=72';
-import { CITIES, localizeStationName } from './data/cities.js?v=72';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=72';
-import { addReport as addIssueReport } from './utils/issues.js?v=72';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=72';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=72';
+import { CONFIG } from '../config.js?v=73';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=73';
+import { fetchOriginStory } from './utils/ai.js?v=73';
+import { generateMapPdf } from './utils/pdf.js?v=73';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=73';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=73';
+import { CITIES, localizeStationName } from './data/cities.js?v=73';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=73';
+import { addReport as addIssueReport } from './utils/issues.js?v=73';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=73';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=73';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1496,6 +1496,15 @@ function onStartReport() {
 
   renderReportPhotos();
   showStep('step-report');
+
+  // ステップ表示後（display:none が外れた後）に textarea の高さを再計算する。
+  // 初回 setupAutoResize の grow() は hidden 状態だと scrollHeight=0 で no-op になるため
+  // ここで明示的に再トリガする。
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.report-page textarea').forEach(t => {
+      if (t._autoGrow) t._autoGrow();
+    });
+  });
 }
 
 // 写真を「行った順」に並び替える
@@ -1600,13 +1609,41 @@ function renderReportPhotos() {
     if (imgEl.complete && imgEl.naturalWidth) applyImageSize();
     else imgEl.addEventListener('load', applyImageSize);
 
-    // 感想テキストの永続化
-    item.querySelector('.report-photo-comment').addEventListener('input', e => {
+    // 感想テキストの永続化 + 自動リサイズ
+    const commentEl = item.querySelector('.report-photo-comment');
+    commentEl.addEventListener('input', e => {
       state.reportData.photoComments[photo.fileId] = e.target.value;
     });
+    setupAutoResize(commentEl);
 
     wrap.appendChild(item);
   });
+}
+
+// テキストエリアを「内容に応じて高さを自動拡張する」よう設定する。
+// resize: none + overflow: hidden の textarea に対し、input ごとに
+// scrollHeight に合わせて height を再設定して、ユーザーの入力が
+// 常に全部見えるようにする（はみ出し防止）。
+//
+// ※ 初回設定時にステップが display:none のときは scrollHeight=0 になるため、
+//    onStartReport 側で showStep の後に明示的に再トリガする必要がある。
+//    そのため grow を `el._autoGrow` として外から呼べるようにしておく。
+function setupAutoResize(textarea) {
+  if (!textarea || textarea._autoResize) return;
+  textarea._autoResize = true;
+  const grow = () => {
+    if (textarea.offsetParent === null) return; // display:none のときはスキップ
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+  };
+  textarea._autoGrow = grow;
+  textarea.addEventListener('input', grow);
+  // 初期化：DOM がレイアウト確定したタイミングで一度実行（hidden なら no-op）
+  requestAnimationFrame(grow);
+  // フォントロード後にも再計算（Klee One が読み込まれて高さが変わるため）
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(grow);
+  }
 }
 
 // レポートテキストの自動保存
@@ -1619,6 +1656,11 @@ function bindReportInputs() {
       const key = id.replace('report-', '');
       state.reportData[key] = el.value;
     });
+  });
+  // overview / afterword は内容に合わせて自動拡張
+  ['report-overview', 'report-afterword'].forEach(id => {
+    const el = $(id);
+    if (el) setupAutoResize(el);
   });
 }
 
@@ -1752,12 +1794,13 @@ async function onReportPdf() {
           el.style.display = 'none';
         });
         // textarea / input を div / span へ置換（値が確実にレンダリングされる）
+        // 28px font × line-height 1.8 ≒ 50px/行 を minHeight の基準にする
         clonedPage.querySelectorAll('textarea').forEach(t => {
           const div = clonedDoc.createElement('div');
           div.className = t.className + ' pdf-text-block';
           div.textContent = t.value || '';
-          // 元のサイズを概ね継承
-          div.style.minHeight = (t.rows ? t.rows * 28 : 100) + 'px';
+          // 元のサイズを概ね継承（空欄でも rows 分の高さは確保）
+          div.style.minHeight = (t.rows ? t.rows * 50 : 150) + 'px';
           div.style.whiteSpace = 'pre-wrap';
           div.style.wordBreak = 'break-word';
           t.parentNode.replaceChild(div, t);

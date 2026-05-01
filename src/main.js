@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=65';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=65';
-import { fetchOriginStory } from './utils/ai.js?v=65';
-import { generateMapPdf } from './utils/pdf.js?v=65';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=65';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=65';
-import { CITIES, localizeStationName } from './data/cities.js?v=65';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=65';
-import { addReport as addIssueReport } from './utils/issues.js?v=65';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=65';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=65';
+import { CONFIG } from '../config.js?v=66';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=66';
+import { fetchOriginStory } from './utils/ai.js?v=66';
+import { generateMapPdf } from './utils/pdf.js?v=66';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=66';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=66';
+import { CITIES, localizeStationName } from './data/cities.js?v=66';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=66';
+import { addReport as addIssueReport } from './utils/issues.js?v=66';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=66';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=66';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -851,40 +851,78 @@ function renderPhotosGrid() {
   const grid = $('photos-grid');
   grid.innerHTML = '';
   state.uploadedPhotos.forEach(photo => {
-    const excluded = state.reportData.excludedPhotoIds.has(photo.fileId);
-    const item = document.createElement('div');
-    item.className = `photo-item${photo.uploading ? ' photo-uploading' : ''}${excluded ? ' photo-excluded' : ''}`;
-    const tag = photo.spotName ? `📍 ${photo.spotName}` : t('photoTagAdd');
-    const toggleIcon = excluded ? '⬜' : '✅';
-    const toggleTitle = excluded ? t('photoTagInclude') : t('photoTagExclude');
-    item.innerHTML = `
-      <img src="${photo.thumbnailUrl}" alt="${photo.fileName}" loading="lazy" />
-      <div class="photo-overlay">${tag}</div>
-      <button class="photo-include-toggle" type="button" title="${toggleTitle}" aria-label="${toggleTitle}">${toggleIcon}</button>
-    `;
-
-    // 取捨選択トグル（バブルさせない）
-    item.querySelector('.photo-include-toggle').addEventListener('click', e => {
-      e.stopPropagation();
-      if (photo.uploading) return;
-      if (state.reportData.excludedPhotoIds.has(photo.fileId)) {
-        state.reportData.excludedPhotoIds.delete(photo.fileId);
-      } else {
-        state.reportData.excludedPhotoIds.add(photo.fileId);
-      }
-      renderPhotosGrid();
-    });
-
-    // 写真本体クリック → タグ編集モーダル
-    item.addEventListener('click', e => {
-      if (e.target.closest('.photo-include-toggle')) return;
-      if (photo.uploading) return;
-      openTagModal(photo);
-    });
-
-    grid.appendChild(item);
+    grid.appendChild(buildPhotoItem(photo));
   });
   updatePhotosCount();
+}
+
+// 1枚分の photo-item DOM を生成。タグ編集・取捨選択時には buildPhotoItem を再呼び出しせず、
+// updatePhotoItemTag / updatePhotoItemExcluded で該当要素だけピンポイント更新する。
+// → <img> を作り直さないので画像の再ロード／再デコードが発生しない（重さ対策）
+function buildPhotoItem(photo) {
+  const excluded = state.reportData.excludedPhotoIds.has(photo.fileId);
+  const item = document.createElement('div');
+  item.className = `photo-item${photo.uploading ? ' photo-uploading' : ''}${excluded ? ' photo-excluded' : ''}`;
+  item.dataset.fileId = photo.fileId;
+  const tagText = photo.spotName ? `📍 ${photo.spotName}` : t('photoTagAdd');
+  const toggleIcon = excluded ? '⬜' : '✅';
+  const toggleTitle = excluded ? t('photoTagInclude') : t('photoTagExclude');
+  item.innerHTML = `
+    <img src="${photo.thumbnailUrl}" alt="${photo.fileName}" loading="lazy" />
+    <div class="photo-overlay">${escapeHtml(tagText)}</div>
+    <button class="photo-include-toggle" type="button" title="${escapeHtml(toggleTitle)}" aria-label="${escapeHtml(toggleTitle)}">${toggleIcon}</button>
+  `;
+
+  // 取捨選択トグル（バブルさせない）
+  item.querySelector('.photo-include-toggle').addEventListener('click', e => {
+    e.stopPropagation();
+    if (photo.uploading) return;
+    const isExcluded = state.reportData.excludedPhotoIds.has(photo.fileId);
+    if (isExcluded) {
+      state.reportData.excludedPhotoIds.delete(photo.fileId);
+    } else {
+      state.reportData.excludedPhotoIds.add(photo.fileId);
+    }
+    // 該当アイテムだけ更新（<img> は触らない）
+    updatePhotoItemExcluded(photo.fileId);
+    updatePhotosCount();
+  });
+
+  // 写真本体クリック → タグ編集モーダル
+  item.addEventListener('click', e => {
+    if (e.target.closest('.photo-include-toggle')) return;
+    if (photo.uploading) return;
+    openTagModal(photo);
+  });
+
+  return item;
+}
+
+// 該当 photo-item の overlay（タグ表示）だけ書き換える。<img> は触らない。
+function updatePhotoItemTag(fileId) {
+  const photo = state.uploadedPhotos.find(p => p.fileId === fileId);
+  if (!photo) return;
+  const item = document.querySelector(`.photo-item[data-file-id="${CSS.escape(fileId)}"]`);
+  if (!item) return;
+  const overlay = item.querySelector('.photo-overlay');
+  if (overlay) {
+    overlay.textContent = photo.spotName ? `📍 ${photo.spotName}` : t('photoTagAdd');
+  }
+}
+
+// 該当 photo-item の取捨選択状態（class とトグルアイコン）だけ書き換える。<img> は触らない。
+function updatePhotoItemExcluded(fileId) {
+  const item = document.querySelector(`.photo-item[data-file-id="${CSS.escape(fileId)}"]`);
+  if (!item) return;
+  const excluded = state.reportData.excludedPhotoIds.has(fileId);
+  item.classList.toggle('photo-excluded', excluded);
+  const btn = item.querySelector('.photo-include-toggle');
+  if (btn) {
+    btn.textContent = excluded ? '⬜' : '✅';
+    const title = excluded ? t('photoTagInclude') : t('photoTagExclude');
+    btn.setAttribute('title', title);
+    btn.setAttribute('aria-label', title);
+  }
 }
 
 function updatePhotosCount() {
@@ -921,9 +959,12 @@ function closeTagModal() {
 function saveTagModal() {
   if (!_tagEditTarget) return;
   const sel = $('tag-modal-select');
-  _tagEditTarget.spotName = sel.value || '';
+  const photo = _tagEditTarget;
+  photo.spotName = sel.value || '';
   closeTagModal();
-  renderPhotosGrid();
+  // 該当アイテムの overlay だけ更新（<img> は触らないので再描画が劇的に速い）
+  updatePhotoItemTag(photo.fileId);
+  updatePhotosCount();
 }
 
 // ===== セッション再開（パスワード入力） =====

@@ -4,9 +4,9 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=60';
-import { apiLang, t, LANG } from './i18n.js?v=60';
-import { localizeStationName } from '../data/cities.js?v=60';
+import { toLatLngLiteral } from './maps.js?v=62';
+import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=62';
+import { localizeStationName } from '../data/cities.js?v=62';
 
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
@@ -156,7 +156,7 @@ function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, ap
 
     <div style="display:flex;gap:18px;background:#f5f0e8;padding:8px 20px;border-radius:0 0 8px 8px;font-size:12px;">
       <div><span style="color:#666;">${escapeHtml(t('statsTotalDistance'))}</span> <strong style="font-size:14px;color:#004029;">${escapeHtml(stats?.distanceText || '-')}</strong></div>
-      <div><span style="color:#666;">${escapeHtml(t('statsEstTime'))}</span> <strong style="font-size:14px;color:#004029;">${escapeHtml(t('approxMin').replace('{n}', stats?.durationMin ?? '-'))}</strong></div>
+      <div><span style="color:#666;">${escapeHtml(t('statsEstTime'))}</span> <strong style="font-size:14px;color:#004029;">${escapeHtml(t('approxMin').replace('{n}', adjustMinForKids(stats?.durationMin) ?? '-'))}</strong>${LANG === 'elementary' ? `<span style="color:#999;font-size:10px;margin-left:4px;">${escapeHtml(t('kidsTimeNote'))}</span>` : ''}</div>
       <div><span style="color:#666;">${escapeHtml(t('statsSpotCount'))}</span> <strong style="font-size:14px;color:#004029;">${orderedSpots.length}${escapeHtml(t('suffSpots'))}</strong></div>
     </div>
 
@@ -197,7 +197,8 @@ function buildRouteFlowHtml({ stationName, localStation, orderedSpots, direction
   const legs = directions?.routes?.[0]?.legs || [];
   const legHtml = (leg) => {
     if (!leg) return '';
-    const min = Math.max(1, Math.round(leg.duration.value / 60));
+    const rawMin = Math.max(1, Math.round(leg.duration.value / 60));
+    const min = adjustMinForKids(rawMin);
     return `
       <div style="display:flex;align-items:center;gap:8px;margin-left:14px;padding:6px 0 6px 22px;border-left:2px dashed #bdbdbd;font-size:12px;color:#777;">
         <span style="font-size:14px;">🚶</span>
@@ -286,7 +287,8 @@ function buildTurnPointsHtml({ stationName, localStation, origin, orderedSpots, 
       const start = toLatLngLiteral(step.start_location);
       const end = toLatLngLiteral(step.end_location);
       const heading = (start && end) ? computeHeading(start, end) : 0;
-      const min = Math.max(1, Math.round((step.duration?.value || 0) / 60));
+      const rawMin = Math.max(1, Math.round((step.duration?.value || 0) / 60));
+      const min = adjustMinForKids(rawMin);
       const distText = step.distance?.text || '';
       // 区間（distance · 約N分） + 「次は ○○ 方面」
       const subtitleHtml =

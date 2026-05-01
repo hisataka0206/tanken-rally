@@ -726,6 +726,16 @@ body {
 }
 .score-name-label input:focus { border-color: var(--green-dark); }
 
+/* Elementary モードの「子供の歩く速さで計算」注釈 */
+.kids-time-note {
+  display: block;
+  font-size: 10px;
+  color: #888;
+  font-weight: 400;
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+
 /* スコアの仕組み（折りたたみ） */
 .score-howto {
   background: #f1f8e9;

@@ -1,5 +1,5 @@
 // Google Maps API の動的ロードとユーティリティ
-import { apiLang } from './i18n.js?v=60';
+import { apiLang } from './i18n.js?v=62';
 
 let mapsLoaded = false;
 
@@ -229,7 +229,10 @@ function _searchWithService(service, location) {
     { keyword: 'ケーキ',   category: 'sweets',   label: 'スイーツ・菓子店' },
     { keyword: '和菓子',   category: 'sweets',   label: 'スイーツ・菓子店' },
     // === 駄菓子屋 ===
+    // 古い個人商店（荒牧商店・杉若商店など）は店名に「駄菓子」を含まないので、
+    // 複数キーワード + textSearch 併用で網羅性を確保する。
     { keyword: '駄菓子',   category: 'dagashi',  label: '駄菓子屋' },
+    { keyword: '駄菓子屋', category: 'dagashi',  label: '駄菓子屋' },
     // === 公園・自然 ===
     { keyword: '公園',     category: 'nature',   label: '公園・自然' },
     // === 玩具・おもちゃ ===
@@ -243,12 +246,23 @@ function _searchWithService(service, location) {
 
   const allSpots = [];
   const seenIds = new Set();
-  let pending = queries.length;
+  // textSearch（駄菓子用の補助検索）を併用するため pending は queries.length + textSearch分
+  let pending = queries.length + 1;
 
   // 同じ place_id が複数クエリにマッチした場合、優先度の高いカテゴリで上書き
   const CAT_PRIORITY = { historic: 7, science: 6, museum: 5, nature: 4, toy: 3, dagashi: 2, sweets: 1, other: 0 };
-  // 1クエリあたりの最大取得件数（少なくして全体件数を抑える）
-  const RESULTS_PER_QUERY = 3;
+  // 1クエリあたりの最大取得件数（カテゴリごとに調整：駄菓子屋は小規模店多数のため広めに取る）
+  const RESULTS_PER_QUERY_BY_CAT = {
+    dagashi: 10,
+    sweets: 3,
+    historic: 3,
+    nature: 3,
+    toy: 3,
+    museum: 3,
+    science: 3,
+    other: 3,
+  };
+  const DEFAULT_RESULTS_PER_QUERY = 3;
   // 駅からの検索半径（徒歩往復で60分に収まりやすい範囲に絞る）
   const SEARCH_RADIUS_M = 800;
 
@@ -265,8 +279,40 @@ function _searchWithService(service, location) {
     'restaurant', 'cafe', 'food', 'bar', 'lodging', 'parking',
   ]);
 
+  // 結果の処理を共通化（nearbySearch / textSearch どちらからの結果も同じロジックで処理）
+  const ingest = (place, category, label) => {
+    const types = place.types || [];
+
+    // カテゴリ別の防御フィルタ
+    if (category === 'historic' && types.some(t => FORBIDDEN_TYPES_FOR_HISTORIC.has(t))) return;
+    if (category === 'nature'   && types.some(t => FORBIDDEN_TYPES_FOR_NATURE.has(t)))   return;
+
+    const newSpot = {
+      id: place.place_id,
+      name: place.name,
+      category,
+      label,
+      address: place.vicinity || place.formatted_address || '',
+      lat: place.geometry.location.lat(),
+      lng: place.geometry.location.lng(),
+      rating: place.rating || null,
+      desc: types.join('、'),
+      recommended: category === 'historic',
+    };
+    if (seenIds.has(place.place_id)) {
+      const existing = allSpots.find(s => s.id === place.place_id);
+      if (existing && CAT_PRIORITY[category] > CAT_PRIORITY[existing.category]) {
+        Object.assign(existing, newSpot);
+      }
+    } else {
+      seenIds.add(place.place_id);
+      allSpots.push(newSpot);
+    }
+  };
+
   return new Promise((resolve) => {
     queries.forEach(q => {
+      const limit = RESULTS_PER_QUERY_BY_CAT[q.category] || DEFAULT_RESULTS_PER_QUERY;
       service.nearbySearch(
         {
           location,
@@ -276,41 +322,10 @@ function _searchWithService(service, location) {
         },
         (results, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            results.slice(0, RESULTS_PER_QUERY).forEach(place => {
-              const types = place.types || [];
-
-              // カテゴリ別の防御フィルタ
-              if (q.category === 'historic'
-                  && types.some(t => FORBIDDEN_TYPES_FOR_HISTORIC.has(t))) return;
-              if (q.category === 'nature'
-                  && types.some(t => FORBIDDEN_TYPES_FOR_NATURE.has(t))) return;
-
-              const newSpot = {
-                id: place.place_id,
-                name: place.name,
-                category: q.category,
-                label: q.label,
-                address: place.vicinity || '',
-                lat: place.geometry.location.lat(),
-                lng: place.geometry.location.lng(),
-                rating: place.rating || null,
-                desc: types.join('、'),
-                recommended: q.category === 'historic',
-              };
-              if (seenIds.has(place.place_id)) {
-                const existing = allSpots.find(s => s.id === place.place_id);
-                if (existing && CAT_PRIORITY[q.category] > CAT_PRIORITY[existing.category]) {
-                  Object.assign(existing, newSpot);
-                }
-              } else {
-                seenIds.add(place.place_id);
-                allSpots.push(newSpot);
-              }
-            });
+            results.slice(0, limit).forEach(place => ingest(place, q.category, q.label));
           }
           pending--;
           if (pending === 0) {
-            // 駅からの直線距離で昇順ソート（近い順 = ルートに組みやすい順）
             const origin = toLatLngLiteral(location);
             allSpots.sort((a, b) => haversine(origin, a) - haversine(origin, b));
             resolve(allSpots);
@@ -318,6 +333,38 @@ function _searchWithService(service, location) {
         }
       );
     });
+
+    // 駄菓子屋の補助検索（textSearch）：
+    // nearbySearch は keyword をレビュー本文・types などにファジー一致させる仕様だが、
+    // 「荒牧商店」のような店名に「駄菓子」を含まない古い個人商店は順位が低くて
+    // 上位3〜10件には載らないことがある。textSearch の結果は別アルゴリズムなので
+    // 補完的に併用することで取りこぼしを減らす。
+    service.textSearch(
+      {
+        query: '駄菓子屋',
+        location,
+        radius: SEARCH_RADIUS_M,
+        language: apiLang(),
+      },
+      (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          // 駅からの直線距離が search radius 内のものだけ採用
+          const origin = toLatLngLiteral(location);
+          const filtered = results.filter(p => {
+            if (!p.geometry || !p.geometry.location) return false;
+            const d = haversine(origin, { lat: p.geometry.location.lat(), lng: p.geometry.location.lng() });
+            return d <= SEARCH_RADIUS_M;
+          });
+          filtered.slice(0, 10).forEach(place => ingest(place, 'dagashi', '駄菓子屋'));
+        }
+        pending--;
+        if (pending === 0) {
+          const origin = toLatLngLiteral(location);
+          allSpots.sort((a, b) => haversine(origin, a) - haversine(origin, b));
+          resolve(allSpots);
+        }
+      }
+    );
   });
 }
 

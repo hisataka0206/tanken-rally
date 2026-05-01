@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=60';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=60';
-import { fetchOriginStory } from './utils/ai.js?v=60';
-import { generateMapPdf } from './utils/pdf.js?v=60';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=60';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=60';
-import { CITIES, localizeStationName } from './data/cities.js?v=60';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=60';
-import { addReport as addIssueReport } from './utils/issues.js?v=60';
-import { applyI18n, LANG, t } from './utils/i18n.js?v=60';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=60';
+import { CONFIG } from '../config.js?v=62';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=62';
+import { fetchOriginStory } from './utils/ai.js?v=62';
+import { generateMapPdf } from './utils/pdf.js?v=62';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=62';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=62';
+import { CITIES, localizeStationName } from './data/cities.js?v=62';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=62';
+import { addReport as addIssueReport } from './utils/issues.js?v=62';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=62';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=62';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -504,11 +504,13 @@ function schedulePreview() {
       const result = await getDirections(state.stationLocation, ordered);
       if (seq !== previewSeq) return; // 古いリクエスト → 破棄
       const stats = calcRouteStats(result);
-      const over = stats.durationMin > 60;
+      const displayMin = adjustMinForKids(stats.durationMin);
+      const over = displayMin > 60;
       const fmt = t('routePreviewResultFmt')
         .replace('{dist}', stats.distanceText)
-        .replace('{min}', stats.durationMin);
-      previewEl.textContent = `${over ? '⚠️ ' : '🚶 '}${fmt}`;
+        .replace('{min}', displayMin);
+      const note = LANG === 'elementary' ? ` ${t('kidsTimeNote')}` : '';
+      previewEl.textContent = `${over ? '⚠️ ' : '🚶 '}${fmt}${note}`;
       previewEl.className = `route-preview${over ? ' over' : ''}`;
     } catch (e) {
       if (seq !== previewSeq) return;
@@ -575,13 +577,17 @@ function renderRouteStepUI() {
     });
   });
 
-  // ルート統計
+  // ルート統計（Elementary モードは子供ペースで1.5倍表示。スコア計算は元値のまま）
   const { distanceText, durationMin } = state.routeStats;
-  const overLimit = durationMin > 60;
+  const displayMin = adjustMinForKids(durationMin);
+  const overLimit = displayMin > 60;
+  const kidsNote = LANG === 'elementary'
+    ? `<span class="kids-time-note">${escapeHtml(t('kidsTimeNote'))}</span>`
+    : '';
   $('route-info').innerHTML = `
     ${overLimit ? `
       <div class="route-warning">
-        ${t('routeWarningTpl').replace('{n}', durationMin)}
+        ${t('routeWarningTpl').replace('{n}', displayMin)}
         <div class="route-warning-actions">
           <button id="warn-back-spots" class="btn-secondary">${escapeHtml(t('btnReduceSpots'))}</button>
           <button id="warn-back-station" class="btn-secondary">${escapeHtml(t('btnDifferentStation'))}</button>
@@ -590,7 +596,7 @@ function renderRouteStepUI() {
     ` : ''}
     <div class="route-stats">
       <div><span>${escapeHtml(t('statsTotalDistance'))}</span><br/><strong>${distanceText}</strong></div>
-      <div><span>${escapeHtml(t('statsEstTime'))}</span><br/><strong>${escapeHtml(t('approxMin').replace('{n}', durationMin))}</strong></div>
+      <div><span>${escapeHtml(t('statsEstTime'))}</span><br/><strong>${escapeHtml(t('approxMin').replace('{n}', displayMin))}</strong>${kidsNote}</div>
       <div><span>${escapeHtml(t('statsSpotCount'))}</span><br/><strong>${state.orderedSpots.length}${escapeHtml(t('suffSpots'))}</strong></div>
     </div>
   `;
@@ -607,9 +613,11 @@ function renderRouteStepUI() {
   const localStationName = localizeStationName(state.stationName, LANG);
 
   // スポット順リスト（駅 → スポット1 → ... → 駅 のループ、区間時間付き）
+  // Elementary モードでは leg ごとの時間も子供ペース（1.5倍）で表示
   const legs = state.directionsResult.routes[0].legs;
   const legHtml = (leg) => {
-    const min = Math.max(1, Math.round(leg.duration.value / 60));
+    const rawMin = Math.max(1, Math.round(leg.duration.value / 60));
+    const min = adjustMinForKids(rawMin);
     const dist = leg.distance.text;
     return `
       <div class="route-leg">

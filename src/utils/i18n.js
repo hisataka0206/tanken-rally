@@ -177,6 +177,7 @@ const TRANSLATIONS = {
     approxMin: '約{n}分',          // "約30分"
     approxMinKm: '約 {min}分・{km}', // 区間
     approxMinDot: '約 {min}分',
+    kidsTimeNote: '（子供の歩く速さで計算）', // ja モードでは表示しない（呼び出し側で LANG 判定）
     legAboutMin: '約{n}分',
     routeWarningTpl: '⚠️ <strong>このコースは約{n}分かかります。</strong> 1時間以内が目安だよ。スポットを減らすか、別の駅で試してみよう！',
     btnReduceSpots: 'スポットを減らす',
@@ -418,6 +419,7 @@ const TRANSLATIONS = {
     approxMin: '~ {n} min',
     approxMinKm: '~ {min} min · {km}',
     approxMinDot: '~ {min} min',
+    kidsTimeNote: '(for kids)',
     legAboutMin: '~ {n} min',
     routeWarningTpl: '⚠️ <strong>This route takes about {n} minutes.</strong> 60 min is the target. Try removing spots, or pick another station!',
     btnReduceSpots: 'Remove spots',
@@ -651,6 +653,7 @@ const TRANSLATIONS = {
     approxMin: '約（やく）{n}分',
     approxMinKm: '約（やく） {min}分・{km}',
     approxMinDot: '約（やく） {min}分',
+    kidsTimeNote: '（子（こ）どもの歩（ある）く速（はや）さで計算（けいさん））',
     legAboutMin: '約（やく）{n}分',
     routeWarningTpl: '⚠️ <strong>このコースは約（やく）{n}分かかります。</strong> 1時間（じかん）以内（いない）が目安（めやす）だよ。スポットを減（へ）らすか、別（べつ）の駅でためしてみよう！',
     btnReduceSpots: 'スポットを減（へ）らす',
@@ -780,6 +783,15 @@ export function applyI18n(root = document) {
   });
   // <html lang="..."> も切り替え（'elementary' は CSS では ja 扱い）
   document.documentElement.lang = LANG === 'elementary' ? 'ja' : LANG;
+}
+
+// Elementary（ひらがな）モードでは Google が返す移動時間を「子供の歩行ペース」に合わせて
+// 約1.5倍に補正して表示する。スコア計算（calculateScore）では補正前の値を使うこと。
+export const KIDS_TIME_FACTOR = 1.5;
+export function adjustMinForKids(min) {
+  const n = Number(min);
+  if (!isFinite(n) || n <= 0) return min;
+  return LANG === 'elementary' ? Math.max(1, Math.round(n * KIDS_TIME_FACTOR)) : min;
 }
 
 // Google Maps / Places / Geocoding / Directions / Static Maps / Street View 全 API

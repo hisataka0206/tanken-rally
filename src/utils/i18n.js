@@ -234,6 +234,7 @@ const TRANSLATIONS = {
     photoTagless: '📍 タグなし',
     reportStationFmt: '{name}駅',
     reportNoPhotos: '📷 ノートに載せる写真がありません。STEP 4 で写真を撮るか、外した写真を戻そう。',
+    reportPdfHeaderFmt: '📖 たんけんノート — {name}',
 
     // ===== D. スコア・ランキング =====
     mood_master: '🌟 たんけんマスター！',
@@ -471,6 +472,7 @@ const TRANSLATIONS = {
     photoTagless: '📍 No tag',
     reportStationFmt: '{name} Sta.',
     reportNoPhotos: '📷 No photos to put in the note. Take photos in STEP 4, or restore excluded ones.',
+    reportPdfHeaderFmt: '📖 Tanken Note — {name}',
 
     mood_master: '🌟 Exploration Master!',
     mood_great: '✨ Great explorer!',
@@ -705,6 +707,7 @@ const TRANSLATIONS = {
     photoTagless: '📍 タグなし',
     reportStationFmt: '{name}駅',
     reportNoPhotos: '📷 ノートにのせる写真（しゃしん）がありません。STEP 4 で写真（しゃしん）をとるか、はずした写真（しゃしん）をもどそう。',
+    reportPdfHeaderFmt: '📖 たんけんノート — {name}',
 
     mood_master: '🌟 たんけんマスター！',
     mood_great: '✨ たんけん上手（じょうず）！',

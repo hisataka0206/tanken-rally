@@ -1134,25 +1134,27 @@ body {
   margin-bottom: 18px;
 }
 .report-title {
-  /* タイトルは元気な手書き風 Yusei Magic */
+  /* タイトルは元気な手書き風 Yusei Magic
+     B3 印刷想定で 56px ≒ 42pt（推奨 36-48pt 帯の上寄り） */
   font-family: 'Yusei Magic', 'Klee One', 'Hiragino Maru Gothic ProN', sans-serif;
-  font-size: 38px;
+  font-size: 56px;
   font-weight: 400;
   color: var(--green-dark);
   letter-spacing: 0.06em;
-  margin-bottom: 12px;
-  text-shadow: 1px 1px 0 rgba(118,187,118,.18);
+  margin-bottom: 18px;
+  text-shadow: 2px 2px 0 rgba(118,187,118,.18);
 }
 .report-meta-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px 28px;
-  font-size: 14px;
+  gap: 18px 32px;
+  /* 本文相当（推奨 18-22pt の下限）の 22px ≒ 16.5pt */
+  font-size: 22px;
 }
 .report-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   color: var(--brown);
 }
 .report-meta label {
@@ -1161,13 +1163,13 @@ body {
 }
 .report-meta input {
   border: none;
-  border-bottom: 1.5px solid #999;
-  padding: 4px 6px;
-  font-size: 15px;
+  border-bottom: 2px solid #999;
+  padding: 4px 8px;
+  font-size: 22px;
   font-family: 'Klee One', 'Hiragino Maru Gothic ProN', sans-serif;
   background: transparent;
   outline: none;
-  min-width: 140px;
+  min-width: 180px;
   color: #2a3a2a;
 }
 .report-meta input:focus { border-bottom-color: var(--green-dark); }
@@ -1176,19 +1178,20 @@ body {
   color: var(--brown);
 }
 
-.report-section { margin-bottom: 22px; }
+.report-section { margin-bottom: 28px; }
 .report-section h3 {
+  /* 見出し: 32px ≒ 24pt（推奨 24-28pt の下限） */
   font-family: 'Yusei Magic', 'Klee One', sans-serif;
-  font-size: 19px;
+  font-size: 32px;
   font-weight: 400;
   color: var(--green-dark);
-  margin-bottom: 10px;
-  border-left: 5px solid var(--green-light);
-  padding-left: 10px;
+  margin-bottom: 14px;
+  border-left: 7px solid var(--green-light);
+  padding-left: 14px;
   letter-spacing: 0.04em;
 }
 .report-hint {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   margin-bottom: 10px;
   line-height: 1.6;
@@ -1196,14 +1199,16 @@ body {
 
 #report-overview, #report-afterword,
 .report-photo-comment {
+  /* 本文: 22px ≒ 16.5pt（推奨 18-22pt の中央寄り） */
   width: 100%;
   border: 1.5px dashed #bbb;
   border-radius: 6px;
-  padding: 10px 12px;
-  font-size: 15px;
-  line-height: 1.8;
+  padding: 14px 16px;
+  font-size: 22px;
+  line-height: 1.9;
   font-family: 'Klee One', 'Hiragino Maru Gothic ProN', sans-serif;
-  background: repeating-linear-gradient(transparent, transparent 27px, #e8e5dc 27px, #e8e5dc 28px);
+  /* 罫線背景は line-height(1.9) × font-size(22px) ≒ 42px の間隔に合わせる */
+  background: repeating-linear-gradient(transparent, transparent 41px, #e8e5dc 41px, #e8e5dc 42px);
   resize: vertical;
   outline: none;
   color: #2a3a2a;
@@ -1264,7 +1269,8 @@ body {
   min-width: 0;
 }
 .report-photo-tag {
-  font-size: 13px;
+  /* スポット名タグ: 18px ≒ 13.5pt（本文より少し小さめだが視認性確保） */
+  font-size: 18px;
   color: var(--green-dark);
   font-weight: 600;
 }
@@ -1279,12 +1285,13 @@ body {
 }
 .report-photo-comment {
   flex: none;
-  /* 1 行ぶんを目安にしつつ、書きながら手動で広げられる */
-  min-height: 32px;
-  height: 36px;
-  line-height: 1.6;
-  padding: 6px 10px;
-  /* 罫線背景は 1 行用に上書き */
+  /* 1 行ぶんを目安にしつつ、書きながら手動で広げられる
+     22px font + line-height 1.7 ≒ 37px なので min-height はその少し上 */
+  min-height: 48px;
+  height: 56px;
+  line-height: 1.7;
+  padding: 10px 14px;
+  /* 罫線背景は 1 行用に白で上書き */
   background: white;
   border: 1.5px dashed #bbb;
   resize: vertical;
@@ -1293,13 +1300,13 @@ body {
   display: inline-block;
   background: var(--green-dark);
   color: white;
-  width: 26px; height: 26px;
+  width: 36px; height: 36px;
   border-radius: 50%;
   text-align: center;
-  line-height: 26px;
-  font-size: 13px;
+  line-height: 36px;
+  font-size: 18px;
   font-weight: 700;
-  margin-right: 4px;
+  margin-right: 6px;
 }
 
 /* PDF 生成中（一時的にデスクトップ表示固定するためのクラス） */

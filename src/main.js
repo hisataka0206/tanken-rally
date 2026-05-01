@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=70';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=70';
-import { fetchOriginStory } from './utils/ai.js?v=70';
-import { generateMapPdf } from './utils/pdf.js?v=70';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=70';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=70';
-import { CITIES, localizeStationName } from './data/cities.js?v=70';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=70';
-import { addReport as addIssueReport } from './utils/issues.js?v=70';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=70';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=70';
+import { CONFIG } from '../config.js?v=72';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=72';
+import { fetchOriginStory } from './utils/ai.js?v=72';
+import { generateMapPdf } from './utils/pdf.js?v=72';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=72';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=72';
+import { CITIES, localizeStationName } from './data/cities.js?v=72';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=72';
+import { addReport as addIssueReport } from './utils/issues.js?v=72';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=72';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=72';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1820,8 +1820,10 @@ async function onReportPdf() {
 
     // B3 1ページあたりの canvas ピクセル高さ
     const pageHeightPx = (pdfH * canvas.width) / pdfW;
+
+    // === パス1: スライスを生成して配列に集める（ページ数を確定するため）===
+    const slices = [];
     let offsetPx = 0;
-    let pageNum = 0;
     while (offsetPx < canvas.height) {
       const remaining = canvas.height - offsetPx;
       let sliceHeight;
@@ -1835,16 +1837,71 @@ async function onReportPdf() {
       const slice = document.createElement('canvas');
       slice.width = canvas.width;
       slice.height = sliceHeight;
-      const ctx = slice.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, slice.width, slice.height);
-      ctx.drawImage(canvas, 0, -offsetPx);
-      const sliceData = slice.toDataURL('image/jpeg', 0.92);
-      const sliceMm = (sliceHeight * pdfW) / canvas.width;
-      if (pageNum > 0) pdf.addPage();
-      pdf.addImage(sliceData, 'JPEG', 0, 0, pdfW, sliceMm);
+      const sctx = slice.getContext('2d');
+      sctx.fillStyle = '#ffffff';
+      sctx.fillRect(0, 0, slice.width, slice.height);
+      sctx.drawImage(canvas, 0, -offsetPx);
+      slices.push({
+        data: slice.toDataURL('image/jpeg', 0.92),
+        heightMm: (sliceHeight * pdfW) / canvas.width,
+      });
       offsetPx += sliceHeight;
-      pageNum++;
+    }
+    const totalPages = slices.length;
+
+    // === ヘッダー画像を1度だけ html2canvas でレンダリング（複数ページのときだけ）===
+    // 2ページ目以降の上部に貼り付ける。日本語/英語/ひらがなを含むので
+    // jsPDF native font では描画できないため html2canvas 経由で画像化。
+    let headerImgData = null;
+    let headerHeightMm = 0;
+    if (totalPages > 1) {
+      const localStation = localizeStationName(state.stationName, LANG);
+      const headerText = t('reportPdfHeaderFmt').replace('{name}', localStation);
+      const headerWrap = document.createElement('div');
+      headerWrap.style.cssText = `
+        position: fixed; top: -10000px; left: 0; width: 1376px;
+        background: #ffffff; color: #4a6a4a;
+        padding: 8px 30px;
+        font-family: 'Klee One', 'Hiragino Maru Gothic ProN', 'Yu Gothic', sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        border-bottom: 1.5px solid #c5e1a5;
+        box-sizing: border-box;
+      `;
+      headerWrap.textContent = headerText;
+      document.body.appendChild(headerWrap);
+      try {
+        const hcanvas = await html2canvas(headerWrap, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          logging: false,
+        });
+        headerImgData = hcanvas.toDataURL('image/jpeg', 0.92);
+        headerHeightMm = (hcanvas.height * pdfW) / hcanvas.width;
+      } finally {
+        headerWrap.remove();
+      }
+    }
+
+    // === パス2: 各ページに slice + ヘッダー（2ページ目以降）+ ページ番号フッターを配置 ===
+    for (let i = 0; i < totalPages; i++) {
+      if (i > 0) pdf.addPage();
+      // 本体スライス
+      pdf.addImage(slices[i].data, 'JPEG', 0, 0, pdfW, slices[i].heightMm);
+
+      // ヘッダー（2ページ目以降のみ）：上部に重ねて貼り付け
+      if (i > 0 && headerImgData) {
+        pdf.addImage(headerImgData, 'JPEG', 0, 0, pdfW, headerHeightMm);
+      }
+
+      // フッター: ページ番号 "X / Y"（ASCII なので jsPDF native font で OK）
+      // 1ページしかないときは煩わしいので省略
+      if (totalPages > 1) {
+        pdf.setFontSize(11);
+        pdf.setTextColor(120, 140, 120); // 薄い緑グレー
+        pdf.text(`${i + 1} / ${totalPages}`, pdfW / 2, pdfH - 5, { align: 'center' });
+      }
     }
 
     const fname = `tanken-note_${state.stationName || 'unknown'}_${new Date().toISOString().slice(0,10)}.pdf`;

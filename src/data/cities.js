@@ -81,6 +81,17 @@ export const CITIES = [
     ],
   },
   {
+    id: 'hamamatsu',
+    name: '浜松', nameEn: 'Hamamatsu',
+    center: { lat: 34.7036, lng: 137.7349 },
+    bounds: { sw: { lat: 34.65, lng: 137.50 }, ne: { lat: 34.80, lng: 137.95 } },
+    lines: [
+      // 浜松エリアを横断する JR 東海道本線。弁天島駅を含む（湖西市〜浜松市〜磐田市〜袋井市）
+      { name: 'JR東海道本線', nameEn: 'JR Tokaido Main Line',
+        stations: ['新所原', '鷲津', '新居町', '弁天島', '舞阪', '高塚', '浜松', '天竜川', '磐田', '御厨', '袋井'] },
+    ],
+  },
+  {
     id: 'kyoto',
     name: '京都', nameEn: 'Kyoto',
     center: { lat: 35.0116, lng: 135.7681 },
@@ -243,6 +254,10 @@ export const STATION_NAMES_EN = {
   '清水五条': 'Kiyomizu-Gojo', '七条': 'Shichijo', '東福寺': 'Tofukuji', '鳥羽街道': 'Tobakaido',
   '伏見稲荷': 'Fushimi-Inari', '龍谷大前深草': 'Ryukokudaimae-Fukakusa', '藤森': 'Fujinomori',
   '墨染': 'Sumizome', '伏見桃山': 'Fushimi-Momoyama', '丹波橋': 'Tamba-bashi', '中書島': 'Chushojima',
+  // === Hamamatsu (JR東海道本線) ===
+  '新所原': 'Shin-Johara', '鷲津': 'Washizu', '新居町': 'Araimachi', '弁天島': 'Bentenjima',
+  '舞阪': 'Maisaka', '高塚': 'Takatsuka', '浜松': 'Hamamatsu', '天竜川': 'Tenryugawa',
+  '磐田': 'Iwata', '御厨': 'Mikuriya', '袋井': 'Fukuroi',
 };
 
 // 駅名（日本語 → ひらがな読み）の辞書。?lang=elementary のときの dropdown 表示で
@@ -369,6 +384,10 @@ export const STATION_NAMES_KANA = {
   '清水五条': 'きよみずごじょう', '七条': 'しちじょう', '東福寺': 'とうふくじ', '鳥羽街道': 'とばかいどう',
   '伏見稲荷': 'ふしみいなり', '龍谷大前深草': 'りゅうこくだいまえふかくさ', '藤森': 'ふじのもり',
   '墨染': 'すみぞめ', '伏見桃山': 'ふしみももやま', '丹波橋': 'たんばばし', '中書島': 'ちゅうしょじま',
+  // === Hamamatsu (JR東海道本線) ===
+  '新所原': 'しんじょはら', '鷲津': 'わしづ', '新居町': 'あらいまち', '弁天島': 'べんてんじま',
+  '舞阪': 'まいさか', '高塚': 'たかつか', '浜松': 'はままつ', '天竜川': 'てんりゅうがわ',
+  '磐田': 'いわた', '御厨': 'みくりや', '袋井': 'ふくろい',
 };
 
 // 都市名を現在の言語で返すヘルパー

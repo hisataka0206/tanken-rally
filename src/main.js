@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=75';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=75';
-import { fetchOriginStory } from './utils/ai.js?v=75';
-import { generateMapPdf } from './utils/pdf.js?v=75';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=75';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=75';
-import { CITIES, localizeStationName } from './data/cities.js?v=75';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=75';
-import { addReport as addIssueReport } from './utils/issues.js?v=75';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=75';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=75';
+import { CONFIG } from '../config.js?v=76';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=76';
+import { fetchOriginStory } from './utils/ai.js?v=76';
+import { generateMapPdf } from './utils/pdf.js?v=76';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=76';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=76';
+import { CITIES, localizeStationName } from './data/cities.js?v=76';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=76';
+import { addReport as addIssueReport } from './utils/issues.js?v=76';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=76';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=76';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'

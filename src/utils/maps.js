@@ -1,5 +1,5 @@
 // Google Maps API の動的ロードとユーティリティ
-import { apiLang } from './i18n.js?v=78';
+import { apiLang } from './i18n.js?v=79';
 
 let mapsLoaded = false;
 
@@ -34,8 +34,13 @@ export function loadGoogleMaps(apiKey) {
 //   3. 全部失敗 → エラー
 export function geocodeStation(stationName, opts = {}) {
   return new Promise((resolve, reject) => {
+    // ※ cityName はクエリ文字列に含めない。
+    //   理由: 駅が市境をまたぐケース（例: 新居町駅は浜松エリアの bounds 内だが
+    //         行政区分は湖西市）で「浜松 ... 新居町駅」と検索すると、Google が
+    //         「浜松内で該当駅なし」と判断して浜松駅を返す誤マッチを起こす。
+    //   都市の絞り込みは bounds bias で十分行えるため、address 文字列には含めない。
+    //   lineName は他都市の同名駅（例: 三条駅）の曖昧解消に有用なので残す。
     const parts = [];
-    if (opts.cityName) parts.push(opts.cityName);
     if (opts.lineName) parts.push(opts.lineName);
     parts.push(`${stationName}駅`);
     const address = parts.join(' ');

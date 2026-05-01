@@ -1,5 +1,5 @@
 // OpenAI API ユーティリティ（PoC: ブラウザから直接呼び出し）
-import { LANG } from './i18n.js?v=68';
+import { LANG } from './i18n.js?v=69';
 
 export async function fetchOriginStory(stationName, apiKey) {
   // キー未設定時は早期リターン（無駄な401を避け、UI上は静かに無効化）

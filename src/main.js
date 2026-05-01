@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=68';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=68';
-import { fetchOriginStory } from './utils/ai.js?v=68';
-import { generateMapPdf } from './utils/pdf.js?v=68';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=68';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=68';
-import { CITIES, localizeStationName } from './data/cities.js?v=68';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=68';
-import { addReport as addIssueReport } from './utils/issues.js?v=68';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=68';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=68';
+import { CONFIG } from '../config.js?v=69';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=69';
+import { fetchOriginStory } from './utils/ai.js?v=69';
+import { generateMapPdf } from './utils/pdf.js?v=69';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=69';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=69';
+import { CITIES, localizeStationName } from './data/cities.js?v=69';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=69';
+import { addReport as addIssueReport } from './utils/issues.js?v=69';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=69';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=69';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -796,6 +796,9 @@ async function onPhotoInputChange(e) {
       fileId: tempId,
       url: tempUrl,
       thumbnailUrl: tempUrl,
+      // 新規アップロードは元ファイル（フル解像度）の blob を持っているので
+      // PDF生成時の追加フェッチは不要。サムネと同一 URL を fullBlobUrl にも入れておく。
+      fullBlobUrl: tempUrl,
       spotName: spotName || '',
       fileName: file.name,
       uploadedAt: new Date().toISOString(), // ローカルでも記録（DriveなしモードでもOK）
@@ -1598,11 +1601,13 @@ function bindReportInputs() {
   });
 }
 
-// 復元セッションは表示用にサムネ（w800）の blob URL を持つだけで、フル解像度は未取得。
-// PDF生成時にだけここでオリジナルを fetch し直し、blob URL をフル解像度に差し替える。
-// fullResLoaded === false の写真のみ対象。新規アップロード写真（fullResLoaded undefined or true）はスキップ。
+// PDF生成時にだけオリジナル解像度を取得し、photo.fullBlobUrl に保存する。
+// 編集画面の <img src> は photo.url（サムネ）のまま固定 → 編集画面は軽量・高速のまま。
+// 新規アップロード（photo.fullBlobUrl が url と同じ＝ローカルファイル）は再フェッチ不要なのでスキップ。
 async function ensureFullResolutionPhotos(progressCb) {
-  const targets = state.uploadedPhotos.filter(p => p.fullResLoaded === false);
+  // photo.fullBlobUrl がまだ無いものだけ対象
+  // 新規アップロードは upload 時に fullBlobUrl = url を仕込んでいるため、復元写真のみ該当
+  const targets = state.uploadedPhotos.filter(p => !p.fullBlobUrl);
   if (targets.length === 0) return;
   let done = 0;
   const total = targets.length;
@@ -1616,17 +1621,12 @@ async function ensureFullResolutionPhotos(progressCb) {
         const data = await drive.getPhotoData(p.fileId);
         const bytes = Uint8Array.from(atob(data.base64), c => c.charCodeAt(0));
         const blob = new Blob([bytes], { type: data.mimeType || 'image/jpeg' });
-        // 旧サムネ blob URL を解放してから差し替え（メモリリーク防止）
-        const oldUrl = p.url;
-        p.url = URL.createObjectURL(blob);
-        p.thumbnailUrl = p.url;
-        if (oldUrl && oldUrl.startsWith('blob:') && oldUrl !== p.url) {
-          URL.revokeObjectURL(oldUrl);
-        }
-        p.fullResLoaded = true;
+        // photo.url（サムネ）は触らず、別フィールドに保存
+        p.fullBlobUrl = URL.createObjectURL(blob);
       } catch (e) {
         console.warn('[pdf] full-res fetch failed:', p.fileId, e);
-        // フォールバック：サムネのまま PDF を出す（品質は落ちるが生成自体は続行）
+        // フォールバック：サムネを fullBlobUrl 扱いにする（PDF も結局サムネで作られる）
+        p.fullBlobUrl = p.url;
       } finally {
         done++;
         if (progressCb) progressCb(done, total);
@@ -1634,6 +1634,18 @@ async function ensureFullResolutionPhotos(progressCb) {
     }
   };
   await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+}
+
+// PDF生成後にフル解像度 blob を解放してメモリを戻す
+// （編集画面はサムネに戻り、再度 PDF を出す時は再フェッチ）
+function releaseFullResolutionBlobs() {
+  state.uploadedPhotos.forEach(p => {
+    // url（サムネ）と異なる blob URL のみ解放（同じ場合は revoke するとサムネも壊れる）
+    if (p.fullBlobUrl && p.fullBlobUrl !== p.url) {
+      URL.revokeObjectURL(p.fullBlobUrl);
+    }
+    p.fullBlobUrl = null;
+  });
 }
 
 async function onReportPdf() {
@@ -1646,18 +1658,34 @@ async function onReportPdf() {
   const page = document.querySelector('.report-page');
   page.classList.add('pdf-rendering');
 
+  // PDF生成中だけ <img src> をフル解像度へ差し替えるための記録
+  // finally で必ず元の src（サムネ）に戻す
+  const swappedImgs = [];
+
   try {
-    // 復元セッションでサムネのみ取得済みの写真は、PDF生成前にオリジナル解像度を取得する
+    // 復元セッションでサムネのみの写真は、PDF生成前にオリジナル解像度を取得する
+    // （photo.url（サムネ）は触らず、photo.fullBlobUrl に保存される）
     await ensureFullResolutionPhotos((done, total) => {
       btn.textContent = `${t('statusGeneratingPdf')} (${done}/${total})`;
     });
-    // フル解像度に差し替えたので、レポート写真の <img src> を更新するため再レンダ
-    // （renderReportPhotos は state.uploadedPhotos[].url を読み直す）
-    if (state.uploadedPhotos.some(p => p.fullResLoaded === true)) {
-      renderReportPhotos();
-      // 新しい <img> がロード完了するまで待つ（complete を確認）
-      const imgs = page.querySelectorAll('.report-photo-img-wrap img');
-      await Promise.all(Array.from(imgs).map(img => {
+
+    // 各 report-photo-item の <img> を一時的にフル解像度へ swap
+    // （編集画面のサムネ表示は保持したまま、html2canvas が捕捉する DOM だけ高解像度化）
+    const items = page.querySelectorAll('.report-photo-item');
+    items.forEach(item => {
+      const fileId = item.dataset.fileId;
+      if (!fileId) return;
+      const photo = state.uploadedPhotos.find(p => p.fileId === fileId);
+      if (!photo || !photo.fullBlobUrl || photo.fullBlobUrl === photo.url) return;
+      const img = item.querySelector('.report-photo-img-wrap img');
+      if (!img) return;
+      swappedImgs.push({ img, originalSrc: img.src });
+      img.src = photo.fullBlobUrl;
+    });
+
+    if (swappedImgs.length > 0) {
+      // 差し替えた <img> がロード完了するまで待つ
+      await Promise.all(swappedImgs.map(({ img }) => {
         if (img.complete && img.naturalWidth > 0) return Promise.resolve();
         return new Promise(res => {
           img.addEventListener('load', res, { once: true });
@@ -1804,6 +1832,12 @@ async function onReportPdf() {
     console.error(e);
     alert(t('errPdfFailedFmt').replace('{err}', e.message || e));
   } finally {
+    // 差し替えた <img src> をサムネに戻す（編集画面が再びサムネ表示に戻る）
+    for (const { img, originalSrc } of swappedImgs) {
+      img.src = originalSrc;
+    }
+    // フル解像度 blob を解放してメモリを戻す（次回 PDF 生成時は再フェッチ）
+    releaseFullResolutionBlobs();
     page.classList.remove('pdf-rendering');
     btn.textContent = original;
     btn.disabled = false;

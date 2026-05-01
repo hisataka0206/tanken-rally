@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=62';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=62';
-import { fetchOriginStory } from './utils/ai.js?v=62';
-import { generateMapPdf } from './utils/pdf.js?v=62';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=62';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=62';
-import { CITIES, localizeStationName } from './data/cities.js?v=62';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=62';
-import { addReport as addIssueReport } from './utils/issues.js?v=62';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=62';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=62';
+import { CONFIG } from '../config.js?v=63';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=63';
+import { fetchOriginStory } from './utils/ai.js?v=63';
+import { generateMapPdf } from './utils/pdf.js?v=63';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=63';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=63';
+import { CITIES, localizeStationName } from './data/cities.js?v=63';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=63';
+import { addReport as addIssueReport } from './utils/issues.js?v=63';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=63';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=63';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1573,18 +1573,62 @@ async function onReportPdf() {
     const pdfW = pdf.internal.pageSize.getWidth();   // 364
     const pdfH = pdf.internal.pageSize.getHeight();  // 515
 
-    const imgData = canvas.toDataURL('image/jpeg', 0.92);
-    const imgH = canvas.height * pdfW / canvas.width;
+    // 単純な image shift だと写真がページ境界で分断される。
+    // 写真ブロック（.report-photo-item）を「割らないブロック」とみなし、
+    // ページ境界がブロック内に来るときはそのブロックの上端で改ページする。
+    // generateMapPdf（pdf.js）と同じ手法。
+    const SCALE = 2; // html2canvas の scale と一致
+    const pageRect = page.getBoundingClientRect();
+    const photoBlocks = page.querySelectorAll('.report-photo-item:not(.excluded)');
+    const blockRanges = Array.from(photoBlocks).map(el => {
+      const r = el.getBoundingClientRect();
+      return {
+        top: (r.top - pageRect.top) * SCALE,
+        bottom: (r.bottom - pageRect.top) * SCALE,
+      };
+    }).sort((a, b) => a.top - b.top);
 
-    let position = 0;
-    let heightLeft = imgH;
-    pdf.addImage(imgData, 'JPEG', 0, position, pdfW, imgH);
-    heightLeft -= pdfH;
-    while (heightLeft > 0) {
-      position -= pdfH;
-      pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 0, position, pdfW, imgH);
-      heightLeft -= pdfH;
+    // desired Y で分割するとブロックを割ってしまう場合、上端まで戻して安全に分割
+    const findSafeSplit = (desired, lowerBound) => {
+      const minAdvance = 200; // これより小さい slice は作らない（無限ループ防止）
+      let cutAt = desired;
+      for (const r of blockRanges) {
+        if (r.top < desired && r.bottom > desired) {
+          if (r.top > lowerBound + minAdvance && r.top < cutAt) {
+            cutAt = r.top;
+          }
+        }
+      }
+      return cutAt;
+    };
+
+    // B3 1ページあたりの canvas ピクセル高さ
+    const pageHeightPx = (pdfH * canvas.width) / pdfW;
+    let offsetPx = 0;
+    let pageNum = 0;
+    while (offsetPx < canvas.height) {
+      const remaining = canvas.height - offsetPx;
+      let sliceHeight;
+      if (remaining <= pageHeightPx) {
+        sliceHeight = remaining;
+      } else {
+        const desired = offsetPx + pageHeightPx;
+        const safeY = findSafeSplit(desired, offsetPx);
+        sliceHeight = Math.max(1, Math.floor(safeY - offsetPx));
+      }
+      const slice = document.createElement('canvas');
+      slice.width = canvas.width;
+      slice.height = sliceHeight;
+      const ctx = slice.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, slice.width, slice.height);
+      ctx.drawImage(canvas, 0, -offsetPx);
+      const sliceData = slice.toDataURL('image/jpeg', 0.92);
+      const sliceMm = (sliceHeight * pdfW) / canvas.width;
+      if (pageNum > 0) pdf.addPage();
+      pdf.addImage(sliceData, 'JPEG', 0, 0, pdfW, sliceMm);
+      offsetPx += sliceHeight;
+      pageNum++;
     }
 
     const fname = `tanken-note_${state.stationName || 'unknown'}_${new Date().toISOString().slice(0,10)}.pdf`;

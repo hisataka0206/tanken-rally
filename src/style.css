@@ -868,6 +868,75 @@ body {
 }
 .ranking-score { font-weight: 700; color: var(--green-dark); font-size: 14px; }
 
+/* ===== スコアモーダル：スマホ向け調整 =====
+ * 480px以下では PC版とレイアウトが崩れて見える問題を解消する。
+ * - モーダル内側のパディングを詰める
+ * - 大きなフォント（score-total 48px）を縮小
+ * - score-howto/advice のリスト余白を圧縮
+ * - ranking-list の grid を縦寄りに変更（プレイヤー名が長いと点数が見切れるため） */
+@media (max-width: 480px) {
+  .modal-content { padding: 18px 14px; }
+  .modal-content h3 { font-size: 15px; }
+  .modal-content-wide { width: 96%; }
+
+  .score-total {
+    font-size: 36px;
+    margin: 8px 0;
+  }
+  .score-rank-label {
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+
+  .score-howto {
+    padding: 6px 10px;
+    margin: 8px 0;
+    font-size: 12px;
+  }
+  .score-howto > summary { padding: 2px 0; }
+  .score-howto-list { line-height: 1.7; }
+
+  .score-advice {
+    padding: 8px 10px;
+    margin: 8px 0;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .score-advice-title { font-size: 13px; }
+
+  .score-name-label { margin: 8px 0; font-size: 12px; }
+  .score-name-label input { padding: 8px 10px; font-size: 14px; }
+
+  .score-rank-message {
+    font-size: 13px;
+    padding: 10px 12px;
+    margin: 10px 0;
+  }
+  .score-rank-message strong { font-size: 18px; }
+
+  .ranking-title { font-size: 14px; }
+  .ranking-list { max-height: 50vh; }
+  .ranking-list li {
+    grid-template-columns: 28px 1fr auto;
+    gap: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  .ranking-rank { width: 22px; height: 22px; font-size: 11px; }
+  .ranking-name { font-size: 12px; min-width: 0; }
+  .ranking-station { font-size: 10px; }
+  .ranking-score { font-size: 13px; white-space: nowrap; }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .modal-actions button {
+    width: 100%;
+  }
+}
+
 /* ===== 不具合報告 ===== */
 .report-issue-fab {
   position: fixed;

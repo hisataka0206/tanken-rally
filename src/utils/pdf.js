@@ -4,12 +4,17 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=83';
-import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=83';
-import { localizeStationName } from '../data/cities.js?v=83';
+import { toLatLngLiteral } from './maps.js?v=84';
+import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=84';
+import { localizeStationName } from '../data/cities.js?v=84';
 
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
+
+// スポット番号を A,B,C... のラベルに変換（地図・ルート・曲がり角で一貫使用）
+// 27件目以降はフォールバックで数字を返す（実用上ありえない件数だが念のため）
+const SPOT_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const spotLetter = i => SPOT_LETTERS[i] || String(i + 1);
 
 /**
  * @param {Object} opts
@@ -232,8 +237,8 @@ function buildRouteFlowHtml({ stationName, localStation, orderedSpots, direction
   };
   const spotItem = (s, i) => `
     <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 4px;">
-      <div style="flex-shrink:0;width:28px;height:28px;background:#004029;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.25);">
-        ${i + 1}
+      <div style="flex-shrink:0;width:32px;height:32px;background:#c62828;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.25);">
+        ${spotLetter(i)}
       </div>
       <div style="flex:1;">
         <div style="font-weight:700;font-size:14px;">${escapeHtml(s.name)}</div>
@@ -264,10 +269,30 @@ function buildTurnPointsHtml({ stationName, localStation, origin, orderedSpots, 
   const legs = directions?.routes?.[0]?.legs || [];
   if (legs.length === 0) return '';
   const stationDisp = localStation || stationName;
+  const o = toLatLngLiteral(origin);
+
+  // 区間ヘッダー（左右2カラムをまたぐワイドな帯）。grid-column: 1 / -1 で全幅を占有。
+  // data-pdf-block を付けてページ境界で割られないようにする。
+  const segmentHeader = ({ from, to, fromName, toName }) => {
+    const text = t('pdfSegmentHeaderFmt')
+      .replace('{from}', from).replace('{to}', to)
+      .replace('{fromName}', fromName).replace('{toName}', toName);
+    return `
+      <div data-pdf-block style="grid-column:1/-1;margin:14px 0 4px;padding:10px 18px;background:linear-gradient(90deg,#004029 0%,#2e7d32 100%);color:#fff;border-radius:8px;font-weight:700;font-size:14px;letter-spacing:.04em;box-shadow:0 2px 5px rgba(0,0,0,.18);">
+        ${escapeHtml(text)}
+      </div>
+    `;
+  };
+
+  // 「この区間は曲がり角なし」のプレースホルダ（grid-column:1/-1 で帯化）
+  const noTurnsRow = () => `
+    <div data-pdf-block style="grid-column:1/-1;padding:10px 16px;background:#f5f0e8;color:#888;font-size:12px;border-radius:6px;">
+      ${escapeHtml(t('pdfSegmentNoTurns'))}
+    </div>
+  `;
 
   // 出発地点：駅 → 1つ目のスポット方向のストリートビュー
   const cards = [];
-  const o = toLatLngLiteral(origin);
   const firstStep = legs[0]?.steps?.[0];
   if (o && firstStep) {
     const endLoc = toLatLngLiteral(firstStep.end_location);
@@ -285,28 +310,38 @@ function buildTurnPointsHtml({ stationName, localStation, origin, orderedSpots, 
     }));
   }
 
-  // 各 leg を走査し、maneuver 付き step を抽出
-  let turnCount = 0;
+  // 各 leg を「区間ヘッダー + 区間内の曲がり角カード群」として出力
+  let globalTurnCount = 0;
   legs.forEach((leg, legIdx) => {
-    const nextRaw = legIdx < orderedSpots.length
-      ? orderedSpots[legIdx].name
-      : stationDisp;
+    const fromLabel = legIdx === 0 ? 'S' : spotLetter(legIdx - 1);
+    const toLabel   = legIdx < orderedSpots.length ? spotLetter(legIdx) : 'G';
+    const fromName  = legIdx === 0 ? stationDisp : orderedSpots[legIdx - 1].name;
+    const toName    = legIdx < orderedSpots.length ? orderedSpots[legIdx].name : stationDisp;
+    const nextRaw   = `${toLabel} (${toName})`;
+
+    cards.push(segmentHeader({
+      from: fromLabel, to: toLabel,
+      fromName, toName,
+    }));
+
+    let turnsInThisLeg = 0;
     (leg.steps || []).forEach(step => {
       if (!step.maneuver) return;
       if (step.maneuver === 'straight') return;
-      turnCount++;
+      globalTurnCount++;
+      turnsInThisLeg++;
       const start = toLatLngLiteral(step.start_location);
       const end = toLatLngLiteral(step.end_location);
       const heading = (start && end) ? computeHeading(start, end) : 0;
       const rawMin = Math.max(1, Math.round((step.duration?.value || 0) / 60));
       const min = adjustMinForKids(rawMin);
       const distText = step.distance?.text || '';
-      // 区間（distance · 約N分） + 「次は ○○ 方面」
+      // 区間情報を含めた subtitle: 距離・時間 + 次の目的地（A,B,C 表記）
       const subtitleHtml =
         `${escapeHtml(distText)}・${escapeHtml(t('approxMinDot').replace('{min}', min))} ` +
         `${escapeHtml(t('pdfNextDirection').replace('{name}', nextRaw))}`;
       cards.push(buildTurnCard({
-        label: String(turnCount),
+        label: String(globalTurnCount),
         labelColor: '#004029',
         title: stripHtml(step.html_instructions || step.instructions || ''),
         subtitle: subtitleHtml,
@@ -317,6 +352,7 @@ function buildTurnPointsHtml({ stationName, localStation, origin, orderedSpots, 
         apiKey,
       }));
     });
+    if (turnsInThisLeg === 0) cards.push(noTurnsRow());
   });
 
   // ゴール地点
@@ -448,10 +484,9 @@ function buildStaticMapUrl({ origin, orderedSpots, directions, apiKey }) {
   ];
   // 駅マーカー
   if (o) params.push(`markers=color:0x004029|label:S|${o.lat},${o.lng}`);
-  // 各スポット（番号ラベル 1〜0、最大10件）
-  const labels = ['1','2','3','4','5','6','7','8','9','0'];
-  orderedSpots.slice(0, labels.length).forEach((s, i) => {
-    params.push(`markers=color:red|label:${labels[i]}|${s.lat},${s.lng}`);
+  // 各スポット（A,B,C... のアルファベット表記、最大26件）
+  orderedSpots.slice(0, SPOT_LETTERS.length).forEach((s, i) => {
+    params.push(`markers=color:red|label:${spotLetter(i)}|${s.lat},${s.lng}`);
   });
   // パス：徒歩経路の encoded polyline 優先（Directions API の overview_polyline）
   // フォールバックは点を直線で結ぶ

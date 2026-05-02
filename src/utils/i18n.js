@@ -202,6 +202,8 @@ const TRANSLATIONS = {
     pdfFooter: 'たんけんラリー — {name} 探検マップ',
     pdfNoTurns: '曲がる場所はありません。まっすぐ進んでね。',
     pdfNoApiKey: '（地図画像はAPIキー未設定のため省略）',
+    pdfSegmentHeaderFmt: '🚶 区間 {from}（{fromName}） → {to}（{toName}）',
+    pdfSegmentNoTurns: '曲がり角なし — まっすぐ進んでね',
 
     // 進捗ラベル / 単位
     suffMin: '分',
@@ -447,6 +449,8 @@ const TRANSLATIONS = {
     pdfFooter: 'Tanken Rally — {name} Exploration Map',
     pdfNoTurns: 'No turns. Go straight ahead.',
     pdfNoApiKey: '(Map image omitted: API key not set)',
+    pdfSegmentHeaderFmt: '🚶 Leg {from} ({fromName}) → {to} ({toName})',
+    pdfSegmentNoTurns: 'No turns — go straight',
 
     suffMin: ' min',
     suffKm: 'km',
@@ -682,6 +686,8 @@ const TRANSLATIONS = {
     pdfGoalCardTitle: '{name}駅',
     pdfGoalCardSubtitle: 'ゴール — おつかれさま！',
     pdfNextDirection: '→ 次（つぎ）は{name}方面（ほうめん）',
+    pdfSegmentHeaderFmt: '🚶 区間（くかん） {from}（{fromName}） → {to}（{toName}）',
+    pdfSegmentNoTurns: '曲（ま）がり角（かど）なし — まっすぐ進（すす）んでね',
     pdfFooter: 'たんけんラリー — {name} 探検（たんけん）マップ',
     pdfNoTurns: '曲（ま）がる場所はありません。まっすぐ進（すす）んでね。',
     pdfNoApiKey: '（地図画像（がぞう）はAPIキー未設定（みせってい）のため省略（しょうりゃく））',

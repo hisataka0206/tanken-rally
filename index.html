@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=31" />
+  <link rel="stylesheet" href="src/style.css?v=32" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -152,10 +152,20 @@
         <h2 class="step-title"><span class="step-num">4</span> <span data-i18n="step4Title">探検しながら写真を撮ろう</span></h2>
         <div id="photos-session-info" class="session-info"></div>
         <div class="photo-upload-area">
-          <label for="photo-input" class="photo-upload-btn">
-            <span data-i18n="photoUploadLabel">📷 写真を撮る / 選ぶ</span>
-            <input id="photo-input" type="file" accept="image/*" multiple hidden />
-          </label>
+          <!-- カメラ起動 (capture=environment) と ギャラリー選択 (capture なし) を2ボタンで分離。
+               Android Chrome の一部環境では capture が無いとカメラがファイルピッカーに表示されず、
+               ユーザーが「Chrome からカメラが使えない」と誤解する問題を回避するため。
+               iOS Safari は両方とも同じシートを開くので問題なし。 -->
+          <div class="photo-upload-row">
+            <label for="photo-camera-input" class="photo-upload-btn photo-upload-camera">
+              <span data-i18n="photoCameraLabel">📷 写真を撮る</span>
+              <input id="photo-camera-input" type="file" accept="image/*" capture="environment" multiple hidden />
+            </label>
+            <label for="photo-input" class="photo-upload-btn photo-upload-gallery">
+              <span data-i18n="photoGalleryLabel">🖼️ 写真を選ぶ</span>
+              <input id="photo-input" type="file" accept="image/*" multiple hidden />
+            </label>
+          </div>
           <p class="photo-hint" data-i18n="photoHint">💡 撮影あとに写真をタップして、場所のタグ（任意）を付けられるよ。</p>
         </div>
         <div id="upload-progress" class="upload-progress hidden"></div>
@@ -357,6 +367,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=80"></script>
+  <script type="module" src="src/main.js?v=81"></script>
 </body>
 </html>

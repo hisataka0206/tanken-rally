@@ -608,14 +608,20 @@ body {
 /* ===== 写真アップロード ===== */
 .photo-upload-area {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  flex-direction: column;
+  gap: 10px;
   margin-bottom: 16px;
+}
+/* カメラ起動・ギャラリー選択の2ボタンを横並びに（狭い画面では縦積み） */
+.photo-upload-row {
+  display: flex;
+  gap: 10px;
   flex-wrap: wrap;
 }
 .photo-upload-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 12px 20px;
   background: var(--green-dark);
@@ -624,9 +630,18 @@ body {
   cursor: pointer;
   font-size: 15px;
   font-weight: 600;
-  transition: background .2s;
+  transition: background .2s, transform .1s;
+  flex: 1;
+  min-width: 140px;
+  text-align: center;
 }
 .photo-upload-btn:hover { background: var(--green-mid); }
+.photo-upload-btn:active { transform: scale(0.98); }
+/* ギャラリー選択ボタンは2nd色（淡め）にして視覚区別 */
+.photo-upload-gallery {
+  background: var(--green-mid);
+}
+.photo-upload-gallery:hover { background: var(--green-dark); }
 
 .spot-select {
   padding: 10px 14px;

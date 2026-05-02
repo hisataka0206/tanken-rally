@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=80';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=80';
-import { fetchOriginStory } from './utils/ai.js?v=80';
-import { generateMapPdf } from './utils/pdf.js?v=80';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=80';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=80';
-import { CITIES, localizeStationName } from './data/cities.js?v=80';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=80';
-import { addReport as addIssueReport } from './utils/issues.js?v=80';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=80';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=80';
+import { CONFIG } from '../config.js?v=81';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=81';
+import { fetchOriginStory } from './utils/ai.js?v=81';
+import { generateMapPdf } from './utils/pdf.js?v=81';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=81';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=81';
+import { CITIES, localizeStationName } from './data/cities.js?v=81';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=81';
+import { addReport as addIssueReport } from './utils/issues.js?v=81';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=81';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=81';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -846,7 +846,10 @@ async function onPhotoInputChange(e) {
 
   progress.textContent = t('statusUploaded').replace('{n}', files.length);
   setTimeout(() => progress.classList.add('hidden'), 2000);
-  $('photo-input').value = ''; // 同じファイルの再選択を可能にする
+  // 両方の input を空にして、同じファイル/同じ撮影をもう一度トリガできるようにする
+  $('photo-input').value = '';
+  const camInput = $('photo-camera-input');
+  if (camInput) camInput.value = '';
   updatePhotosCount();
 }
 
@@ -2041,7 +2044,9 @@ $('back-to-spots').addEventListener('click', () => showStep('step-spots'));
 $('start-explore-btn').addEventListener('click', onStartExplore);
 
 // STEP 4
+// カメラ直起動とギャラリー選択を別 input にしているので、両方に同じハンドラを bind
 $('photo-input').addEventListener('change', onPhotoInputChange);
+$('photo-camera-input').addEventListener('change', onPhotoInputChange);
 $('back-to-route').addEventListener('click', async () => {
   // 再開セッションでは Directions が未構築なので必要に応じて再構築する
   const btn = $('back-to-route');

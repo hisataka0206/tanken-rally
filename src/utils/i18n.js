@@ -61,6 +61,8 @@ const TRANSLATIONS = {
 
     // STEP 4
     photoUploadLabel: '📷 写真を撮る / 選ぶ',
+    photoCameraLabel: '📷 写真を撮る',
+    photoGalleryLabel: '🖼️ 写真を選ぶ',
     photoHint: '💡 撮影あとに写真をタップして、場所のタグ（任意）を付けられるよ。',
     btnBackRoute: '← マップに戻る',
     btnFinishExplore: '探検おわり！ノートへ →',
@@ -314,6 +316,8 @@ const TRANSLATIONS = {
     btnStartExplore: 'Start exploring! →',
 
     photoUploadLabel: '📷 Take / pick a photo',
+    photoCameraLabel: '📷 Take a photo',
+    photoGalleryLabel: '🖼️ Pick from gallery',
     photoHint: '💡 After taking a photo, tap it to add a location tag (optional).',
     btnBackRoute: '← Back to map',
     btnFinishExplore: 'Done! → Note',
@@ -550,6 +554,8 @@ const TRANSLATIONS = {
     btnStartExplore: '探検（たんけん）スタート！ →',
 
     photoUploadLabel: '📷 写真（しゃしん）をとる / えらぶ',
+    photoCameraLabel: '📷 写真（しゃしん）をとる',
+    photoGalleryLabel: '🖼️ 写真（しゃしん）をえらぶ',
     photoHint: '💡 撮影（さつえい）したあとに写真（しゃしん）をタップして、場所のタグ（任意（にんい））をつけられるよ。',
     btnBackRoute: '← マップにもどる',
     btnFinishExplore: '探検（たんけん）おわり！ノートへ →',

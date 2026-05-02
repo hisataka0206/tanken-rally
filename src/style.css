@@ -1233,16 +1233,22 @@ body {
 #report-overview:focus, #report-afterword:focus,
 .report-photo-comment:focus { border-color: var(--green-dark); }
 
-/* 写真リスト：B3 用紙幅(324mm content)に対して 2 列グリッド配置
-   各エントリは「ハガキサイズ写真 + 感想欄」を縦に積む。
-   傾けた photo-item が隣にぶつからないよう gap は少し広めに。 */
+/* 写真リスト全体は単純なコンテナ。
+   写真は 6 枚ずつ .report-photo-page でラップされ、それが grid container となる。
+   1ページ=6枚=2列×3行を一塊として扱い、PDF生成時に「割らないブロック」として保つ。 */
 .report-photos {
+  display: block;
+}
+/* 1ページ分の写真グループ（6枚 / 2列×3行）。data-pdf-block マーカーで
+   findSafeSplit が「グループの途中で改ページしない」よう判定する。 */
+.report-photo-page {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 28px 24px;
-  /* 微回転で要素が枠外に出るので少し余白 */
-  padding: 14px 6px;
+  gap: 22px 20px;
+  padding: 8px 6px;
+  margin-bottom: 18px;
 }
+.report-photo-page:last-child { margin-bottom: 0; }
 /* === スクラップブック風の写真カード ===
  * - ポラロイド調の白い余白 + 軽いドロップシャドウで「貼った」感
  * - 偶数/奇数で僅かに傾けて手作り感を演出
@@ -1308,9 +1314,11 @@ body {
 
 .report-photo-img-wrap {
   flex-shrink: 0;
-  /* 148mm 四方の envelope：すべての写真がここに収まる */
-  width: 148mm;
-  height: 148mm;
+  /* 100mm 四方の envelope：6枚を 2列×3行で1ページに収めるためのサイズ。
+     カード幅より狭い場合は align-items: center で中央寄せされる。 */
+  width: 100mm;
+  height: 100mm;
+  align-self: center;
   background: #fafafa;
   display: flex;
   align-items: center;

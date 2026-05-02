@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=85';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=85';
-import { fetchOriginStory } from './utils/ai.js?v=85';
-import { generateMapPdf } from './utils/pdf.js?v=85';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=85';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=85';
-import { CITIES, localizeStationName } from './data/cities.js?v=85';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=85';
-import { addReport as addIssueReport } from './utils/issues.js?v=85';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=85';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=85';
+import { CONFIG } from '../config.js?v=86';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=86';
+import { fetchOriginStory } from './utils/ai.js?v=86';
+import { generateMapPdf } from './utils/pdf.js?v=86';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=86';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=86';
+import { CITIES, localizeStationName } from './data/cities.js?v=86';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=86';
+import { addReport as addIssueReport } from './utils/issues.js?v=86';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=86';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=86';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1582,7 +1582,18 @@ function renderReportPhotos() {
     return;
   }
 
+  // 写真は 6 枚ずつ .report-photo-page グループに格納し、各グループを「割らない単位」として扱う。
+  // PDF生成時の findSafeSplit はこのグループの境界で改ページするので「1ページに6枚」が保たれる。
+  // （ユーザーが大量にコメントを書いてグループがページ高を超えた場合のみ、個別カード単位で
+  //   フォールバック分割される。個別カードも data-fileId で no-split block 扱い）
+  const PHOTOS_PER_PAGE = 6;
+  let currentPage = null;
   photos.forEach((photo, i) => {
+    if (i % PHOTOS_PER_PAGE === 0) {
+      currentPage = document.createElement('div');
+      currentPage.className = 'report-photo-page';
+      wrap.appendChild(currentPage);
+    }
     const item = document.createElement('div');
     item.className = 'report-photo-item';
     item.dataset.fileId = photo.fileId;
@@ -1634,7 +1645,7 @@ function renderReportPhotos() {
         console.error(`[report] 全画像候補が失敗:`, photo.fileName, imgCandidates);
       }
     });
-    const ENVELOPE_MM = 148; // ハガキ長辺
+    const ENVELOPE_MM = 100; // 1ページ6枚に収めるための写真の長辺
     const applyImageSize = () => {
       if (!imgEl.naturalWidth || !imgEl.naturalHeight) return;
       const aspect = imgEl.naturalWidth / imgEl.naturalHeight;
@@ -1662,7 +1673,7 @@ function renderReportPhotos() {
     });
     setupAutoResize(commentEl);
 
-    wrap.appendChild(item);
+    currentPage.appendChild(item);
   });
 }
 
@@ -1897,10 +1908,14 @@ async function onReportPdf() {
         const VISUAL_OVERFLOW_PX = 28; // shadow ~14 + tape ~12 + rotation の余裕
         void clonedPage.offsetHeight; // force reflow
         const pageRect = clonedPage.getBoundingClientRect();
-        const photos = clonedPage.querySelectorAll('.report-photo-item');
-        blockRanges = Array.from(photos)
+        // 「割らないブロック」として 6枚グループ (.report-photo-page) を最優先、
+        // 個別カード (.report-photo-item) もフォールバック用に同時にトラックする。
+        // findSafeSplit は両方を見て、グループ境界を優先しつつ、グループがページ高を
+        // 超える場合のみ個別カード境界で分割する（写真が中途半端に割れない）。
+        const blocks = clonedPage.querySelectorAll('.report-photo-page, .report-photo-item');
+        blockRanges = Array.from(blocks)
           .filter(el => {
-            // display:none を除外（excluded やレイアウト外のもの）
+            // display:none / 排他要素を除外
             const r = el.getBoundingClientRect();
             return r.height > 0 && r.width > 0;
           })

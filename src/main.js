@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=84';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=84';
-import { fetchOriginStory } from './utils/ai.js?v=84';
-import { generateMapPdf } from './utils/pdf.js?v=84';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=84';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=84';
-import { CITIES, localizeStationName } from './data/cities.js?v=84';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=84';
-import { addReport as addIssueReport } from './utils/issues.js?v=84';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=84';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=84';
+import { CONFIG } from '../config.js?v=85';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=85';
+import { fetchOriginStory } from './utils/ai.js?v=85';
+import { generateMapPdf } from './utils/pdf.js?v=85';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=85';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=85';
+import { CITIES, localizeStationName } from './data/cities.js?v=85';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=85';
+import { addReport as addIssueReport } from './utils/issues.js?v=85';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=85';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=85';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -45,14 +45,19 @@ const PHOTO_TAG_START = '__START__';
 const PHOTO_TAG_GOAL  = '__GOAL__';
 
 // 内部マーカーから localized 表示ラベルへ変換（dropdown / overlay / report で共通使用）
+// 元キー（routeFlowStart/Goal）はルート表示で <strong> を含む HTML として使うので、
+// プレーンテキスト用途では HTML タグを取り除く必要がある。
 function photoTagDisplayLabel(spotName) {
+  let raw;
   if (spotName === PHOTO_TAG_START) {
-    return t('routeFlowStart').replace('{name}', localizeStationName(state.stationName, LANG));
+    raw = t('routeFlowStart').replace('{name}', localizeStationName(state.stationName, LANG));
+  } else if (spotName === PHOTO_TAG_GOAL) {
+    raw = t('routeFlowGoal').replace('{name}', localizeStationName(state.stationName, LANG));
+  } else {
+    return spotName || '';
   }
-  if (spotName === PHOTO_TAG_GOAL) {
-    return t('routeFlowGoal').replace('{name}', localizeStationName(state.stationName, LANG));
-  }
-  return spotName || '';
+  // <strong> 等のタグを除去してプレーンテキスト化
+  return raw.replace(/<[^>]+>/g, '');
 }
 
 // タグ編集モーダルの dropdown を構築（駅スタート → スポット → 駅ゴール の順）

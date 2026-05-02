@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=86';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=86';
-import { fetchOriginStory } from './utils/ai.js?v=86';
-import { generateMapPdf } from './utils/pdf.js?v=86';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=86';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=86';
-import { CITIES, localizeStationName } from './data/cities.js?v=86';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=86';
-import { addReport as addIssueReport } from './utils/issues.js?v=86';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=86';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=86';
+import { CONFIG } from '../config.js?v=87';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=87';
+import { fetchOriginStory } from './utils/ai.js?v=87';
+import { generateMapPdf } from './utils/pdf.js?v=87';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=87';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=87';
+import { CITIES, localizeStationName } from './data/cities.js?v=87';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=87';
+import { addReport as addIssueReport } from './utils/issues.js?v=87';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=87';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=87';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1582,17 +1582,24 @@ function renderReportPhotos() {
     return;
   }
 
-  // 写真は 6 枚ずつ .report-photo-page グループに格納し、各グループを「割らない単位」として扱う。
-  // PDF生成時の findSafeSplit はこのグループの境界で改ページするので「1ページに6枚」が保たれる。
-  // （ユーザーが大量にコメントを書いてグループがページ高を超えた場合のみ、個別カード単位で
-  //   フォールバック分割される。個別カードも data-fileId で no-split block 扱い）
-  const PHOTOS_PER_PAGE = 6;
+  // 写真をページ単位の .report-photo-page グループに格納し、PDF生成時に「割らない単位」として扱う。
+  //   - 1ページ目は 4 枚（タイトル＋全体感想と同居するためスペース節約）
+  //   - 2ページ目以降は 6 枚ずつ（ページ全体を写真で使う）
+  // ユーザーが大量にコメントを書いてグループがページ高を超えた場合は、個別カード単位で
+  // フォールバック分割される（写真自体は決して割れない）。
+  const FIRST_PAGE_PHOTOS = 4;
+  const NEXT_PAGES_PHOTOS = 6;
+  let groupSize = FIRST_PAGE_PHOTOS;
+  let inGroupCount = 0;
   let currentPage = null;
   photos.forEach((photo, i) => {
-    if (i % PHOTOS_PER_PAGE === 0) {
+    if (currentPage === null || inGroupCount >= groupSize) {
       currentPage = document.createElement('div');
       currentPage.className = 'report-photo-page';
       wrap.appendChild(currentPage);
+      inGroupCount = 0;
+      // 2 グループ目以降は 6 枚枠に切り替え（i>0 のとき = 2グループ目以降）
+      if (i > 0) groupSize = NEXT_PAGES_PHOTOS;
     }
     const item = document.createElement('div');
     item.className = 'report-photo-item';
@@ -1674,6 +1681,7 @@ function renderReportPhotos() {
     setupAutoResize(commentEl);
 
     currentPage.appendChild(item);
+    inGroupCount++;
   });
 }
 

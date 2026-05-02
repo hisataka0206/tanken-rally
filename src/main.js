@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=82';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=82';
-import { fetchOriginStory } from './utils/ai.js?v=82';
-import { generateMapPdf } from './utils/pdf.js?v=82';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=82';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=82';
-import { CITIES, localizeStationName } from './data/cities.js?v=82';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=82';
-import { addReport as addIssueReport } from './utils/issues.js?v=82';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=82';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=82';
+import { CONFIG } from '../config.js?v=83';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=83';
+import { fetchOriginStory } from './utils/ai.js?v=83';
+import { generateMapPdf } from './utils/pdf.js?v=83';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=83';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=83';
+import { CITIES, localizeStationName } from './data/cities.js?v=83';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=83';
+import { addReport as addIssueReport } from './utils/issues.js?v=83';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=83';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=83';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -38,6 +38,56 @@ const locName = obj => {
   if (LANG === 'en' && obj.nameEn) return obj.nameEn;
   return obj.name || '';
 };
+// 写真タグの「スタート駅」「ゴール駅」用の内部マーカー。
+// 言語切替で表示文字列が変わっても永続化された値が壊れないよう、
+// 表示用ラベルとは別に固定の内部キーを使う。photo.spotName にはこの値が入る。
+const PHOTO_TAG_START = '__START__';
+const PHOTO_TAG_GOAL  = '__GOAL__';
+
+// 内部マーカーから localized 表示ラベルへ変換（dropdown / overlay / report で共通使用）
+function photoTagDisplayLabel(spotName) {
+  if (spotName === PHOTO_TAG_START) {
+    return t('routeFlowStart').replace('{name}', localizeStationName(state.stationName, LANG));
+  }
+  if (spotName === PHOTO_TAG_GOAL) {
+    return t('routeFlowGoal').replace('{name}', localizeStationName(state.stationName, LANG));
+  }
+  return spotName || '';
+}
+
+// タグ編集モーダルの dropdown を構築（駅スタート → スポット → 駅ゴール の順）
+function buildTagModalOptions() {
+  const tagSel = $('tag-modal-select');
+  if (!tagSel) return;
+  tagSel.innerHTML = '';
+  // (タグなし)
+  const empty = document.createElement('option');
+  empty.value = '';
+  empty.textContent = t('tagModalEmpty');
+  tagSel.appendChild(empty);
+  // スタート駅
+  if (state.stationName) {
+    const optStart = document.createElement('option');
+    optStart.value = PHOTO_TAG_START;
+    optStart.textContent = photoTagDisplayLabel(PHOTO_TAG_START);
+    tagSel.appendChild(optStart);
+  }
+  // 各スポット
+  state.orderedSpots.forEach((s, i) => {
+    const opt = document.createElement('option');
+    opt.value = s.name;
+    opt.textContent = `${i + 1}. ${s.name}`;
+    tagSel.appendChild(opt);
+  });
+  // ゴール駅
+  if (state.stationName) {
+    const optGoal = document.createElement('option');
+    optGoal.value = PHOTO_TAG_GOAL;
+    optGoal.textContent = photoTagDisplayLabel(PHOTO_TAG_GOAL);
+    tagSel.appendChild(optGoal);
+  }
+}
+
 // CAT カテゴリのラベルを言語別に取得
 const catLabel = catKey => t(`catLabel_${catKey}`, (CAT[catKey] || CAT.other).label);
 
@@ -702,15 +752,8 @@ async function onStartExplore() {
   try {
     state.sessionId = generateSessionId();
 
-    // タグモーダル用のスポットセレクターを構築
-    const tagSel = $('tag-modal-select');
-    tagSel.innerHTML = `<option value="">${t('tagModalEmpty')}</option>`;
-    state.orderedSpots.forEach((s, i) => {
-      const opt = document.createElement('option');
-      opt.value = s.name;
-      opt.textContent = `${i + 1}. ${s.name}`;
-      tagSel.appendChild(opt);
-    });
+    // タグモーダル用のセレクターを構築（駅スタート → スポット → 駅ゴール）
+    buildTagModalOptions();
 
     // DriveクライアントがあればGoogle Driveにセッションフォルダを作成
     if (drive) {
@@ -870,7 +913,7 @@ function buildPhotoItem(photo) {
   const item = document.createElement('div');
   item.className = `photo-item${photo.uploading ? ' photo-uploading' : ''}${excluded ? ' photo-excluded' : ''}`;
   item.dataset.fileId = photo.fileId;
-  const tagText = photo.spotName ? `📍 ${photo.spotName}` : t('photoTagAdd');
+  const tagText = photo.spotName ? `📍 ${photoTagDisplayLabel(photo.spotName)}` : t('photoTagAdd');
   const toggleIcon = excluded ? '⬜' : '✅';
   const toggleTitle = excluded ? t('photoTagInclude') : t('photoTagExclude');
   item.innerHTML = `
@@ -912,7 +955,7 @@ function updatePhotoItemTag(fileId) {
   if (!item) return;
   const overlay = item.querySelector('.photo-overlay');
   if (overlay) {
-    overlay.textContent = photo.spotName ? `📍 ${photo.spotName}` : t('photoTagAdd');
+    overlay.textContent = photo.spotName ? `📍 ${photoTagDisplayLabel(photo.spotName)}` : t('photoTagAdd');
   }
 }
 
@@ -1134,15 +1177,8 @@ async function onResumeSession() {
     }
     info.innerHTML = html;
 
-    // タグ編集モーダルのスポット選択肢を再構築
-    const tagSel = $('tag-modal-select');
-    tagSel.innerHTML = `<option value="">${t('tagModalEmpty')}</option>`;
-    state.orderedSpots.forEach((s, i) => {
-      const opt = document.createElement('option');
-      opt.value = s.name;
-      opt.textContent = `${i + 1}. ${s.name}`;
-      tagSel.appendChild(opt);
-    });
+    // タグ編集モーダルの選択肢を再構築（駅スタート → スポット → 駅ゴール）
+    buildTagModalOptions();
 
     renderPhotosGrid();
     showStep('step-photos');
@@ -1511,12 +1547,14 @@ function onStartReport() {
 }
 
 // 写真を「行った順」に並び替える
-// orderedSpots の順序にしたがって spotName 一致でグループ化、未タグ写真は最後
+// 順序: スタート駅 → orderedSpots[0..N-1] → ゴール駅 → 未タグ
 function getPhotosInVisitOrder() {
   const order = state.orderedSpots.map(s => s.name);
   const orderIndex = name => {
+    if (name === PHOTO_TAG_START) return -1;             // 一番前
+    if (name === PHOTO_TAG_GOAL)  return order.length;   // スポット群の直後
     const idx = order.indexOf(name);
-    return idx < 0 ? Infinity : idx;
+    return idx < 0 ? Infinity : idx;                     // 未タグは最後
   };
   return [...state.uploadedPhotos].sort((a, b) => {
     const oa = orderIndex(a.spotName);
@@ -1545,7 +1583,7 @@ function renderReportPhotos() {
     item.dataset.fileId = photo.fileId;
     // タグなし時は判別できる class を付ける（CSS で PDF時のみ非表示にする）
     const tagHtml = photo.spotName
-      ? `<span class="report-photo-tag">📍 ${photo.spotName}</span>`
+      ? `<span class="report-photo-tag">📍 ${escapeHtml(photoTagDisplayLabel(photo.spotName))}</span>`
       : `<span class="report-photo-tag report-photo-tag-empty">${escapeHtml(t('photoTagless'))}</span>`;
     // 画像ソース選択：blob URL（サムネ）→ Drive URL（フォールバック） の順で試す
     // 最初の src が読めない場合に備えて候補チェーンを保存し、img.onerror で順送りに

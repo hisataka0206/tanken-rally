@@ -4,9 +4,9 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=81';
-import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=81';
-import { localizeStationName } from '../data/cities.js?v=81';
+import { toLatLngLiteral } from './maps.js?v=82';
+import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=82';
+import { localizeStationName } from '../data/cities.js?v=82';
 
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
@@ -159,6 +159,17 @@ function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, ap
       <div><span style="color:#666;">${escapeHtml(t('statsEstTime'))}</span> <strong style="font-size:14px;color:#004029;">${escapeHtml(t('approxMin').replace('{n}', adjustMinForKids(stats?.durationMin) ?? '-'))}</strong>${LANG === 'elementary' ? `<span style="color:#999;font-size:10px;margin-left:4px;">${escapeHtml(t('kidsTimeNote'))}</span>` : ''}</div>
       <div><span style="color:#666;">${escapeHtml(t('statsSpotCount'))}</span> <strong style="font-size:14px;color:#004029;">${orderedSpots.length}${escapeHtml(t('suffSpots'))}</strong></div>
     </div>
+
+    ${(() => {
+      // 駅の出口情報（Directions の最初のステップから抽出）
+      const exit = extractStationExit(directions);
+      if (!exit) return '';
+      return `
+        <div style="margin-top:10px;padding:10px 16px;background:#fffbe5;border:1.5px solid #f4d35e;border-radius:8px;font-size:14px;color:#5d4037;font-weight:600;">
+          ${escapeHtml(t('pdfStationExitFmt').replace('{exit}', exit))}
+        </div>
+      `;
+    })()}
 
     <div data-pdf-block style="margin-top:12px;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
       ${mapImgUrl
@@ -393,6 +404,36 @@ function stripHtml(html) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
   return (tmp.textContent || tmp.innerText || '').trim();
+}
+
+// Directions API のレスポンスから「出口情報」を抽出する。
+// routes[0].legs[0].steps[0..2] あたりの instructions に「○番出口」「○口」が
+// 含まれていればそれを返す。Google が公式に推奨する出口なので確度が高い。
+//   - 「8番出口」「ハチ公口」「南口」「中央口」など多様な表現に対応
+//   - 見つからなければ null（呼び出し側で表示自体をスキップ）
+function extractStationExit(directions) {
+  const legs = directions?.routes?.[0]?.legs;
+  if (!legs || !legs.length) return null;
+  // 最初のレグ（駅 → 最初のスポット）の最初の数ステップを見る
+  const firstLegSteps = legs[0]?.steps || [];
+  const candidates = firstLegSteps.slice(0, 3); // 多くは1〜2ステップ目までに出る
+  for (const step of candidates) {
+    const text = stripHtml(step.html_instructions || step.instructions || '');
+    if (!text) continue;
+    // 1) 番号付き出口（最も確実）: "8番出口", "12番出口"
+    const numbered = text.match(/(\d+番出口)/);
+    if (numbered) return numbered[1];
+    // 2) 名前付き出口: "ハチ公口", "丸の内中央口", "南口", "東改札口" など
+    //    "口" の前に駅名や"出"が付くもの（例: 出口、改札口、地下鉄口）は除外
+    const named = text.match(/([一-龯ぁ-んァ-ヶー]{2,8}口)(?=を|から|に|・|、|。|\s|$)/);
+    if (named) {
+      const w = named[1];
+      // ノイズ除去：これ自体がただの「出口」「改札口」などの一般語の場合はスキップ
+      if (w === '出口' || w === '改札口' || w === '入口' || w === '入り口') continue;
+      return w;
+    }
+  }
+  return null;
 }
 
 function buildStaticMapUrl({ origin, orderedSpots, directions, apiKey }) {

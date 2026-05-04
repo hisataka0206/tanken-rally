@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=89';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=89';
-import { fetchOriginStory } from './utils/ai.js?v=89';
-import { generateMapPdf } from './utils/pdf.js?v=89';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=89';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=89';
-import { CITIES, localizeStationName } from './data/cities.js?v=89';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=89';
-import { addReport as addIssueReport } from './utils/issues.js?v=89';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=89';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=89';
+import { CONFIG } from '../config.js?v=90';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=90';
+import { fetchOriginStory } from './utils/ai.js?v=90';
+import { generateMapPdf } from './utils/pdf.js?v=90';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=90';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=90';
+import { CITIES, localizeStationName } from './data/cities.js?v=90';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=90';
+import { addReport as addIssueReport } from './utils/issues.js?v=90';
+import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=90';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=90';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -43,6 +43,110 @@ const locName = obj => {
 // 表示用ラベルとは別に固定の内部キーを使う。photo.spotName にはこの値が入る。
 const PHOTO_TAG_START = '__START__';
 const PHOTO_TAG_GOAL  = '__GOAL__';
+
+// ===== STEP 4 撮影ウィザード =====
+// stage 0:        スタート駅（駅出発）
+// stage 1..N:     orderedSpots[i-1]（各スポット）
+// stage N+1:      ゴール駅（駅到着）
+// stage N+2:      写真一覧管理（従来UI、ウィザード卒業後）
+// 復元時は state.photoWizardStage = 一覧管理（最終ステージ）から始める。
+function totalWizardStages() {
+  return state.orderedSpots.length + 3;  // start + N spots + goal + manage
+}
+function getWizardStageInfo(stage) {
+  const N = state.orderedSpots.length;
+  const stationDisp = localizeStationName(state.stationName, LANG);
+  if (stage <= 0) {
+    return {
+      type: 'start', tag: PHOTO_TAG_START, icon: '🚉',
+      title: t('wizardStartTitleFmt').replace('{name}', stationDisp),
+      hint: t('wizardHintStart'),
+    };
+  }
+  if (stage >= 1 && stage <= N) {
+    const spot = state.orderedSpots[stage - 1];
+    return {
+      type: 'spot', tag: spot.name, icon: '📍',
+      title: t('wizardSpotTitleFmt').replace('{label}', String(stage)).replace('{name}', spot.name),
+      hint: t('wizardHintSpotFmt'),
+    };
+  }
+  if (stage === N + 1) {
+    return {
+      type: 'goal', tag: PHOTO_TAG_GOAL, icon: '🏁',
+      title: t('wizardGoalTitleFmt').replace('{name}', stationDisp),
+      hint: t('wizardHintGoal'),
+    };
+  }
+  return { type: 'manage', tag: '', icon: '', title: '', hint: '' };
+}
+function showWizardStage(stage) {
+  const total = totalWizardStages();
+  const clamped = Math.max(0, Math.min(stage, total - 1));
+  state.photoWizardStage = clamped;
+  renderWizardStage();
+}
+function renderWizardStage() {
+  const info = getWizardStageInfo(state.photoWizardStage);
+  const wizardEl = $('photo-wizard');
+  const manageEl = $('photo-manage');
+  if (!wizardEl || !manageEl) return;
+  if (info.type === 'manage') {
+    // 最終ステージ：従来の写真一覧管理UIを表示、ウィザードを隠す
+    wizardEl.classList.add('hidden');
+    manageEl.classList.remove('hidden');
+    renderPhotosGrid();
+  } else {
+    // ウィザードステージ：プロンプトを表示し、一覧管理を隠す
+    wizardEl.classList.remove('hidden');
+    manageEl.classList.add('hidden');
+    $('photo-wizard-icon').textContent = info.icon;
+    $('photo-wizard-title').textContent = info.title;
+    $('photo-wizard-hint').textContent = info.hint;
+    $('photo-wizard-progress').textContent = t('wizardProgressFmt')
+      .replace('{n}', state.photoWizardStage + 1)
+      .replace('{total}', totalWizardStages());
+    // ナビゲーションボタンの活性化
+    $('wizard-prev').disabled = (state.photoWizardStage === 0);
+    renderWizardThumbs(info.tag);
+  }
+}
+function renderWizardThumbs(currentTag) {
+  const wrap = $('photo-wizard-thumbs');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const photos = state.uploadedPhotos.filter(p => p.spotName === currentTag && !p.uploading);
+  if (photos.length === 0) {
+    wrap.innerHTML = `<p class="photo-wizard-empty-msg">${escapeHtml(t('wizardNoPhotosYet'))}</p>`;
+    return;
+  }
+  photos.forEach(photo => {
+    const div = document.createElement('div');
+    div.className = 'photo-wizard-thumb';
+    div.innerHTML = `<img src="${photo.thumbnailUrl}" alt="${photo.fileName || ''}" />`;
+    wrap.appendChild(div);
+  });
+}
+// 現在のウィザードステージから「自動付与すべきタグ」を返す
+// （manage ステージや未起動時は空文字＝タグなし）
+function getCurrentWizardAutoTag() {
+  if (state.photoWizardStage == null) return '';
+  const info = getWizardStageInfo(state.photoWizardStage);
+  return info.type === 'manage' ? '' : info.tag;
+}
+// ウィザード／一覧 のどちらの画面を表示中かに応じて適切なほうを再レンダする
+function refreshPhotosView() {
+  if (state.photoWizardStage == null) {
+    renderPhotosGrid();
+    return;
+  }
+  const info = getWizardStageInfo(state.photoWizardStage);
+  if (info.type === 'manage') {
+    renderPhotosGrid();
+  } else {
+    renderWizardThumbs(info.tag);
+  }
+}
 
 // 内部マーカーから localized 表示ラベルへ変換（dropdown / overlay / report で共通使用）
 // 元キー（routeFlowStart/Goal）はルート表示で <strong> を含む HTML として使うので、
@@ -842,8 +946,10 @@ async function onStartExplore() {
     });
     state.uploadedPhotos = [];
     state.selectedPhotoIds.clear();
-    renderPhotosGrid();
+    // 撮影ウィザードを駅出発（stage 0）から開始
+    state.photoWizardStage = 0;
     showStep('step-photos');
+    renderWizardStage();
 
   } catch (e) {
     alert(t('errStartFailedFmt').replace('{err}', e.message));
@@ -861,9 +967,12 @@ async function onPhotoInputChange(e) {
   const progress = $('upload-progress');
   progress.classList.remove('hidden');
 
+  // 撮影ウィザードのアクティブステージから自動タグを取得（manage ステージ時は '' = 未タグ）
+  const autoTag = getCurrentWizardAutoTag();
+
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    const spotName = ''; // 撮影後にタグ付けする運用に変更
+    const spotName = autoTag; // ウィザードで指定されていれば自動タグ、なければ未タグ
     progress.textContent = t('statusUploading').replace('{i}', i + 1).replace('{n}', files.length);
 
     // グリッドにプレビューを先行表示（アップロード中状態）
@@ -881,7 +990,7 @@ async function onPhotoInputChange(e) {
       uploadedAt: new Date().toISOString(), // ローカルでも記録（DriveなしモードでもOK）
       uploading: true,
     });
-    renderPhotosGrid();
+    refreshPhotosView();
 
     // Drive にアップロード
     if (drive && state.driveSession) {
@@ -918,7 +1027,7 @@ async function onPhotoInputChange(e) {
       const idx = state.uploadedPhotos.findIndex(p => p.fileId === tempId);
       if (idx >= 0) state.uploadedPhotos[idx].uploading = false;
     }
-    renderPhotosGrid();
+    refreshPhotosView();
   }
 
   progress.textContent = t('statusUploaded').replace('{n}', files.length);
@@ -1214,8 +1323,10 @@ async function onResumeSession() {
     // タグ編集モーダルの選択肢を再構築（駅スタート → スポット → 駅ゴール）
     buildTagModalOptions();
 
-    renderPhotosGrid();
+    // 復元時は撮影ウィザードをスキップして写真一覧管理（最終ステージ）から始める
+    state.photoWizardStage = totalWizardStages() - 1;
     showStep('step-photos');
+    renderWizardStage();
   } catch (e) {
     errEl.textContent = e.message || t('errResumeFailed');
     errEl.classList.remove('hidden');
@@ -2143,6 +2254,11 @@ $('start-explore-btn').addEventListener('click', onStartExplore);
 // カメラ直起動とギャラリー選択を別 input にしているので、両方に同じハンドラを bind
 $('photo-input').addEventListener('change', onPhotoInputChange);
 $('photo-camera-input').addEventListener('change', onPhotoInputChange);
+
+// 撮影ウィザードのナビゲーション
+$('wizard-prev').addEventListener('click', () => showWizardStage((state.photoWizardStage ?? 0) - 1));
+$('wizard-next').addEventListener('click', () => showWizardStage((state.photoWizardStage ?? 0) + 1));
+$('wizard-skip').addEventListener('click', () => showWizardStage(totalWizardStages() - 1));
 $('back-to-route').addEventListener('click', async () => {
   // 再開セッションでは Directions が未構築なので必要に応じて再構築する
   const btn = $('back-to-route');

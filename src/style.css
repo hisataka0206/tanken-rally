@@ -605,6 +605,100 @@ body {
   margin-bottom: 16px;
 }
 
+/* ===== 撮影ウィザード（STEP 4 のステージ別画面） =====
+ * - 駅出発 → 各スポット → 駅到着 → 一覧 を順番に促す
+ * - 大きな見出し・ヒントメッセージで子どもの撮影意欲を刺激する
+ * - 各ステージで撮った写真は自動的にそのスポットのタグが付く */
+.photo-wizard {
+  margin-bottom: 12px;
+}
+.photo-wizard-progress {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.photo-wizard-card {
+  background: linear-gradient(180deg, #f9f8f0 0%, #ffffff 100%);
+  border: 2px solid var(--green-light);
+  border-radius: 14px;
+  padding: 20px 18px 16px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.photo-wizard-stage-icon {
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.photo-wizard-title {
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--green-dark);
+  margin: 0 0 12px;
+  letter-spacing: 0.04em;
+}
+.photo-wizard-hint {
+  font-size: 16px;
+  line-height: 1.7;
+  color: #4a5a4a;
+  margin: 0 0 16px;
+  font-weight: 600;
+}
+/* ウィザード内ボタンは大きめに（タップしやすく、撮りたくなるよう目立つ色） */
+.photo-upload-btn-large {
+  font-size: 17px;
+  padding: 16px 24px;
+  border-radius: 10px;
+}
+.photo-wizard-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 16px;
+  padding: 8px;
+  min-height: 40px;
+}
+.photo-wizard-thumbs:empty::before {
+  content: '';
+}
+.photo-wizard-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.photo-wizard-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.photo-wizard-empty-msg {
+  color: #aaa;
+  font-size: 12px;
+  padding: 8px;
+  font-style: italic;
+}
+.photo-wizard-nav {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.photo-wizard-nav button {
+  flex: 1;
+  min-width: 100px;
+}
+
 /* ===== 写真アップロード ===== */
 .photo-upload-area {
   display: flex;

@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=33" />
+  <link rel="stylesheet" href="src/style.css?v=34" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -151,29 +151,59 @@
       <div class="card">
         <h2 class="step-title"><span class="step-num">4</span> <span data-i18n="step4Title">探検しながら写真を撮ろう</span></h2>
         <div id="photos-session-info" class="session-info"></div>
-        <div class="photo-upload-area">
-          <!-- カメラ起動 (capture=environment) と ギャラリー選択 (capture なし) を2ボタンで分離。
-               Android Chrome の一部環境では capture が無いとカメラがファイルピッカーに表示されず、
-               ユーザーが「Chrome からカメラが使えない」と誤解する問題を回避するため。
-               iOS Safari は両方とも同じシートを開くので問題なし。 -->
-          <div class="photo-upload-row">
-            <label for="photo-camera-input" class="photo-upload-btn photo-upload-camera">
-              <span data-i18n="photoCameraLabel">📷 写真を撮る</span>
-              <input id="photo-camera-input" type="file" accept="image/*" capture="environment" multiple hidden />
-            </label>
-            <label for="photo-input" class="photo-upload-btn photo-upload-gallery">
-              <span data-i18n="photoGalleryLabel">🖼️ 写真を選ぶ</span>
-              <input id="photo-input" type="file" accept="image/*" multiple hidden />
-            </label>
+
+        <!-- 撮影ウィザード（駅 → 各スポット → 駅 を順に促す画面）。
+             写真を撮る/選ぶの input は同じ photo-camera-input / photo-input を共有している。
+             各ステージで撮った写真は state.photoWizardStage から自動的にタグ付けされる。 -->
+        <div id="photo-wizard" class="photo-wizard">
+          <div class="photo-wizard-progress" id="photo-wizard-progress"></div>
+          <div class="photo-wizard-card">
+            <div class="photo-wizard-stage-icon" id="photo-wizard-icon">📍</div>
+            <h3 class="photo-wizard-title" id="photo-wizard-title"></h3>
+            <p class="photo-wizard-hint" id="photo-wizard-hint"></p>
+            <div class="photo-upload-row">
+              <label for="photo-camera-input" class="photo-upload-btn photo-upload-camera photo-upload-btn-large">
+                <span data-i18n="photoCameraLabel">📷 写真を撮る</span>
+              </label>
+              <label for="photo-input" class="photo-upload-btn photo-upload-gallery photo-upload-btn-large">
+                <span data-i18n="photoGalleryLabel">🖼️ 写真を選ぶ</span>
+              </label>
+            </div>
+            <div id="photo-wizard-thumbs" class="photo-wizard-thumbs"></div>
           </div>
-          <p class="photo-hint" data-i18n="photoHint">💡 撮影あとに写真をタップして、場所のタグ（任意）を付けられるよ。</p>
+          <div class="photo-wizard-nav">
+            <button id="wizard-prev" class="btn-secondary" data-i18n="btnWizardPrev">← 前へ</button>
+            <button id="wizard-skip" class="btn-secondary" data-i18n="btnWizardSkip" title="一覧画面まで一気に進む">スキップ ↪</button>
+            <button id="wizard-next" class="btn-primary" data-i18n="btnWizardNext">次へ →</button>
+          </div>
         </div>
-        <div id="upload-progress" class="upload-progress hidden"></div>
-        <div id="photos-grid" class="photos-grid"></div>
-        <div class="step-actions">
-          <button id="back-to-route" class="btn-secondary" data-i18n="btnBackRoute">← マップに戻る</button>
-          <span id="photos-count" class="photos-count">0枚</span>
-          <button id="finish-explore-btn" class="btn-primary" data-i18n="btnFinishExplore">探検おわり！ノートへ →</button>
+
+        <!-- 写真一覧管理（ウィザード最後のステージ／復元時はここから始まる） -->
+        <div id="photo-manage">
+          <div class="photo-upload-area">
+            <!-- カメラ起動 (capture=environment) と ギャラリー選択 (capture なし) を2ボタンで分離。
+                 Android Chrome の一部環境では capture が無いとカメラがファイルピッカーに表示されず、
+                 ユーザーが「Chrome からカメラが使えない」と誤解する問題を回避するため。
+                 iOS Safari は両方とも同じシートを開くので問題なし。 -->
+            <div class="photo-upload-row">
+              <label for="photo-camera-input" class="photo-upload-btn photo-upload-camera">
+                <span data-i18n="photoCameraLabel">📷 写真を撮る</span>
+                <input id="photo-camera-input" type="file" accept="image/*" capture="environment" multiple hidden />
+              </label>
+              <label for="photo-input" class="photo-upload-btn photo-upload-gallery">
+                <span data-i18n="photoGalleryLabel">🖼️ 写真を選ぶ</span>
+                <input id="photo-input" type="file" accept="image/*" multiple hidden />
+              </label>
+            </div>
+            <p class="photo-hint" data-i18n="photoHint">💡 撮影あとに写真をタップして、場所のタグ（任意）を付けられるよ。</p>
+          </div>
+          <div id="upload-progress" class="upload-progress hidden"></div>
+          <div id="photos-grid" class="photos-grid"></div>
+          <div class="step-actions">
+            <button id="back-to-route" class="btn-secondary" data-i18n="btnBackRoute">← マップに戻る</button>
+            <span id="photos-count" class="photos-count">0枚</span>
+            <button id="finish-explore-btn" class="btn-primary" data-i18n="btnFinishExplore">探検おわり！ノートへ →</button>
+          </div>
         </div>
       </div>
     </section>
@@ -368,6 +398,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=89"></script>
+  <script type="module" src="src/main.js?v=90"></script>
 </body>
 </html>

@@ -57,6 +57,8 @@ const TRANSLATIONS = {
     // STEP 3
     btnBackSpots: '← スポットを変える',
     btnDownloadPdf: '📄 地図PDFをダウンロード',
+    btnReverseRoute: '🔄 逆順にする',
+    btnReverseRouteCalc: '🔄 入れ替え中…',
     btnStartExplore: '探検スタート！ →',
 
     // STEP 4
@@ -316,6 +318,8 @@ const TRANSLATIONS = {
 
     btnBackSpots: '← Change spots',
     btnDownloadPdf: '📄 Download map PDF',
+    btnReverseRoute: '🔄 Reverse route',
+    btnReverseRouteCalc: '🔄 Reversing…',
     btnStartExplore: 'Start exploring! →',
 
     photoUploadLabel: '📷 Take / pick a photo',
@@ -557,6 +561,8 @@ const TRANSLATIONS = {
 
     btnBackSpots: '← スポットをかえる',
     btnDownloadPdf: '📄 地図PDFをダウンロード',
+    btnReverseRoute: '🔄 逆（ぎゃく）の順（じゅん）にする',
+    btnReverseRouteCalc: '🔄 入（い）れかえ中…',
     btnStartExplore: '探検（たんけん）スタート！ →',
 
     photoUploadLabel: '📷 写真（しゃしん）をとる / えらぶ',

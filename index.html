@@ -356,7 +356,8 @@
         <div id="route-spots" class="route-spots-list"></div>
         <div class="step-actions">
           <button id="back-to-spots" class="btn-secondary" data-i18n="btnBackSpots">← スポットを変える</button>
-          <div style="display:flex;gap:10px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button id="reverse-route-btn" class="btn-secondary" data-i18n="btnReverseRoute" title="ルートの順番を逆にします">🔄 逆順にする</button>
             <button id="download-pdf-btn" class="btn-secondary" data-i18n="btnDownloadPdf">📄 地図PDFをダウンロード</button>
             <button id="start-explore-btn" class="btn-primary" data-i18n="btnStartExplore">探検スタート！ →</button>
           </div>
@@ -367,6 +368,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=88"></script>
+  <script type="module" src="src/main.js?v=89"></script>
 </body>
 </html>

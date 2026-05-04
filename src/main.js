@@ -1,14 +1,14 @@
-import { CONFIG } from '../config.js?v=90';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=90';
-import { fetchOriginStory } from './utils/ai.js?v=90';
-import { generateMapPdf } from './utils/pdf.js?v=90';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=90';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=90';
-import { CITIES, localizeStationName } from './data/cities.js?v=90';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=90';
-import { addReport as addIssueReport } from './utils/issues.js?v=90';
-import { applyI18n, LANG, t, adjustMinForKids } from './utils/i18n.js?v=90';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=90';
+import { CONFIG } from '../config.js?v=92';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=92';
+import { fetchOriginStory } from './utils/ai.js?v=92';
+import { generateMapPdf } from './utils/pdf.js?v=92';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=92';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=92';
+import { CITIES, localizeStationName } from './data/cities.js?v=92';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=92';
+import { addReport as addIssueReport } from './utils/issues.js?v=92';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=92';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=92';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -53,6 +53,19 @@ const PHOTO_TAG_GOAL  = '__GOAL__';
 function totalWizardStages() {
   return state.orderedSpots.length + 3;  // start + N spots + goal + manage
 }
+// スポット用ヒントは「セッション内では同じスポットに同じ文言」が見えるよう
+// state.spotHintCache（Map）にキャッシュする。前へ/次へで戻ってきても文言が
+// 一貫し、UI のチカチカ感が出ない。新しいセッションでは別の文言が選ばれる。
+function getStableSpotHint(spot) {
+  if (!state.spotHintCache) state.spotHintCache = new Map();
+  const key = spot.id || spot.name;
+  const cached = state.spotHintCache.get(key);
+  if (cached) return cached;
+  const fresh = pickWizardSpotHint(spot.category) || t('wizardHintSpotFmt');
+  state.spotHintCache.set(key, fresh);
+  return fresh;
+}
+
 function getWizardStageInfo(stage) {
   const N = state.orderedSpots.length;
   const stationDisp = localizeStationName(state.stationName, LANG);
@@ -68,7 +81,7 @@ function getWizardStageInfo(stage) {
     return {
       type: 'spot', tag: spot.name, icon: '📍',
       title: t('wizardSpotTitleFmt').replace('{label}', String(stage)).replace('{name}', spot.name),
-      hint: t('wizardHintSpotFmt'),
+      hint: getStableSpotHint(spot),
     };
   }
   if (stage === N + 1) {

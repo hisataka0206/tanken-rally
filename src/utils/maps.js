@@ -1,5 +1,5 @@
 // Google Maps API の動的ロードとユーティリティ
-import { apiLang } from './i18n.js?v=90';
+import { apiLang } from './i18n.js?v=92';
 
 let mapsLoaded = false;
 

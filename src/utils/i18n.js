@@ -1,11 +1,11 @@
 // 多言語対応（JA / EN / Elementary[漢字+ふりがな]）
 //
 // 言語の判定方法：
-//   1. URL クエリ `?lang=en` `?lang=elementary` `?lang=ja`
-//   2. URL ハッシュ `#EN` `#Elementary` （クエリと同等）
-//   3. `?lang=` 無指定 → 'ja' (デフォルト)
+//   1. URL クエリ `?lang=en` `?lang=elementary` `?lang=original`
+//   2. URL ハッシュ `#EN` `#Original` （クエリと同等）
+//   3. `?lang=` 無指定 → 'elementary' (子供版がデフォルト)
 //
-// パス末尾 `/EN` `/Elementary` は GitHub Pages の 404.html リダイレクトでクエリへ変換。
+// パス末尾 `/EN` `/Original` は GitHub Pages の 404.html リダイレクトでクエリへ変換。
 //
 // HTML マークアップ:
 //   data-i18n="key"             → textContent を差し替え
@@ -1114,14 +1114,23 @@ export function pickWizardSpotHint(category) {
 }
 
 // クエリ・ハッシュから言語を判定
+//
+// ポリシー:
+//   - 末尾なし／?lang=elementary/kids/easy → 'elementary'（子供版がデフォルト）
+//   - ?lang=original / ?lang=ja           → 'ja'（大人向け通常版）
+//   - ?lang=en / ?lang=english             → 'en'（英語版）
+//
+// 背景: アプリの主たる利用者層が小学生のため、デフォルトを elementary に切替。
+// 大人向けの通常版は明示的に ?lang=original を指定して開く。
 export function getLangFromUrl() {
   const params = new URLSearchParams(location.search);
   let raw = params.get('lang');
   if (!raw && location.hash) raw = location.hash.replace(/^#/, '');
   const lower = (raw || '').trim().toLowerCase();
   if (lower === 'en' || lower === 'english') return 'en';
-  if (lower === 'elementary' || lower === 'kids' || lower === 'easy') return 'elementary';
-  return 'ja';
+  if (lower === 'original' || lower === 'ja' || lower === 'standard' || lower === 'adult') return 'ja';
+  // 未指定 / elementary / kids / easy / その他 → 子供版がデフォルト
+  return 'elementary';
 }
 
 export const LANG = getLangFromUrl();

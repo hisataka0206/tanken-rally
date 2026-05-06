@@ -1,14 +1,15 @@
-import { CONFIG } from '../config.js?v=92';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=92';
-import { fetchOriginStory } from './utils/ai.js?v=92';
-import { generateMapPdf } from './utils/pdf.js?v=92';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=92';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=92';
-import { CITIES, localizeStationName } from './data/cities.js?v=92';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=92';
-import { addReport as addIssueReport } from './utils/issues.js?v=92';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=92';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=92';
+import { CONFIG } from '../config.js?v=93';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=93';
+import { fetchOriginStory } from './utils/ai.js?v=93';
+import { generateMapPdf } from './utils/pdf.js?v=93';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=93';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=93';
+import { CITIES, localizeStationName } from './data/cities.js?v=93';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=93';
+import { addReport as addIssueReport } from './utils/issues.js?v=93';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=93';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=93';
+import { FEATURES } from './config-features.js?v=93';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1519,19 +1520,32 @@ function scoreMoodLabel(score) {
 }
 
 function openScoreModal() {
+  // 機能フラグでスコアが無効な言語ではモーダルを開かない（保険）
+  if (!FEATURES.scoringEnabled) return;
+
   const result = calculateScore();
   $('score-total').textContent = `${result.total}${t('suffPoints')}`;
   $('score-rank-label').textContent = scoreMoodLabel(result.total);
 
-  // 弱点アドバイス
+  // 弱点アドバイス（FEATURES.showScoreAdvice が true のときだけ）
   const adviceEl = $('score-advice');
   if (adviceEl) {
-    const tips = buildScoreAdvice(result);
-    adviceEl.innerHTML = `
-      <div class="score-advice-title">${escapeHtml(t('scoreAdviceTitle'))}</div>
-      <ul class="score-advice-list">${tips.map(tip => `<li>${escapeHtml(tip)}</li>`).join('')}</ul>
-    `;
-    adviceEl.classList.remove('hidden');
+    if (FEATURES.showScoreAdvice) {
+      const tips = buildScoreAdvice(result);
+      adviceEl.innerHTML = `
+        <div class="score-advice-title">${escapeHtml(t('scoreAdviceTitle'))}</div>
+        <ul class="score-advice-list">${tips.map(tip => `<li>${escapeHtml(tip)}</li>`).join('')}</ul>
+      `;
+      adviceEl.classList.remove('hidden');
+    } else {
+      adviceEl.classList.add('hidden');
+    }
+  }
+
+  // ランキング送信ボタンも機能フラグで制御
+  const submitBtn = $('score-submit-btn');
+  if (submitBtn) {
+    submitBtn.classList.toggle('hidden', !FEATURES.rankingEnabled);
   }
 
   $('score-player-name').value = state.reportData.author || '';
@@ -2369,6 +2383,18 @@ $('issue-submit-btn').addEventListener('click', async () => {
 // ===== 初期表示 =====
 // バージョン表示・言語切替を最初に適用
 applyI18n();
+
+// body.lang-XX クラスを付けて CSS から言語別スタイルを切り替えられるようにする
+document.body.classList.add(`lang-${LANG}`);
+
+// 機能フラグに基づいて DOM 要素を初期非表示にする（ボタン・モーダル等）
+//   - スコア / ランキング機能が無効な言語では関連ボタンを非表示
+//   - 他の機能フラグは個別の処理側で参照
+if (!FEATURES.scoringEnabled) {
+  const scoreBtn = $('submit-score-btn');
+  if (scoreBtn) scoreBtn.classList.add('hidden');
+}
+
 const versionEl = $('header-version');
 if (versionEl) {
   versionEl.textContent = `v${APP_VERSION}`;

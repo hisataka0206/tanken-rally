@@ -4,10 +4,10 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=100';
-import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=100';
-import { localizeStationName } from '../data/cities.js?v=100';
-import { randomFunCharacterImage } from './characters.js?v=100';
+import { toLatLngLiteral } from './maps.js?v=101';
+import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=101';
+import { localizeStationName } from '../data/cities.js?v=101';
+import { randomFunCharacterImage } from './characters.js?v=101';
 
 // お楽しみ要素: ストリートビューカードにランダムでキャラを紛れ込ませる確率
 const EASTER_EGG_PROBABILITY = 0.3;
@@ -529,25 +529,40 @@ function escapeHtml(s) {
 function waitForImages(root) {
   const imgs = Array.from(root.querySelectorAll('img'));
   return Promise.all(imgs.map(img => {
-    if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+    // ★重要: complete は「成功」だけでなく「失敗確定」でも true になる。
+    // 以前は `complete && naturalWidth > 0` で成功のみ既決扱いにしていたため、
+    // 既に失敗が確定した画像（load/error イベントは二度と発火しない）を
+    // 永遠に待ち続けるデッドロックがあった（2回目の waitForImages 呼び出し時）。
+    if (img.complete) return Promise.resolve();
     return new Promise(resolve => {
       img.addEventListener('load', resolve, { once: true });
       img.addEventListener('error', resolve, { once: true }); // 失敗してもPDF生成は続行
+      setTimeout(resolve, 20000); // 保険: ネットワーク停滞時も20秒で諦めて続行
     });
   }));
 }
 
 // 1次ロード後、失敗した画像があれば data-fallback URL に差し替えて再ロードを待つ
 async function waitForImagesWithFallback(root) {
+  console.time('[pdf] waitForImages');
   await waitForImages(root);
   const broken = Array.from(root.querySelectorAll('img'))
     .filter(img => (!img.complete || img.naturalWidth === 0) && img.dataset.fallback);
-  if (broken.length === 0) return;
-  console.warn(`[pdf] ${broken.length} streetview画像が失敗 → Static Map にフォールバック`);
-  broken.forEach(img => {
-    img.src = img.dataset.fallback;
-    delete img.dataset.fallback; // 二度目の失敗時は無限ループしないように
+  if (broken.length > 0) {
+    console.warn(`[pdf] ${broken.length} streetview画像が失敗 → Static Map にフォールバック`);
+    broken.forEach(img => {
+      img.src = img.dataset.fallback;
+      delete img.dataset.fallback; // 二度目の失敗時は無限ループしないように
+    });
+    // 差し替え後の画像が読み込まれるのを待つ
+    await waitForImages(root);
+  }
+  // 最終的に読めなかった画像は非表示にする（壊れた画像アイコンがPDFに出ないように）
+  Array.from(root.querySelectorAll('img')).forEach(img => {
+    if (img.complete && img.naturalWidth === 0) {
+      console.warn('[pdf] 読込失敗のため非表示:', (img.src || '').slice(0, 80));
+      img.style.display = 'none';
+    }
   });
-  // 差し替え後の画像が読み込まれるのを待つ
-  await waitForImages(root);
+  console.timeEnd('[pdf] waitForImages');
 }

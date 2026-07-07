@@ -1,19 +1,19 @@
-import { CONFIG } from '../config.js?v=100';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=100';
-import { fetchOriginStory } from './utils/ai.js?v=100';
-import { generateMapPdf } from './utils/pdf.js?v=100';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=100';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=100';
-import { CITIES, localizeStationName } from './data/cities.js?v=100';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=100';
-import { addReport as addIssueReport } from './utils/issues.js?v=100';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=100';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=100';
-import { FEATURES } from './config-features.js?v=100';
-import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=100';
-import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=100';
-import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=100';
-import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=100';
+import { CONFIG } from '../config.js?v=101';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=101';
+import { fetchOriginStory } from './utils/ai.js?v=101';
+import { generateMapPdf } from './utils/pdf.js?v=101';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=101';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=101';
+import { CITIES, localizeStationName } from './data/cities.js?v=101';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=101';
+import { addReport as addIssueReport } from './utils/issues.js?v=101';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=101';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=101';
+import { FEATURES } from './config-features.js?v=101';
+import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=101';
+import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=101';
+import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=101';
+import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=101';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -2448,11 +2448,14 @@ async function onReportPdf() {
 
     if (swappedImgs.length > 0) {
       // 差し替えた <img> がロード完了するまで待つ
+      // ※ complete は失敗確定でも true。成功のみ既決扱いにすると、失敗確定済みの
+      //   画像を永遠に待つデッドロックになる（地図PDFで実際に発生したバグと同型）
       await Promise.all(swappedImgs.map(({ img }) => {
-        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        if (img.complete) return Promise.resolve();
         return new Promise(res => {
           img.addEventListener('load', res, { once: true });
           img.addEventListener('error', res, { once: true });
+          setTimeout(res, 20000); // 保険
         });
       }));
     }

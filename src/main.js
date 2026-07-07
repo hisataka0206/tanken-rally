@@ -1,19 +1,19 @@
-import { CONFIG } from '../config.js?v=101';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=101';
-import { fetchOriginStory } from './utils/ai.js?v=101';
-import { generateMapPdf } from './utils/pdf.js?v=101';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=101';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=101';
-import { CITIES, localizeStationName } from './data/cities.js?v=101';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=101';
-import { addReport as addIssueReport } from './utils/issues.js?v=101';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=101';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=101';
-import { FEATURES } from './config-features.js?v=101';
-import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=101';
-import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=101';
-import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=101';
-import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=101';
+import { CONFIG } from '../config.js?v=102';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=102';
+import { fetchOriginStory } from './utils/ai.js?v=102';
+import { generateMapPdf } from './utils/pdf.js?v=102';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=102';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=102';
+import { CITIES, localizeStationName } from './data/cities.js?v=102';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=102';
+import { addReport as addIssueReport } from './utils/issues.js?v=102';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=102';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=102';
+import { FEATURES } from './config-features.js?v=102';
+import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=102';
+import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=102';
+import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=102';
+import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=102';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -2489,7 +2489,23 @@ async function onReportPdf() {
     //   - ライブDOMはユーザーのウィンドウ幅に依存（max-width: 100% で縮められる）
     //   - クローンは windowWidth=1400 で再レイアウトされるので、canvas 座標と一致する
     // クローンが破棄される前（onclone 内）に rect を取得して外スコープに保存する。
-    const SCALE = 2; // html2canvas の scale と一致
+    // ★モバイル対策: スマホブラウザの canvas 上限（約1,600万画素・1辺約16,000px）を
+    // 超えると描画が固まる／空になるため、コンテンツ量に応じて scale を自動で下げる。
+    // scrollHeight は 1400px 幅換算より大きめに出る（＝安全側の見積もり）。
+    let SCALE = 2;
+    {
+      const estW = 1400;
+      const estH = Math.max(1, page.scrollHeight);
+      const MAX_PIXELS = 14000000;
+      const MAX_DIMENSION = 14000;
+      if (estW * estH * SCALE * SCALE > MAX_PIXELS) {
+        SCALE = Math.max(0.8, Math.sqrt(MAX_PIXELS / (estW * estH)));
+      }
+      if (estH * SCALE > MAX_DIMENSION) {
+        SCALE = Math.min(SCALE, MAX_DIMENSION / estH);
+      }
+      console.info(`[report-pdf] estH=${estH}px scale=${SCALE.toFixed(2)}`);
+    }
     let blockRanges = [];
     const canvas = await html2canvas(page, {
       scale: SCALE,
@@ -2717,6 +2733,8 @@ async function onDownloadPdf() {
       origin: state.stationLocation,
       directions: state.directionsResult,
       apiKey: CONFIG.GOOGLE_MAPS_API_KEY,
+      // どの段階で止まっているか分かるよう、ボタンに進捗を表示する
+      onProgress: msg => { btn.textContent = msg; },
     });
   } catch (e) {
     alert(t('errPdfFailedFmt').replace('{err}', e.message || e));

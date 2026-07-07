@@ -4,10 +4,10 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=101';
-import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=101';
-import { localizeStationName } from '../data/cities.js?v=101';
-import { randomFunCharacterImage } from './characters.js?v=101';
+import { toLatLngLiteral } from './maps.js?v=102';
+import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=102';
+import { localizeStationName } from '../data/cities.js?v=102';
+import { randomFunCharacterImage } from './characters.js?v=102';
 
 // お楽しみ要素: ストリートビューカードにランダムでキャラを紛れ込ませる確率
 const EASTER_EGG_PROBABILITY = 0.3;
@@ -28,8 +28,10 @@ const spotLetter = i => SPOT_LETTERS[i] || String(i + 1);
  * @param {Object} opts.origin       駅の座標（LatLng or { lat, lng }）
  * @param {Object} opts.directions   Directions API の結果（routes[0].overview_polyline を使う）
  * @param {string} opts.apiKey       Maps Static API キー
+ * @param {Function} [opts.onProgress] 進捗コールバック（ステージ文字列を受け取る）
  */
-export async function generateMapPdf({ stationName, orderedSpots, stats, origin, directions, apiKey }) {
+export async function generateMapPdf({ stationName, orderedSpots, stats, origin, directions, apiKey, onProgress }) {
+  const progress = msg => { try { if (onProgress) onProgress(msg); } catch (_) {} };
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -40,16 +42,36 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
   try {
     // Static Map / Street View 画像のロード完了を待つ。
     // SV取得失敗（パノラマなし等）の画像は Static Map にフォールバック差し替え。
+    progress(t('pdfStageImages', '画像を読込中…'));
     await waitForImagesWithFallback(container);
 
     // 2) html2canvas でラスタライズ
-    const SCALE = 2;
+    // ★モバイル対策: スマホブラウザには canvas の上限（iOS Safari は約1,677万画素、
+    //   1辺は概ね 16,384px まで）があり、超えると描画が固まる・空になる。
+    //   コンテンツが長い場合は scale を自動で下げて上限内に収める。
+    progress(t('pdfStageRender', '描画中…（少し時間がかかります）'));
+    const contentW = container.scrollWidth || 794;
+    const contentH = container.scrollHeight || 1;
+    const MAX_PIXELS = 14000000;   // 上限より少し安全側
+    const MAX_DIMENSION = 14000;
+    let SCALE = 2;
+    if (contentW * contentH * SCALE * SCALE > MAX_PIXELS) {
+      SCALE = Math.max(0.9, Math.sqrt(MAX_PIXELS / (contentW * contentH)));
+    }
+    if (contentH * SCALE > MAX_DIMENSION) {
+      SCALE = Math.min(SCALE, MAX_DIMENSION / contentH);
+    }
+    console.info(`[pdf] content=${contentW}x${contentH}px scale=${SCALE.toFixed(2)}`);
     const canvas = await html2canvas(container, {
       useCORS: true,
       allowTaint: false,
       backgroundColor: '#ffffff',
       scale: SCALE,
     });
+    if (!canvas.width || !canvas.height) {
+      throw new Error('canvas rendering failed (size 0)');
+    }
+    progress(t('pdfStageWrite', 'PDF書き出し中…'));
 
     // 2.5) ページ分割時に「割らない方が良い」ブロックの Y 範囲を取得
     //      （getBoundingClientRect は CSS pixel 単位なので scale 倍してキャンバス座標へ）

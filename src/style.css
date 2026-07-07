@@ -2025,10 +2025,12 @@ body.ar-open { overflow: hidden; }
 @keyframes g-drop    { from { transform: translate(-50%, -24px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 @keyframes g-spin-in { from { transform: rotate(-360deg) scale(0.3); opacity: 0; } to { transform: rotate(0) scale(1); opacity: 1; } }
 
-/* モバイル: メインガイドのみ表示・縮小 */
+/* モバイル: 3体とも表示するが、小さくして操作の邪魔にならないようにする */
 @media (max-width: 768px) {
-  .g-tr { height: 72px; top: -6px; }
-  .g-sub { display: none; }
+  .g-tr      { height: 72px; top: -6px; }
+  .g-mr      { height: 56px; right: -4px; }
+  .g-bl      { height: 56px; bottom: 52px; left: 4px; }
+  .g-br-peek { height: 60px; bottom: -10px; right: -6px; }
   .wizard-guide { height: 72px; }
   .g-score-taffy { height: 60px; }
 }

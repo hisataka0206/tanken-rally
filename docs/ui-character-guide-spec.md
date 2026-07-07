@@ -91,7 +91,7 @@ PDF は html2canvas でラスター化されるため、**アニメなし・prin
 - `.guide-char` 共通CSS: `position:absolute; pointer-events:none; z-index:2;` ＋配置クラス（`.guide-tl/.guide-tr/.guide-bl/.guide-br/.guide-beside-title` 等）。
 - 画像 `onerror` → 該当要素を `display:none`（素材未着でもレイアウト不変）。
 - アニメは `prefers-reduced-motion: reduce` で無効化。
-- モバイル（≤768px）はメインガイドのみ表示し脇役は非表示、が既定（画面が狭いため）。
+- モバイル（≤768px）も3体すべて表示する（2026-07-08 変更。脇役は56〜60pxに縮小して操作の邪魔を回避）。
 
 ## 5. 未決定・確認事項
 

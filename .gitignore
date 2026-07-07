@@ -5,3 +5,6 @@ config.js
 
 # キャラクター原画シート（ローカル保管のみ。切り出し済み素材は src/assets/characters/ にコミット）
 img/
+
+# CM動画の制作素材（ローカル保管のみ）
+cm/

@@ -1538,51 +1538,121 @@ body {
 
 /* ===== モバイル対応（編集画面のみ。PDF出力時は html2canvas に
         windowWidth: 1400 を渡しているのでこのメディアクエリは効かない）===== */
+/* ============================================================
+ * スマホの「たんけんノート」編集UI（入力特化モード）
+ * B3紙面の再現はやめて、書きやすさに全振りする。
+ * PDF出力時は .pdf-rendering が付き :not() で全て無効化される
+ * （html2canvas は windowWidth:1400 でクローンを描画するため
+ *   このメディアクエリ自体もPDFには適用されない。二重に安全）。
+ * ============================================================ */
 @media (max-width: 768px) {
-  /* B3用紙の左右paddingを縮めて表示領域確保 */
+  /* 「机の上の紙」演出をやめてフラットな編集画面にする */
+  .report-editor {
+    background: transparent;
+    padding: 0;
+    overflow-x: visible;
+  }
   .report-page:not(.pdf-rendering) {
-    padding: 14px 14px;
+    width: auto;
+    padding: 12px 12px 20px;
+    box-shadow: none;
+    border-radius: 10px;
   }
   .report-page:not(.pdf-rendering) .report-title {
-    font-size: 26px;
+    font-size: 24px;
+    margin-bottom: 10px;
+    text-shadow: none;
   }
+  .report-page:not(.pdf-rendering) .report-page-header {
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  .report-page:not(.pdf-rendering) .report-section { margin-bottom: 18px; }
   .report-page:not(.pdf-rendering) .report-section h3 {
     font-size: 17px;
+    margin-bottom: 8px;
+    border-left-width: 5px;
+    padding-left: 10px;
   }
-  /* メタ情報（日付・記録者・駅）は縦に積む */
+  .report-page:not(.pdf-rendering) .report-hint { font-size: 12px; }
+
+  /* メタ情報（日付・記録者・駅）は縦に積む。16px以上でiOSの自動ズームを防ぐ */
   .report-page:not(.pdf-rendering) .report-meta-row {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+    font-size: 16px;
   }
-  .report-page:not(.pdf-rendering) .report-meta {
-    flex-wrap: wrap;
-  }
+  .report-page:not(.pdf-rendering) .report-meta { flex-wrap: wrap; }
   .report-page:not(.pdf-rendering) .report-meta input {
     flex: 1;
     min-width: 0;
+    font-size: 16px;
+    padding: 8px;
+    background: #fff;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
   }
-  /* 写真リストは1列に */
-  .report-page:not(.pdf-rendering) .report-photos {
-    grid-template-columns: 1fr;
-    gap: 12px;
+
+  /* 記入欄: 巨大フォント＋罫線背景をやめ、普通に書けるサイズへ */
+  .report-page:not(.pdf-rendering) #report-overview,
+  .report-page:not(.pdf-rendering) #report-afterword,
+  .report-page:not(.pdf-rendering) .report-photo-comment {
+    font-size: 16px;          /* 16px未満だとiOSがフォーカス時に拡大してしまう */
+    line-height: 1.6;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1.5px solid #ddd;
+    border-radius: 10px;
+    min-height: 64px;
   }
-  /* 写真envelope を画面幅にフィット */
+
+  /* 写真は1列・カードはフラット（回転・マステ・ポラロイド余白を無効化） */
+  .report-page:not(.pdf-rendering) .report-photo-page {
+    display: block;
+    padding: 0;
+    margin-bottom: 0;
+  }
+  .report-page:not(.pdf-rendering) .report-photo-item {
+    margin-bottom: 14px;
+    padding: 10px;
+    gap: 8px;
+    transform: none !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .report-page:not(.pdf-rendering) .report-photo-item::before { display: none; }
+
+  /* 写真枠: 正方形固定をやめ、写真の縦横比なりに表示（縦伸びの主犯を排除） */
   .report-page:not(.pdf-rendering) .report-photo-img-wrap {
     width: 100%;
     height: auto;
-    aspect-ratio: 1;
-    min-height: 220px;
-    max-height: 75vh;
+    aspect-ratio: auto;
+    min-height: 0;
+    max-height: 45vh;
+    box-shadow: none;
   }
   /* JS が設定した width/height (mm) を打ち消し、画像を画面幅にフィット */
   .report-page:not(.pdf-rendering) .report-photo-img-wrap img {
-    width: auto !important;
+    width: 100% !important;
     height: auto !important;
-    max-width: 100%;
-    max-height: 100%;
+    max-height: 45vh;
     object-fit: contain;
   }
+  .report-page:not(.pdf-rendering) .report-photo-tag { font-size: 13px; padding: 2px 10px; }
+  .report-page:not(.pdf-rendering) .report-photo-order {
+    width: 26px; height: 26px;
+    line-height: 21px;
+    font-size: 14px;
+    border-width: 2px;
+  }
+  .report-page:not(.pdf-rendering) .report-capture-badge { font-size: 11px; }
+
+  /* PDF装飾のうっすらプレビューはスマホ編集では邪魔なので消す（PDFには出る） */
+  .report-page:not(.pdf-rendering) .report-guide { display: none; }
+
+  /* 今回であったキャラたち: 小さめに */
+  .report-page:not(.pdf-rendering) .report-character-item { width: 84px; }
+  .report-page:not(.pdf-rendering) .report-character-item img { max-width: 76px; max-height: 68px; }
   /* STEP のアクションボタンを縦に積む（小さい画面では並びきらない） */
   .step-actions {
     flex-direction: column;

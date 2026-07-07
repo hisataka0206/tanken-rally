@@ -8,7 +8,7 @@
 //
 // 新しい機能を追加するときは、まずここに3言語分のフラグを宣言してから実装に取りかかる。
 // そうすると言語ごとの差別化が一望できる。
-import { LANG } from './utils/i18n.js?v=93';
+import { LANG } from './utils/i18n.js?v=95';
 
 const FEATURES_BY_LANG = {
   ja: {
@@ -18,6 +18,7 @@ const FEATURES_BY_LANG = {
 
     // === 機能オン/オフ ===
     photoWizardEnabled: true,            // STEP4 撮影ウィザード（駅 → スポット → 駅）
+    arCaptureEnabled: true,              // STEP4 ARキャラ捕獲（カメラ+GPS+コンパス）
     scoringEnabled: true,                // スコア計算 & 表示
     rankingEnabled: true,                // ランキング送信 & 表示
     showScoreAdvice: true,               // 個別スコアアドバイス（弱点ピックアップ）
@@ -34,6 +35,7 @@ const FEATURES_BY_LANG = {
 
     // === 機能オン/オフ ===
     photoWizardEnabled: true,
+    arCaptureEnabled: true,
     scoringEnabled: true,
     rankingEnabled: true,
     showScoreAdvice: true,
@@ -50,6 +52,7 @@ const FEATURES_BY_LANG = {
 
     // === 機能オン/オフ ===
     photoWizardEnabled: true,
+    arCaptureEnabled: true,
     scoringEnabled: false,               // 英語版はスコア機能なし
     rankingEnabled: false,               // 英語版はランキング機能なし
     showScoreAdvice: false,

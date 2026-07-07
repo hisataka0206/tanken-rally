@@ -24,6 +24,10 @@ export const state = {
   uploadedPhotos: [],           // [{ fileId, url, thumbnailUrl, spotName, fileName, uploading }]
   selectedPhotoIds: new Set(),
 
+  // STEP 4 (ARキャラ捕獲)
+  captures: [],                 // [{ characterId, spotName, photoFileId, capturedAt, lat, lng }]
+  rareGoalAppears: null,        // ゴール駅でレアが出るか（セッション中1回だけ抽選。null=未抽選）
+
   // STEP 5 (レポート)
   reportData: {
     date: '',
@@ -50,6 +54,8 @@ export function resetSearchState() {
   state.selectedPhotoIds.clear();
   state.driveSession = null;
   state.sessionId = null;
+  state.captures = [];
+  state.rareGoalAppears = null;
   state.reportData = {
     date: '', author: '', overview: '', afterword: '',
     photoComments: {},

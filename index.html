@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=34" />
+  <link rel="stylesheet" href="src/style.css?v=35" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -169,6 +169,10 @@
                 <span data-i18n="photoGalleryLabel">🖼️ 写真を選ぶ</span>
               </label>
             </div>
+            <!-- ARキャラ捕獲（スポット/ゴールのステージでのみ表示。main.js が制御） -->
+            <button id="ar-hunt-btn" class="ar-hunt-btn hidden" type="button">
+              <span data-i18n="btnArHunt">👀 キャラをさがす</span>
+            </button>
             <div id="photo-wizard-thumbs" class="photo-wizard-thumbs"></div>
           </div>
           <div class="photo-wizard-nav">
@@ -395,9 +399,46 @@
       </div>
     </section>
 
+    <!-- ARキャラ捕獲：全画面カメラオーバーレイ -->
+    <div id="ar-overlay" class="ar-overlay hidden" role="dialog" aria-modal="true">
+      <video id="ar-video" autoplay playsinline muted></video>
+      <div class="ar-topbar">
+        <div id="ar-target-name" class="ar-target-name"></div>
+        <div id="ar-distance" class="ar-distance"></div>
+      </div>
+      <div class="ar-caution" data-i18n="arCaution">⚠️ まわりに ちゅうい！</div>
+      <!-- スポット方向ガイド（コンパスと方位角から回転） -->
+      <div id="ar-guide" class="ar-guide hidden">
+        <span id="ar-guide-arrow" class="ar-guide-arrow">➤</span>
+      </div>
+      <!-- キャラクター本体（プレースホルダ：色付きバブル + emoji） -->
+      <div id="ar-character" class="ar-character hidden">
+        <div id="ar-character-bubble" class="ar-character-bubble"><span id="ar-character-emoji"></span></div>
+        <div id="ar-character-name" class="ar-character-name"></div>
+      </div>
+      <div id="ar-status" class="ar-status"></div>
+      <div class="ar-actions">
+        <button id="ar-call-btn" class="btn-secondary ar-call-btn hidden" type="button" data-i18n="btnArCall">🔔 キャラをよぶ</button>
+        <button id="ar-shutter-btn" class="ar-shutter" type="button" aria-label="シャッター"></button>
+        <button id="ar-close-btn" class="btn-secondary ar-close-btn" type="button" data-i18n="btnArClose">✖ とじる</button>
+      </div>
+    </div>
+
+    <!-- ARキャラ捕獲：捕獲成功モーダル -->
+    <div id="ar-captured-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="ar-captured-title">
+      <div class="modal-backdrop" data-action="close"></div>
+      <div class="modal-content ar-captured-content">
+        <h3 id="ar-captured-title"></h3>
+        <img id="ar-captured-img" class="ar-captured-img" alt="" />
+        <div class="modal-actions">
+          <button class="btn-primary" data-action="close" data-i18n="btnArCapturedClose">やったー！</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=94"></script>
+  <script type="module" src="src/main.js?v=95"></script>
 </body>
 </html>

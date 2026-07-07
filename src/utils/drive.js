@@ -72,10 +72,17 @@ export class DriveClient {
   /** 写真をアップロード
    *   - takenAt: EXIF DateTimeOriginal（取れない場合は null）
    *   - uploadedAt: アップロード時のクライアント時刻（常に記録）
-   *   - lat/lng: EXIF GPS（取れない場合は null） */
-  async uploadPhoto({ folderId, file, spotName }) {
+   *   - lat/lng: EXIF GPS（取れない場合は null）
+   *   - metaOverride: EXIF の代わりに使うメタ（AR捕獲写真は canvas 合成で EXIF が無いため、
+   *                   撮影時の Geolocation / 現在時刻を { takenAt, lat, lng } で渡す） */
+  async uploadPhoto({ folderId, file, spotName, metaOverride = null }) {
     const { base64, mimeType, fileName } = await fileToBase64(file);
-    const meta = await extractPhotoMeta(file);
+    const exifMeta = await extractPhotoMeta(file);
+    const meta = {
+      takenAt: metaOverride?.takenAt ?? exifMeta.takenAt,
+      lat: metaOverride?.lat ?? exifMeta.lat,
+      lng: metaOverride?.lng ?? exifMeta.lng,
+    };
     const uploadedAt = new Date().toISOString();
     const data = await this._post({
       action: 'uploadPhoto',

@@ -1,15 +1,17 @@
-import { CONFIG } from '../config.js?v=94';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=94';
-import { fetchOriginStory } from './utils/ai.js?v=94';
-import { generateMapPdf } from './utils/pdf.js?v=94';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=94';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=94';
-import { CITIES, localizeStationName } from './data/cities.js?v=94';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=94';
-import { addReport as addIssueReport } from './utils/issues.js?v=94';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=94';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=94';
-import { FEATURES } from './config-features.js?v=94';
+import { CONFIG } from '../config.js?v=95';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=95';
+import { fetchOriginStory } from './utils/ai.js?v=95';
+import { generateMapPdf } from './utils/pdf.js?v=95';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=95';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=95';
+import { CITIES, localizeStationName } from './data/cities.js?v=95';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=95';
+import { addReport as addIssueReport } from './utils/issues.js?v=95';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=95';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=95';
+import { FEATURES } from './config-features.js?v=95';
+import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=95';
+import { characterForSpot, rareCharacter, characterById, charDisplayName, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY } from './utils/characters.js?v=95';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -123,6 +125,8 @@ function renderWizardStage() {
     // ナビゲーションボタンの活性化
     $('wizard-prev').disabled = (state.photoWizardStage === 0);
     renderWizardThumbs(info.tag);
+    // ARキャラ捕獲ボタン（スポット/ゴールステージのみ表示）
+    updateArHuntButton(info);
   }
 }
 function renderWizardThumbs(currentTag) {
@@ -160,6 +164,277 @@ function refreshPhotosView() {
   } else {
     renderWizardThumbs(info.tag);
   }
+}
+
+// ===== STEP 4: ARキャラ捕獲 =====
+// スポットステージ: カテゴリ対応キャラが出現（GPS 50m以内 + コンパス ±30°）
+// ゴールステージ:   レア（タンケンハカセ）がセッション1回の抽選（25%）で出現
+// docs/ar-character-capture-spec.md 参照
+let arSession = null;
+let arCurrent = null;   // { char, tag, targetName, target, latestStatus }
+
+// 現在のウィザードステージに対する AR コンテキストを返す（対象外ステージは null）
+function arStageContext(info) {
+  if (!FEATURES.arCaptureEnabled || !supportsArCamera()) return null;
+  if (info.type === 'spot') {
+    const spot = state.orderedSpots[state.photoWizardStage - 1];
+    if (!spot || spot.lat == null) return null;
+    return {
+      char: characterForSpot(spot),
+      tag: info.tag,
+      targetName: spot.name,
+      target: { lat: spot.lat, lng: spot.lng },
+    };
+  }
+  if (info.type === 'goal') {
+    // レア出現はセッション中1回だけ抽選（ステージを行き来しても結果は変わらない）
+    if (state.rareGoalAppears == null) state.rareGoalAppears = Math.random() < RARE_APPEAR_PROBABILITY;
+    const ll = toLL(state.stationLocation);
+    return {
+      char: state.rareGoalAppears ? rareCharacter() : null,  // null = 今回はいない
+      tag: info.tag,
+      targetName: localizeStationName(state.stationName, LANG),
+      target: ll,
+    };
+  }
+  return null;
+}
+
+function updateArHuntButton(info) {
+  const btn = $('ar-hunt-btn');
+  if (!btn) return;
+  btn.classList.toggle('hidden', !arStageContext(info));
+}
+
+async function openArHunt() {
+  const info = getWizardStageInfo(state.photoWizardStage);
+  const ctx = arStageContext(info);
+  if (!ctx) return;
+  arCurrent = ctx;
+
+  // オーバーレイ表示・初期化
+  const overlay = $('ar-overlay');
+  overlay.classList.remove('hidden');
+  document.body.classList.add('ar-open');
+  $('ar-target-name').textContent = ctx.targetName || '';
+  $('ar-distance').textContent = '';
+  $('ar-status').textContent = ctx.char ? t('arSearching') : t('arNoCharToday');
+  $('ar-guide').classList.add('hidden');
+  $('ar-call-btn').classList.add('hidden');
+  const charEl = $('ar-character');
+  charEl.classList.add('hidden');
+  charEl.classList.remove('ar-appear');
+  if (ctx.char) {
+    $('ar-character-emoji').textContent = ctx.char.emoji;
+    $('ar-character-bubble').style.background = ctx.char.color;
+    $('ar-character-name').textContent = charDisplayName(ctx.char);
+  }
+
+  // iOS のコンパス許可はユーザー操作起点でしか取れないため、ボタンクリックのこの場で要求する
+  await requestOrientationPermission();
+
+  arSession = new ArSession({
+    target: ctx.target,
+    onUpdate: status => updateArUi(status),
+  });
+  try {
+    await arSession.start($('ar-video'));
+  } catch (e) {
+    console.warn('[ar] camera start failed:', e);
+    alert(t('arCameraError'));
+    closeArOverlay();
+  }
+}
+
+function updateArUi(status) {
+  if (!arCurrent) return;
+  arCurrent.latestStatus = status;
+  const charEl = $('ar-character');
+  const guideEl = $('ar-guide');
+  const statusEl = $('ar-status');
+  const distEl = $('ar-distance');
+
+  // 距離表示
+  if (status.distanceM != null) {
+    distEl.textContent = t('arDistanceFmt').replace('{m}', String(Math.max(0, Math.round(status.distanceM))));
+  } else {
+    distEl.textContent = status.gpsAvailable ? '' : t('arNoGps');
+  }
+
+  // キャラなし（ゴールで抽選ハズレ）：通常カメラとしてのみ動作
+  if (!arCurrent.char) {
+    statusEl.textContent = t('arNoCharToday');
+    charEl.classList.add('hidden');
+    guideEl.classList.add('hidden');
+    return;
+  }
+
+  // GPS が取れない場合は「キャラをよぶ」フォールバックを出す
+  $('ar-call-btn').classList.toggle('hidden', status.gpsAvailable || status.forced);
+
+  if (status.visible) {
+    // キャラ出現
+    if (charEl.classList.contains('hidden')) {
+      charEl.classList.remove('hidden');
+      charEl.classList.add('ar-appear');
+    }
+    guideEl.classList.add('hidden');
+    statusEl.textContent = t('arFoundFmt').replace('{name}', charDisplayName(arCurrent.char));
+    return;
+  }
+
+  charEl.classList.add('hidden');
+  charEl.classList.remove('ar-appear');
+
+  // 方向ガイド（コンパスと方位角の両方が取れている時のみ回転表示）
+  if (status.bearingDeg != null && status.headingDeg != null && status.headingAvailable) {
+    guideEl.classList.remove('hidden');
+    const rot = (status.bearingDeg - status.headingDeg + 360) % 360;
+    $('ar-guide-arrow').style.transform = `rotate(${rot - 90}deg)`; // ➤ は右向き基準
+  } else {
+    guideEl.classList.add('hidden');
+  }
+
+  if (status.withinRadius) {
+    statusEl.textContent = status.headingAvailable ? t('arNear') : t('arNoSensor');
+  } else if (status.distanceM != null) {
+    statusEl.textContent = t('arFarFmt').replace('{m}', String(Math.max(0, Math.round(status.distanceM))));
+  } else {
+    statusEl.textContent = t('arSearching');
+  }
+}
+
+async function onArShutter() {
+  if (!arSession || !arCurrent) return;
+  const video = $('ar-video');
+  const status = arCurrent.latestStatus || {};
+  const charVisible = !!(arCurrent.char && status.visible);
+  const char = arCurrent.char;
+  const tag = arCurrent.tag;
+
+  let file;
+  try {
+    file = await arSession.captureComposite(video, charVisible
+      ? (ctx, w, h) => {
+          const size = Math.min(w, h) * 0.45;
+          drawCharacterOnCanvas(ctx, char, w / 2, h / 2, size);
+        }
+      : null);
+  } catch (e) {
+    console.warn('[ar] capture failed:', e);
+    alert(t('arCameraError'));
+    return;
+  }
+
+  // 撮影時の位置・時刻（合成JPEGにEXIFが無いためメタとして別送する）
+  const metaOverride = {
+    takenAt: new Date().toISOString(),
+    lat: status.position?.lat ?? null,
+    lng: status.position?.lng ?? null,
+  };
+
+  closeArOverlay();
+
+  // 捕獲成功モーダル（キャラが写っている時だけ）
+  if (charVisible) {
+    const url = URL.createObjectURL(file);
+    $('ar-captured-title').textContent = t('arCapturedFmt').replace('{name}', charDisplayName(char));
+    const img = $('ar-captured-img');
+    img.src = url;
+    $('ar-captured-modal').classList.remove('hidden');
+  }
+
+  // 既存の写真パイプラインへ（プレビュー先行表示 → Drive アップロード）
+  const fileId = await addPhotoAndUpload(file, tag, metaOverride);
+
+  // 捕獲記録（report.json 経由でセッション再開時にも復元される）
+  if (charVisible) {
+    state.captures.push({
+      characterId: char.id,
+      spotName: tag,
+      photoFileId: fileId,
+      capturedAt: metaOverride.takenAt,
+      lat: metaOverride.lat,
+      lng: metaOverride.lng,
+    });
+  }
+}
+
+function closeArOverlay() {
+  if (arSession) {
+    arSession.stop();
+    arSession = null;
+  }
+  const video = $('ar-video');
+  if (video) video.srcObject = null;
+  $('ar-overlay').classList.add('hidden');
+  document.body.classList.remove('ar-open');
+}
+
+function closeArCapturedModal() {
+  const img = $('ar-captured-img');
+  if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+  img.src = '';
+  $('ar-captured-modal').classList.add('hidden');
+}
+
+// 1ファイルを写真グリッドに先行表示しつつ Drive にアップロードする。
+// onPhotoInputChange のループ本体と同じ流儀（temp entry → Drive 結果で置換）。
+// 戻り値: 最終的な fileId（Drive成功時は DriveのID、失敗/未設定時は temp ID）
+async function addPhotoAndUpload(file, spotName, metaOverride = null) {
+  const tempId = `temp_${Date.now()}_ar`;
+  const tempUrl = URL.createObjectURL(file);
+  state.uploadedPhotos.push({
+    fileId: tempId,
+    url: tempUrl,
+    thumbnailUrl: tempUrl,
+    fullBlobUrl: tempUrl,
+    spotName: spotName || '',
+    fileName: file.name,
+    takenAt: metaOverride?.takenAt || null,
+    uploadedAt: new Date().toISOString(),
+    lat: metaOverride?.lat ?? null,
+    lng: metaOverride?.lng ?? null,
+    uploading: true,
+  });
+  refreshPhotosView();
+
+  let finalId = tempId;
+  if (drive && state.driveSession) {
+    try {
+      const result = await drive.uploadPhoto({
+        folderId: state.driveSession.folderId,
+        file,
+        spotName: spotName || '',
+        metaOverride,
+      });
+      const idx = state.uploadedPhotos.findIndex(p => p.fileId === tempId);
+      if (idx >= 0) {
+        state.uploadedPhotos[idx] = {
+          ...state.uploadedPhotos[idx],
+          fileId: result.fileId,
+          driveUrl: result.url,
+          driveThumbnailUrl: result.thumbnailUrl,
+          takenAt: result.takenAt || state.uploadedPhotos[idx].takenAt,
+          uploadedAt: result.uploadedAt || state.uploadedPhotos[idx].uploadedAt,
+          lat: result.lat ?? state.uploadedPhotos[idx].lat,
+          lng: result.lng ?? state.uploadedPhotos[idx].lng,
+          uploading: false,
+        };
+        finalId = result.fileId;
+      }
+    } catch (err) {
+      console.warn('[ar] upload failed:', err);
+      const idx = state.uploadedPhotos.findIndex(p => p.fileId === tempId);
+      if (idx >= 0) state.uploadedPhotos[idx].uploading = false;
+    }
+  } else {
+    const idx = state.uploadedPhotos.findIndex(p => p.fileId === tempId);
+    if (idx >= 0) state.uploadedPhotos[idx].uploading = false;
+  }
+  refreshPhotosView();
+  updatePhotosCount();
+  return finalId;
 }
 
 // 内部マーカーから localized 表示ラベルへ変換（dropdown / overlay / report で共通使用）
@@ -1656,9 +1931,13 @@ function serializeReportData(rd) {
     afterword: rd.afterword || '',
     photoComments: rd.photoComments || {},
     excludedPhotoIds: Array.from(rd.excludedPhotoIds || []),
+    // ARキャラの捕獲記録も report.json に相乗りさせて永続化する（P1実装）
+    captures: (state.captures || []).map(c => ({ ...c })),
   };
 }
 function deserializeReportData(obj) {
+  // 捕獲記録は state 側に復元する（reportData ではなくセッションデータのため）
+  state.captures = Array.isArray(obj?.captures) ? obj.captures : [];
   return {
     date: obj?.date || '',
     author: obj?.author || '',
@@ -2281,6 +2560,15 @@ $('start-explore-btn').addEventListener('click', onStartExplore);
 // カメラ直起動とギャラリー選択を別 input にしているので、両方に同じハンドラを bind
 $('photo-input').addEventListener('change', onPhotoInputChange);
 $('photo-camera-input').addEventListener('change', onPhotoInputChange);
+
+// ARキャラ捕獲
+$('ar-hunt-btn').addEventListener('click', openArHunt);
+$('ar-close-btn').addEventListener('click', closeArOverlay);
+$('ar-shutter-btn').addEventListener('click', onArShutter);
+$('ar-call-btn').addEventListener('click', () => { if (arSession) arSession.forceAppear(); });
+$('ar-captured-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'close') closeArCapturedModal();
+});
 
 // 撮影ウィザードのナビゲーション
 $('wizard-prev').addEventListener('click', () => showWizardStage((state.photoWizardStage ?? 0) - 1));

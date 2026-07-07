@@ -1,17 +1,19 @@
-import { CONFIG } from '../config.js?v=97';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=97';
-import { fetchOriginStory } from './utils/ai.js?v=97';
-import { generateMapPdf } from './utils/pdf.js?v=97';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=97';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=97';
-import { CITIES, localizeStationName } from './data/cities.js?v=97';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=97';
-import { addReport as addIssueReport } from './utils/issues.js?v=97';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=97';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=97';
-import { FEATURES } from './config-features.js?v=97';
-import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=97';
-import { characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=97';
+import { CONFIG } from '../config.js?v=100';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=100';
+import { fetchOriginStory } from './utils/ai.js?v=100';
+import { generateMapPdf } from './utils/pdf.js?v=100';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=100';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=100';
+import { CITIES, localizeStationName } from './data/cities.js?v=100';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=100';
+import { addReport as addIssueReport } from './utils/issues.js?v=100';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=100';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=100';
+import { FEATURES } from './config-features.js?v=100';
+import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=100';
+import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=100';
+import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=100';
+import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=100';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -127,6 +129,33 @@ function renderWizardStage() {
     renderWizardThumbs(info.tag);
     // ARキャラ捕獲ボタン（スポット/ゴールステージのみ表示）
     updateArHuntButton(info);
+    // ガイドキャラ（画面4: スポットカテゴリ連動・既存アセット流用）
+    updateWizardGuide(info);
+  }
+}
+
+// 撮影ウィザードのガイドキャラ（1体のみ・カテゴリ連動）
+//   科学館 → ZOOMY(loupe_get) / スイーツ・駄菓子 → TAFFY(taffy_get) / それ以外 → NUTTY(oakchap_discovery)
+//   駅ステージはステージ番号で3体ローテーション
+function updateWizardGuide(info) {
+  const img = $('wizard-guide');
+  if (!img) return;
+  let file;
+  if (info.type === 'spot') {
+    const spot = state.orderedSpots[state.photoWizardStage - 1];
+    const cat = spot?.category;
+    file = cat === 'science' ? 'loupe_get.png'
+      : (cat === 'sweets' || cat === 'dagashi') ? 'taffy_get.png'
+      : 'oakchap_discovery.png';
+  } else {
+    file = ['loupe_get.png', 'taffy_get.png', 'oakchap_discovery.png'][(state.photoWizardStage ?? 0) % 3];
+  }
+  if (!img.src || !img.src.endsWith(file)) {
+    img.style.display = '';
+    img.classList.remove('wizard-guide-fade');
+    void img.offsetWidth; // アニメ再トリガ
+    img.src = 'src/assets/characters/' + file;
+    img.classList.add('wizard-guide-fade');
   }
 }
 function renderWizardThumbs(currentTag) {
@@ -378,6 +407,80 @@ async function onArShutter() {
       lat: metaOverride.lat,
       lng: metaOverride.lng,
     });
+    // 図鑑（セッション横断）: ローカル即時記録 + Sheets へ fire-and-forget 同期
+    recordCapture(char.id, metaOverride.takenAt);
+    if (drive) {
+      drive.saveCaptures({
+        explorerId: getExplorerId(),
+        records: [{ characterId: char.id, capturedAt: metaOverride.takenAt }],
+      }).catch(e => console.warn('[zukan] Sheets同期失敗（ローカルには保存済）:', e));
+    }
+  }
+}
+
+// ===== キャラずかん（コレクション） =====
+// ローカル（localStorage）を一次ストアとして即表示し、GAS が使えれば
+// Sheets のコレクションをマージして再描画する（セッション・端末をまたぐ収集）。
+function renderZukanGrid(collection) {
+  const grid = $('zukan-grid');
+  if (!grid) return;
+  grid.innerHTML = CHARACTERS.map(ch => {
+    const rec = collection[ch.id];
+    const caught = !!(rec && rec.count > 0);
+    const name = caught ? charDisplayName(ch) : t('zukanUnknown');
+    const countHtml = caught
+      ? `<div class="zukan-count">${escapeHtml(t('zukanCaughtFmt').replace('{n}', String(rec.count)))}</div>`
+      : '';
+    // 捕獲済みキャラはタップでストーリー（詳細）を開ける
+    return `
+      <div class="zukan-item${caught ? ' zukan-clickable' : ' zukan-silhouette'}"${caught ? ` data-char-id="${ch.id}"` : ''} role="${caught ? 'button' : 'presentation'}">
+        <img src="${characterImageUrl(ch, 'normal')}" alt="" />
+        <div class="zukan-name">${escapeHtml(name)}</div>
+        ${countHtml}
+      </div>`;
+  }).join('');
+  // 捕獲済みアイテムのクリック → 詳細（ストーリー）表示
+  grid.querySelectorAll('.zukan-clickable').forEach(el => {
+    el.addEventListener('click', () => showZukanDetail(el.dataset.charId));
+  });
+}
+
+// 捕獲済みキャラの詳細（性格・ストーリー）を表示。図鑑登録のごほうびコンテンツ。
+function showZukanDetail(charId) {
+  const ch = characterById(charId);
+  const detail = $('zukan-detail');
+  if (!ch || !detail) return;
+  detail.innerHTML = `
+    <button class="zukan-detail-close" type="button" aria-label="close">✕</button>
+    <div class="zukan-detail-body">
+      <img src="${characterImageUrl(ch, 'captured')}" alt="" />
+      <div class="zukan-detail-text">
+        <div class="zukan-detail-name">${escapeHtml(charDisplayName(ch))}</div>
+        <div class="zukan-detail-personality">${escapeHtml(charPersonality(ch))}</div>
+        <p class="zukan-detail-story">${escapeHtml(charStory(ch))}</p>
+      </div>
+    </div>`;
+  detail.classList.remove('hidden');
+  detail.querySelector('.zukan-detail-close').addEventListener('click', () => {
+    detail.classList.add('hidden');
+    detail.innerHTML = '';
+  });
+}
+
+async function openZukan() {
+  // 前回開いていた詳細をリセット
+  const detail = $('zukan-detail');
+  if (detail) { detail.classList.add('hidden'); detail.innerHTML = ''; }
+  renderZukanGrid(loadCollection());
+  $('zukan-modal').classList.remove('hidden');
+  // サーバー側のコレクションをマージして再描画（失敗してもローカル表示のまま）
+  if (drive) {
+    try {
+      const server = await drive.getCaptures({ explorerId: getExplorerId() });
+      renderZukanGrid(mergeServerCollection(server));
+    } catch (e) {
+      console.warn('[zukan] Sheets読み込み失敗（ローカル表示を継続）:', e);
+    }
   }
 }
 
@@ -654,6 +757,8 @@ function showStep(stepId) {
       el.classList.remove('active');
     }
     el.style.display = ''; // 過去のインラインstyle残骸をクリア
+    // ガイドキャラの受け皿をマウント（素材が無い間は自動非表示）
+    if (id === stepId) mountGuides(stepId);
   });
 }
 
@@ -2202,6 +2307,17 @@ function renderReportPhotos() {
     currentPage.appendChild(item);
     inGroupCount++;
   });
+
+  // 画面6（PDF装飾）: 各写真グループの右上角に TAFFY の額縁アクセント
+  // （素材未着時は onerror で自動除去。編集画面ではうっすら、PDF出力時に本表示）
+  wrap.querySelectorAll('.report-photo-page').forEach(page => {
+    const deco = document.createElement('img');
+    deco.className = 'report-guide rg-taffy';
+    deco.alt = '';
+    deco.addEventListener('error', () => deco.remove());
+    deco.src = GUIDE_BASE + 'taffy_g6.png';
+    page.appendChild(deco);
+  });
 }
 
 // テキストエリアを「内容に応じて高さを自動拡張する」よう設定する。
@@ -2633,6 +2749,12 @@ $('start-explore-btn').addEventListener('click', onStartExplore);
 // カメラ直起動とギャラリー選択を別 input にしているので、両方に同じハンドラを bind
 $('photo-input').addEventListener('change', onPhotoInputChange);
 $('photo-camera-input').addEventListener('change', onPhotoInputChange);
+
+// キャラずかん
+$('zukan-btn').addEventListener('click', openZukan);
+$('zukan-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'close') $('zukan-modal').classList.add('hidden');
+});
 
 // ARキャラ捕獲
 $('ar-hunt-btn').addEventListener('click', openArHunt);

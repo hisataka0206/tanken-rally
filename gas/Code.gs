@@ -84,6 +84,12 @@ function doPost(e) {
     if (action === 'getRanking') {
       return respond(headers, getRanking(body));
     }
+    if (action === 'saveCaptures') {
+      return respond(headers, saveCaptures(body));
+    }
+    if (action === 'getCaptures') {
+      return respond(headers, getCaptures(body));
+    }
 
     return respond(headers, { ok: false, error: 'unknown action' });
 
@@ -606,6 +612,90 @@ function saveRanking(body) {
     sheet.appendRow(row);
 
     return { ok: true, savedAt: now };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+// ===== ARキャラ捕獲コレクション（図鑑・Sheets） =====
+//
+// 「captures」タブ: 端末ローカルID（explorerId）× キャラID ごとに1行。
+//   explorerId / characterId / count / firstCapturedAt / lastCapturedAt / updatedAt
+// ニックネームではなく端末ローカルIDをキーにすることで重複問題を回避する
+// （docs/ar-character-capture-spec.md §5-2）。
+
+const SHEET_TAB_CAPTURES = 'captures';
+const SHEET_HEADERS_CAPTURES = ['explorerId', 'characterId', 'count', 'firstCapturedAt', 'lastCapturedAt', 'updatedAt'];
+
+/** 捕獲記録を追記マージする。
+ *  body: { explorerId, records: [{ characterId, capturedAt }] } */
+function saveCaptures(body) {
+  try {
+    const { explorerId, records } = body;
+    if (!explorerId) return { ok: false, error: 'explorerId が必要です' };
+    if (!records || !records.length) return { ok: true, updated: 0 };
+
+    const sheet = getLogSheet(SHEET_TAB_CAPTURES, SHEET_HEADERS_CAPTURES);
+    const rows = sheet.getDataRange().getValues();
+    const headers = rows[0];
+    const col = name => headers.indexOf(name);
+    const now = new Date().toISOString();
+
+    // explorerId + characterId → 行番号（1-based。ヘッダ行は1）
+    const rowIndex = {};
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][col('explorerId')]) === String(explorerId)) {
+        rowIndex[String(rows[i][col('characterId')])] = i + 1;
+      }
+    }
+
+    let updated = 0;
+    records.forEach(rec => {
+      const charId = String(rec.characterId || '');
+      if (!charId) return;
+      const capturedAt = rec.capturedAt || now;
+      const rowNum = rowIndex[charId];
+      if (rowNum) {
+        const count = Number(sheet.getRange(rowNum, col('count') + 1).getValue()) || 0;
+        sheet.getRange(rowNum, col('count') + 1).setValue(count + 1);
+        sheet.getRange(rowNum, col('lastCapturedAt') + 1).setValue(capturedAt);
+        sheet.getRange(rowNum, col('updatedAt') + 1).setValue(now);
+        if (!sheet.getRange(rowNum, col('firstCapturedAt') + 1).getValue()) {
+          sheet.getRange(rowNum, col('firstCapturedAt') + 1).setValue(capturedAt);
+        }
+      } else {
+        sheet.appendRow([explorerId, charId, 1, capturedAt, capturedAt, now]);
+        rowIndex[charId] = sheet.getLastRow();
+      }
+      updated++;
+    });
+    return { ok: true, updated };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** explorerId のコレクションを返す。
+ *  戻り値: { ok, collection: { characterId: { count, firstAt, lastAt } } } */
+function getCaptures(body) {
+  try {
+    const { explorerId } = body;
+    if (!explorerId) return { ok: false, error: 'explorerId が必要です' };
+    const sheet = getLogSheet(SHEET_TAB_CAPTURES, SHEET_HEADERS_CAPTURES);
+    const rows = sheet.getDataRange().getValues();
+    if (rows.length < 2) return { ok: true, collection: {} };
+    const headers = rows[0];
+    const col = name => headers.indexOf(name);
+    const collection = {};
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][col('explorerId')]) !== String(explorerId)) continue;
+      collection[String(rows[i][col('characterId')])] = {
+        count: Number(rows[i][col('count')]) || 0,
+        firstAt: rows[i][col('firstCapturedAt')] ? String(rows[i][col('firstCapturedAt')]) : null,
+        lastAt: rows[i][col('lastCapturedAt')] ? String(rows[i][col('lastCapturedAt')]) : null,
+      };
+    }
+    return { ok: true, collection };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
   }

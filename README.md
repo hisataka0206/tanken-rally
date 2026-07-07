@@ -95,6 +95,8 @@ GAS が提供する API（POST `action`）：
 | `listPhotos`    | フォルダ内の写真一覧 |
 | `saveRanking`   | スコアを Sheets に追記 |
 | `getRanking`    | スコアを Sheets から取得 |
+| `saveCaptures`  | ARキャラ捕獲記録を Sheets「captures」タブにマージ保存（図鑑用） |
+| `getCaptures`   | 端末ローカルID（explorerId）の図鑑コレクションを取得 |
 
 ## PoC の対象機能
 

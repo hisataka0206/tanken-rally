@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=37" />
+  <link rel="stylesheet" href="src/style.css?v=40" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -39,6 +39,7 @@
       <h1 data-i18n="appTitle">たんけんラリー</h1>
       <span class="header-version" id="header-version">v1.0.0</span>
       <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
+      <button id="zukan-btn" class="zukan-btn" type="button" data-i18n-title="btnZukan" title="キャラずかん">📖</button>
     </header>
 
     <!-- STEP 1: 駅名入力 -->
@@ -161,6 +162,8 @@
             <div class="photo-wizard-stage-icon" id="photo-wizard-icon">📍</div>
             <h3 class="photo-wizard-title" id="photo-wizard-title"></h3>
             <p class="photo-wizard-hint" id="photo-wizard-hint"></p>
+            <!-- ガイドキャラ（画面4: カテゴリ連動。main.js の updateWizardGuide が src を設定） -->
+            <img id="wizard-guide" class="wizard-guide" alt="" aria-hidden="true" onerror="this.style.display='none'" />
             <div class="photo-upload-row">
               <label for="photo-camera-input" class="photo-upload-btn photo-upload-camera photo-upload-btn-large">
                 <span data-i18n="photoCameraLabel">📷 写真を撮る</span>
@@ -224,6 +227,8 @@
         <div id="report-editor" class="report-editor">
           <div class="report-page">
             <header class="report-page-header">
+              <!-- 画面6装飾: NUTTY がタイトル帯からぶら下がる（素材未着時は自動非表示） -->
+              <img class="report-guide rg-nutty" src="src/assets/characters/guide/oakchap_g6.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
               <h1 class="report-title" data-i18n="reportTitleH1">🗺 たんけんノート</h1>
               <div class="report-meta-row">
                 <div class="report-meta">
@@ -242,6 +247,8 @@
             </header>
 
             <section class="report-section">
+              <!-- 画面6装飾: ZOOMY が見出し横でレンズ拡大 -->
+              <img class="report-guide rg-zoomy" src="src/assets/characters/guide/loupe_g6.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
               <h3 data-i18n="reportSecOverview">🌟 たんけんを終えて思ったこと</h3>
               <textarea id="report-overview" rows="5"
                 data-i18n-placeholder="reportOverviewPh"
@@ -288,10 +295,17 @@
       <div class="modal-backdrop" data-action="close"></div>
       <div class="modal-content modal-content-wide">
         <h3 id="score-modal-title" data-i18n="scoreModalTitle">🏆 たんけんスコア</h3>
+        <!-- 画面7ガイド: ZOOMY がタイトル左で祝福（素材未着時は自動非表示） -->
+        <img class="guide-char g-score-zoomy" src="src/assets/characters/guide/loupe_g7.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
 
         <!-- フェーズ1: スコア表示 + 名前入力（内訳・係数は秘匿） -->
         <div id="score-phase-input">
-          <div id="score-total" class="score-total">0 点</div>
+          <div class="score-total-wrap">
+            <!-- 画面7ガイド: NUTTY が点数の上でドヤ顔 / TAFFY が右横でスピン -->
+            <img class="guide-char g-score-nutty" src="src/assets/characters/guide/oakchap_g7.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+            <img class="guide-char g-score-taffy" src="src/assets/characters/guide/taffy_g7.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+            <div id="score-total" class="score-total">0 点</div>
+          </div>
           <p id="score-rank-label" class="score-rank-label"></p>
 
           <!-- スコアの仕組み（簡単な説明・係数は非公開） -->
@@ -430,6 +444,20 @@
       </div>
     </div>
 
+    <!-- キャラずかん（コレクション）モーダル -->
+    <div id="zukan-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="zukan-title">
+      <div class="modal-backdrop" data-action="close"></div>
+      <div class="modal-content modal-content-wide">
+        <h3 id="zukan-title" data-i18n="zukanTitle">📖 キャラずかん</h3>
+        <p class="modal-desc" data-i18n="zukanDesc">たんけん中にARカメラでつかまえたキャラのコレクションだよ。つかまえたキャラをタップすると、ひみつのストーリーが読めるよ！</p>
+        <div id="zukan-detail" class="zukan-detail hidden"></div>
+        <div id="zukan-grid" class="zukan-grid"></div>
+        <div class="modal-actions">
+          <button class="btn-secondary" data-action="close" data-i18n="btnArClose">✖ とじる</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ARキャラ捕獲：捕獲成功モーダル -->
     <div id="ar-captured-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="ar-captured-title">
       <div class="modal-backdrop" data-action="close"></div>
@@ -445,6 +473,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=97"></script>
+  <script type="module" src="src/main.js?v=100"></script>
 </body>
 </html>

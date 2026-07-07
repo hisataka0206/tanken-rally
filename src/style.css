@@ -1839,3 +1839,201 @@ body.ar-open { overflow: hidden; }
   font-weight: 700;
   color: #5d4037;
 }
+
+/* ===== キャラずかん ===== */
+.zukan-btn {
+  margin-left: auto;
+  padding: 6px 10px;
+  font-size: 1.15rem;
+  background: rgba(255,255,255,0.18);
+  border: 1.5px solid rgba(255,255,255,0.5);
+  border-radius: 10px;
+  cursor: pointer;
+  line-height: 1;
+}
+.zukan-btn:active { transform: scale(0.95); }
+.zukan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+.zukan-item {
+  text-align: center;
+  padding: 8px 4px;
+  background: #faf6ec;
+  border: 1.5px solid #e8dfc8;
+  border-radius: 10px;
+}
+.zukan-item img {
+  display: block;
+  margin: 0 auto;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+.zukan-silhouette img {
+  filter: brightness(0);
+  opacity: 0.28;
+}
+.zukan-name {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5d4037;
+}
+.zukan-silhouette .zukan-name { color: #999; }
+.zukan-count {
+  margin-top: 2px;
+  font-size: 10px;
+  color: #7a5c00;
+  background: #fff3d6;
+  border-radius: 999px;
+  display: inline-block;
+  padding: 1px 8px;
+}
+.zukan-clickable { cursor: pointer; transition: transform 0.12s ease; }
+.zukan-clickable:hover, .zukan-clickable:active { transform: scale(1.05); border-color: #c9a227; }
+
+/* 図鑑: キャラ詳細（性格・ストーリー） */
+.zukan-detail {
+  position: relative;
+  margin-bottom: 12px;
+  padding: 14px;
+  background: #fffbe9;
+  border: 2px solid #c9a227;
+  border-radius: 12px;
+}
+.zukan-detail-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.08);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.zukan-detail-body {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.zukan-detail-body img {
+  flex-shrink: 0;
+  width: 110px;
+  max-height: 110px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.2));
+}
+.zukan-detail-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #5d4037;
+}
+.zukan-detail-personality {
+  display: inline-block;
+  margin: 4px 0 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7a5c00;
+  background: #fff3d6;
+  border: 1px solid #c9a227;
+  border-radius: 999px;
+}
+.zukan-detail-story {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #444;
+}
+@media (max-width: 480px) {
+  .zukan-detail-body { flex-direction: column; align-items: center; text-align: center; }
+}
+
+/* ===== UIガイドキャラ（受け皿。docs/ui-character-guide-spec.md） ===== */
+/* カードを配置基準にする */
+.step .card { position: relative; }
+
+.guide-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.guide-char {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.18));
+}
+/* 配置スロット */
+.g-tr      { top: -10px; right: 6px;   height: 110px; }  /* タイトル横（メイン） */
+.g-mr      { top: 42%;   right: -8px;  height: 84px; }   /* 右辺中段 */
+.g-bl      { bottom: 58px; left: 8px;  height: 84px; }   /* 左下（アクション行の上） */
+.g-br-peek { bottom: -14px; right: -10px; height: 90px; }/* 右下から覗き見 */
+
+/* アニメーション */
+.g-anim-bounce    { animation: g-bounce 2s ease-in-out infinite; }
+.g-anim-sway      { animation: g-sway 2.6s ease-in-out infinite; }
+.g-anim-spin-slow { animation: g-spin 8s linear infinite; }
+.g-anim-breathe   { animation: g-breathe 4s ease-in-out infinite; }
+.g-anim-pop       { animation: g-pop 0.5s ease-out; }
+@keyframes g-bounce  { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes g-sway    { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes g-spin    { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+@keyframes g-breathe { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1.02); } }
+@keyframes g-pop     { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* 画面4: 撮影ウィザードのガイド（1体・カテゴリ連動） */
+.wizard-guide {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  height: 96px;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.18));
+}
+.photo-wizard-card { position: relative; }
+.wizard-guide-fade { animation: g-pop 0.4s ease-out; }
+
+/* 画面6: レポートPDF装飾（編集画面ではうっすら予告、PDF出力時に本表示） */
+.report-page-header, .report-section, .report-photo-page { position: relative; }
+.report-guide {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.55;
+  z-index: 1;
+}
+.report-page.pdf-rendering .report-guide { opacity: 1; }
+.rg-nutty { bottom: -28px; right: 28px; height: 58px; }   /* タイトル帯からぶら下がり */
+.rg-zoomy { top: -10px;  right: 0;    height: 58px; }     /* 見出し横でレンズ拡大 */
+.rg-taffy { top: -12px;  right: -8px; height: 50px; }     /* 写真グループの角に額縁ふう */
+
+/* 画面7: スコアモーダル */
+#score-modal .modal-content { position: relative; }
+.score-total-wrap { position: relative; display: inline-block; width: 100%; }
+.g-score-zoomy { top: 6px; left: 10px; height: 60px; }
+.g-score-nutty { top: -40px; left: 50%; transform: translateX(-50%); height: 48px; animation: g-drop 0.5s ease-out; }
+.g-score-taffy { top: -16px; right: 4%; height: 78px; animation: g-spin-in 0.7s ease-out; }
+@keyframes g-drop    { from { transform: translate(-50%, -24px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@keyframes g-spin-in { from { transform: rotate(-360deg) scale(0.3); opacity: 0; } to { transform: rotate(0) scale(1); opacity: 1; } }
+
+/* モバイル: メインガイドのみ表示・縮小 */
+@media (max-width: 768px) {
+  .g-tr { height: 72px; top: -6px; }
+  .g-sub { display: none; }
+  .wizard-guide { height: 72px; }
+  .g-score-taffy { height: 60px; }
+}
+
+/* アニメーションを好まない設定を尊重 */
+@media (prefers-reduced-motion: reduce) {
+  .guide-char, .wizard-guide { animation: none !important; }
+}

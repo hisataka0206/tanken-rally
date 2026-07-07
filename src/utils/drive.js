@@ -129,6 +129,20 @@ export class DriveClient {
     return data; // { fileId, mimeType, base64, size }
   }
 
+  /** 捕獲記録を図鑑（Sheets「captures」タブ）にマージ保存 */
+  async saveCaptures({ explorerId, records }) {
+    const data = await this._post({ action: 'saveCaptures', explorerId, records });
+    if (!data.ok) throw new Error(data.error);
+    return data;
+  }
+
+  /** 図鑑コレクションを取得。戻り値: { characterId: { count, firstAt, lastAt } } */
+  async getCaptures({ explorerId }) {
+    const data = await this._post({ action: 'getCaptures', explorerId });
+    if (!data.ok) throw new Error(data.error);
+    return data.collection || {};
+  }
+
   /** ランキングを保存 */
   async saveRanking(payload) {
     const data = await this._post({ action: 'saveRanking', ...payload });

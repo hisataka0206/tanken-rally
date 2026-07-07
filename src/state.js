@@ -27,6 +27,7 @@ export const state = {
   // STEP 4 (ARキャラ捕獲)
   captures: [],                 // [{ characterId, spotName, photoFileId, capturedAt, lat, lng }]
   rareGoalAppears: null,        // ゴール駅でレアが出るか（セッション中1回だけ抽選。null=未抽選）
+  startCharacterId: null,       // スタート駅キャラ（lookie/colorey からセッション中1回だけ抽選）
 
   // STEP 5 (レポート)
   reportData: {
@@ -56,6 +57,7 @@ export function resetSearchState() {
   state.sessionId = null;
   state.captures = [];
   state.rareGoalAppears = null;
+  state.startCharacterId = null;
   state.reportData = {
     date: '', author: '', overview: '', afterword: '',
     photoComments: {},

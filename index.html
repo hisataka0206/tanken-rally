@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=35" />
+  <link rel="stylesheet" href="src/style.css?v=36" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -411,9 +411,9 @@
       <div id="ar-guide" class="ar-guide hidden">
         <span id="ar-guide-arrow" class="ar-guide-arrow">➤</span>
       </div>
-      <!-- キャラクター本体（プレースホルダ：色付きバブル + emoji） -->
+      <!-- キャラクター本体（透過PNG） -->
       <div id="ar-character" class="ar-character hidden">
-        <div id="ar-character-bubble" class="ar-character-bubble"><span id="ar-character-emoji"></span></div>
+        <img id="ar-character-img" class="ar-character-img" alt="" />
         <div id="ar-character-name" class="ar-character-name"></div>
       </div>
       <div id="ar-status" class="ar-status"></div>
@@ -439,6 +439,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=95"></script>
+  <script type="module" src="src/main.js?v=96"></script>
 </body>
 </html>

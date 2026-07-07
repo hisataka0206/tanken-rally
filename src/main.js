@@ -1,17 +1,17 @@
-import { CONFIG } from '../config.js?v=95';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=95';
-import { fetchOriginStory } from './utils/ai.js?v=95';
-import { generateMapPdf } from './utils/pdf.js?v=95';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=95';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=95';
-import { CITIES, localizeStationName } from './data/cities.js?v=95';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=95';
-import { addReport as addIssueReport } from './utils/issues.js?v=95';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=95';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=95';
-import { FEATURES } from './config-features.js?v=95';
-import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=95';
-import { characterForSpot, rareCharacter, characterById, charDisplayName, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY } from './utils/characters.js?v=95';
+import { CONFIG } from '../config.js?v=96';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=96';
+import { fetchOriginStory } from './utils/ai.js?v=96';
+import { generateMapPdf } from './utils/pdf.js?v=96';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=96';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=96';
+import { CITIES, localizeStationName } from './data/cities.js?v=96';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=96';
+import { addReport as addIssueReport } from './utils/issues.js?v=96';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=96';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=96';
+import { FEATURES } from './config-features.js?v=96';
+import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=96';
+import { characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY } from './utils/characters.js?v=96';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -176,6 +176,17 @@ let arCurrent = null;   // { char, tag, targetName, target, latestStatus }
 // 現在のウィザードステージに対する AR コンテキストを返す（対象外ステージは null）
 function arStageContext(info) {
   if (!FEATURES.arCaptureEnabled || !supportsArCamera()) return null;
+  if (info.type === 'start') {
+    // スタート駅: lookie / colorey からセッションごとにランダムで1体
+    if (!state.startCharacterId) state.startCharacterId = pickStartCharacter().id;
+    const ll = toLL(state.stationLocation);
+    return {
+      char: characterById(state.startCharacterId),
+      tag: info.tag,
+      targetName: localizeStationName(state.stationName, LANG),
+      target: ll,
+    };
+  }
   if (info.type === 'spot') {
     const spot = state.orderedSpots[state.photoWizardStage - 1];
     if (!spot || spot.lat == null) return null;
@@ -225,9 +236,10 @@ async function openArHunt() {
   charEl.classList.add('hidden');
   charEl.classList.remove('ar-appear');
   if (ctx.char) {
-    $('ar-character-emoji').textContent = ctx.char.emoji;
-    $('ar-character-bubble').style.background = ctx.char.color;
+    $('ar-character-img').src = characterImageUrl(ctx.char, 'normal');
     $('ar-character-name').textContent = charDisplayName(ctx.char);
+    // 合成用のポーズ画像を先読みしておく（シャッター時に await）
+    ctx.imagesPromise = preloadCharacterImages(ctx.char);
   }
 
   // iOS のコンパス許可はユーザー操作起点でしか取れないため、ボタンクリックのこの場で要求する
@@ -312,12 +324,21 @@ async function onArShutter() {
   const char = arCurrent.char;
   const tag = arCurrent.tag;
 
+  // 合成用のキャラ画像（プリロード済み）。found（ゲット！ポーズ）優先。
+  let charImg = null;
+  if (charVisible && arCurrent.imagesPromise) {
+    try {
+      const images = await arCurrent.imagesPromise;
+      charImg = images.found || images.normal || null;
+    } catch (_) { /* 画像なしでもフォールバック描画で続行 */ }
+  }
+
   let file;
   try {
     file = await arSession.captureComposite(video, charVisible
       ? (ctx, w, h) => {
-          const size = Math.min(w, h) * 0.45;
-          drawCharacterOnCanvas(ctx, char, w / 2, h / 2, size);
+          const size = Math.min(w, h) * 0.5;
+          drawCharacterOnCanvas(ctx, char, charImg, w / 2, h / 2, size);
         }
       : null);
   } catch (e) {

@@ -1,60 +1,91 @@
-// ARキャラクター定義（カテゴリ別7種 + レア1種）
+// ARキャラクター定義（カテゴリ別7種 + レア1種 + スタート駅2種）
 //
-// ⚠️ キャラクターデザイン・名称は別途検討中のためプレースホルダ。
-//    確定後は emoji を透過PNG（src/assets/characters/）に差し替える。
-//    体数構成（カテゴリ別7種＋レア1種）は仕様確定済み（docs/ar-character-capture-spec.md）。
+// 画像素材: src/assets/characters/<id>_<pose>.png（透過PNG、img/ の原画シートから切り出し）
+// ポーズ: discovery（通常/発見）, get（ゲット！）, bonus（特典発動）, ほか sleep/walk（予備）
+// アプリでの使い分け:
+//   - AR画面のライブ表示     → discovery
+//   - 捕獲写真への合成       → get（"ゲット！"演出）
+//   - 図鑑・スコア演出（将来）→ bonus
 //
-// 表示は emoji + カテゴリ色の円形バブルで統一。
-//   - DOM 表示: main.js が .ar-character-bubble に emoji / 色を流し込む
-//   - 写真合成: drawCharacterOnCanvas(ctx, char, ...) で canvas に直接描画
+// キャラ⇔カテゴリ対応（2026-07-07 確定）:
+//   史跡=lucky / スイーツ=taffy / 自然=oakchap / 玩具=stacky /
+//   美術館=arto / 科学館=loupe / 駄菓子屋=tixy /
+//   レア（ゴール駅25%）=memry / スタート駅（ランダム）=lookie, colorey
 
-import { LANG } from './i18n.js?v=95';
+import { LANG } from './i18n.js?v=96';
 
-export const RARE_CHARACTER_ID = 'rare_hakase';
+export const ASSET_BASE = 'src/assets/characters/';
+
+export const RARE_CHARACTER_ID = 'memry';
 
 // レアキャラのゴール駅出現確率（全スポット訪問チェックは P4 で導入予定）
 export const RARE_APPEAR_PROBABILITY = 0.25;
 
+// スタート駅に出現するキャラ（セッションごとにランダムで1体）
+export const START_CHARACTER_IDS = ['lookie', 'colorey'];
+
 export const CHARACTERS = [
-  { id: 'historic', category: 'historic', emoji: '🥷', color: '#795548',
-    names: { ja: 'シロマル', en: 'Shiromaru', elementary: 'シロマル' } },
-  { id: 'sweets', category: 'sweets', emoji: '🧁', color: '#e91e8c',
-    names: { ja: 'クリィム', en: 'Creamy', elementary: 'クリィム' } },
-  { id: 'nature', category: 'nature', emoji: '🍃', color: '#2e7d32',
-    names: { ja: 'ハッパン', en: 'Leafy', elementary: 'ハッパン' } },
-  { id: 'toy', category: 'toy', emoji: '🤖', color: '#ff9800',
-    names: { ja: 'ブロッコ', en: 'Blocko', elementary: 'ブロッコ' } },
-  { id: 'museum', category: 'museum', emoji: '🐱', color: '#5e35b1',
-    names: { ja: 'パレット', en: 'Palette', elementary: 'パレット' } },
-  { id: 'science', category: 'science', emoji: '⚗️', color: '#0097a7',
-    names: { ja: 'ラボリン', en: 'Laborin', elementary: 'ラボリン' } },
-  { id: 'dagashi', category: 'dagashi', emoji: '👻', color: '#d81b60',
-    names: { ja: 'ダガシー', en: 'Dagashee', elementary: 'ダガシー' } },
-  { id: RARE_CHARACTER_ID, category: null, emoji: '🎩', color: '#c9a227',
-    names: { ja: 'タンケンハカセ', en: 'Dr. Tanken', elementary: 'タンケンハカセ' } },
+  { id: 'lucky', category: 'historic', color: '#795548',
+    names: { ja: 'ラッキー', en: 'Lucky', elementary: 'ラッキー' },
+    poses: { normal: 'lucky_discovery.png', found: 'lucky_get.png', captured: 'lucky_bonus.png' } },
+  { id: 'taffy', category: 'sweets', color: '#e91e8c',
+    names: { ja: 'タフィー', en: 'Taffy', elementary: 'タフィー' },
+    poses: { normal: 'taffy_discovery.png', found: 'taffy_get.png', captured: 'taffy_bonus.png' } },
+  { id: 'oakchap', category: 'nature', color: '#2e7d32',
+    names: { ja: 'オークチャップ', en: 'Oak Chap', elementary: 'オークチャップ' },
+    poses: { normal: 'oakchap_discovery.png', found: 'oakchap_get.png', captured: 'oakchap_bonus.png' } },
+  { id: 'stacky', category: 'toy', color: '#ff9800',
+    names: { ja: 'スタッキー', en: 'Stacky', elementary: 'スタッキー' },
+    poses: { normal: 'stacky_discovery.png', found: 'stacky_get.png', captured: 'stacky_bonus.png' } },
+  { id: 'arto', category: 'museum', color: '#5e35b1',
+    names: { ja: 'アルト', en: 'Arto', elementary: 'アルト' },
+    poses: { normal: 'arto_discovery.png', found: 'arto_get.png', captured: 'arto_bonus.png' } },
+  { id: 'loupe', category: 'science', color: '#0097a7',
+    names: { ja: 'ルーペ', en: 'Loupe', elementary: 'ルーペ' },
+    poses: { normal: 'loupe_discovery.png', found: 'loupe_get.png', captured: 'loupe_bonus.png' } },
+  { id: 'tixy', category: 'dagashi', color: '#d81b60',
+    names: { ja: 'ティクシー', en: 'Tixy', elementary: 'ティクシー' },
+    poses: { normal: 'tixy_discovery.png', found: 'tixy_get.png', captured: 'tixy_bonus.png' } },
+  // レア（ゴール駅）
+  { id: RARE_CHARACTER_ID, category: null, color: '#c9a227',
+    names: { ja: 'メムリー', en: 'Memry', elementary: 'メムリー' },
+    poses: { normal: 'memry_discovery.png', found: 'memry_get.png', captured: 'memry_bonus.png' } },
+  // スタート駅（ランダム）
+  { id: 'lookie', category: null, color: '#42a5f5',
+    names: { ja: 'ルッキー', en: 'Lookie', elementary: 'ルッキー' },
+    poses: { normal: 'lookie_discovery.png', found: 'lookie_get.png', captured: 'lookie_bonus.png' } },
+  { id: 'colorey', category: null, color: '#ef6c00',
+    names: { ja: 'コロレイ', en: 'Colorey', elementary: 'コロレイ' },
+    poses: { normal: 'colorey_discovery.png', found: 'colorey_get.png', captured: 'colorey_bonus.png' } },
 ];
 
 const CHAR_BY_ID = Object.fromEntries(CHARACTERS.map(c => [c.id, c]));
-const REGULAR_CHARACTERS = CHARACTERS.filter(c => c.id !== RARE_CHARACTER_ID);
+const CATEGORY_CHARACTERS = CHARACTERS.filter(c => c.category);
 
 export function characterById(id) {
   return CHAR_BY_ID[id] || null;
 }
 
 /** スポットのカテゴリからキャラを返す。
- *  未知カテゴリ（'other' 等）はスポット名のハッシュで7種から安定的に選ぶ
+ *  未知カテゴリ（'other' 等）はスポット名のハッシュでカテゴリ7種から安定的に選ぶ
  *  （同じスポットには常に同じキャラが出る）。 */
 export function characterForSpot(spot) {
-  const direct = CHAR_BY_ID[spot?.category];
-  if (direct && direct.id !== RARE_CHARACTER_ID) return direct;
+  const direct = CATEGORY_CHARACTERS.find(c => c.category === spot?.category);
+  if (direct) return direct;
   const key = String(spot?.name || spot?.id || '');
   let h = 0;
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
-  return REGULAR_CHARACTERS[h % REGULAR_CHARACTERS.length];
+  return CATEGORY_CHARACTERS[h % CATEGORY_CHARACTERS.length];
 }
 
 export function rareCharacter() {
   return CHAR_BY_ID[RARE_CHARACTER_ID];
+}
+
+/** スタート駅キャラをランダムに1体返す（呼び出し側でセッション中は結果を保持すること） */
+export function pickStartCharacter() {
+  const id = START_CHARACTER_IDS[Math.floor(Math.random() * START_CHARACTER_IDS.length)];
+  return CHAR_BY_ID[id];
 }
 
 /** 現在の言語でのキャラ表示名 */
@@ -63,45 +94,66 @@ export function charDisplayName(char) {
   return char.names[LANG] || char.names.ja;
 }
 
-/** canvas にキャラ（プレースホルダ：色付きバブル + emoji）を描画する。
- *  捕獲写真の合成に使用。cx/cy はバブル中心、sizePx はバブル直径。 */
-export function drawCharacterOnCanvas(ctx, char, cx, cy, sizePx) {
-  const r = sizePx / 2;
+/** ポーズ画像のURL（無いポーズは normal にフォールバック） */
+export function characterImageUrl(char, pose = 'normal') {
+  if (!char) return '';
+  const file = char.poses[pose] || char.poses.normal;
+  return ASSET_BASE + file;
+}
+
+/** キャラの全ポーズ画像をプリロードし、{ pose: HTMLImageElement } を返す。
+ *  読み込み失敗したポーズは含まれない（呼び出し側でフォールバックすること）。 */
+export function preloadCharacterImages(char) {
+  const poses = ['normal', 'found', 'captured'];
+  return Promise.all(poses.map(pose => new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve([pose, img]);
+    img.onerror = () => resolve([pose, null]);
+    img.src = characterImageUrl(char, pose);
+  }))).then(entries => Object.fromEntries(entries.filter(([, img]) => img)));
+}
+
+/** canvas にキャラ画像＋名前リボンを描画する（捕獲写真の合成用）。
+ *  cx/cy は画像の中心、sizePx は長辺サイズ。img が null の場合は色付き円で代替。 */
+export function drawCharacterOnCanvas(ctx, char, img, cx, cy, sizePx) {
   ctx.save();
-  // 円形バブル（半透明のキャラ色 + 白フチ）
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = hexWithAlpha(char.color, 0.85);
-  ctx.fill();
-  ctx.lineWidth = Math.max(4, sizePx * 0.04);
-  ctx.strokeStyle = '#ffffff';
-  ctx.stroke();
-  // emoji 本体
-  ctx.font = `${Math.round(sizePx * 0.58)}px serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(char.emoji, cx, cy + sizePx * 0.03);
-  // 名前リボン（バブル下）
+  let bottomY;
+  if (img) {
+    const scale = sizePx / Math.max(img.naturalWidth, img.naturalHeight);
+    const w = img.naturalWidth * scale;
+    const h = img.naturalHeight * scale;
+    // 白フチ付きの軽いドロップシャドウで背景から浮かせる
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = sizePx * 0.05;
+    ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+    ctx.shadowBlur = 0;
+    bottomY = cy + h / 2;
+  } else {
+    // フォールバック: 色付き円
+    ctx.beginPath();
+    ctx.arc(cx, cy, sizePx / 2, 0, Math.PI * 2);
+    ctx.fillStyle = char.color;
+    ctx.fill();
+    ctx.lineWidth = Math.max(4, sizePx * 0.04);
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+    bottomY = cy + sizePx / 2;
+  }
+  // 名前リボン
   const name = charDisplayName(char);
-  const fontPx = Math.max(14, Math.round(sizePx * 0.14));
+  const fontPx = Math.max(14, Math.round(sizePx * 0.12));
   ctx.font = `bold ${fontPx}px sans-serif`;
   const tw = ctx.measureText(name).width;
   const pad = fontPx * 0.6;
-  const ry = cy + r + fontPx * 1.1;
+  const ry = bottomY + fontPx * 1.1;
   roundRect(ctx, cx - tw / 2 - pad, ry - fontPx * 0.8, tw + pad * 2, fontPx * 1.6, fontPx * 0.8);
-  ctx.fillStyle = hexWithAlpha('#000000', 0.55);
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.fill();
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(name, cx, ry);
   ctx.restore();
-}
-
-function hexWithAlpha(hex, alpha) {
-  const n = parseInt(hex.slice(1), 16);
-  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function roundRect(ctx, x, y, w, h, r) {

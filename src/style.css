@@ -1735,17 +1735,12 @@ body {
   60%  { transform: translate(-50%, -55%) scale(1.15); }
   100% { transform: translate(-50%, -55%) scale(1); }
 }
-.ar-character-bubble {
-  width: min(45vw, 220px);
-  height: min(45vw, 220px);
-  border-radius: 50%;
-  border: 5px solid #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: min(26vw, 128px);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+.ar-character-img {
+  display: block;
+  max-width: min(62vw, 300px);
+  max-height: 38vh;
   margin: 0 auto;
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.45));
 }
 .ar-character-name {
   display: inline-block;

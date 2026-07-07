@@ -2,3 +2,6 @@ config.js
 .env
 .DS_Store
 *.bak
+
+# キャラクター原画シート（ローカル保管のみ。切り出し済み素材は src/assets/characters/ にコミット）
+img/

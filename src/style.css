@@ -1,48 +1,64 @@
 /* ===== リセット & 基本 ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ===== Popテーマ（キャラクターの世界観: 空色×パステル×手書き感） ===== */
 :root {
-  --green-dark: #004029;
-  --green-mid:  #2e7d32;
-  --green-light:#76BB76;
-  --cream:      #f5f0e8;
-  --brown:      #5d4037;
-  --text:       #1a1a1a;
-  --muted:      #666;
-  --border:     #ddd;
-  --radius:     12px;
+  --green-dark: #0F7A4D;        /* ブランド緑（明るく） */
+  --green-mid:  #22A366;
+  --green-light:#8FD6A3;
+  --cream:      #FDF6EC;
+  --brown:      #6B4A32;
+  --text:       #333;
+  --muted:      #7a746a;
+  --border:     #E5DCC8;
+  --radius:     16px;
+  /* キャラ由来のアクセント */
+  --sky:        #E5F4FF;        /* 空（背景） */
+  --sky-deep:   #56B6E8;        /* ZOOMYのレンズ色 */
+  --sun:        #FFD34D;        /* 星・ひまわり黄 */
+  --candy:      #F591B2;        /* TAFFYピンク */
+  --pop-shadow: 0 4px 16px rgba(86, 182, 232, 0.14);
 }
 
 body {
   font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
-  background: var(--cream);
+  /* 上空→地面のやわらかいグラデーション（キャラシートの空気感） */
+  background: linear-gradient(180deg, var(--sky) 0%, #F4FAF3 260px, var(--cream) 640px);
+  background-attachment: fixed;
   color: var(--text);
   min-height: 100vh;
 }
 
-/* ===== ヘッダー ===== */
+/* ===== ヘッダー（空×雲） ===== */
 .header {
-  background: var(--green-dark);
+  background: linear-gradient(135deg, #4FB0E4 0%, #7ECDF4 60%, #A5DCF7 100%);
   color: white;
   padding: 16px 24px;
   display: flex;
   align-items: center;
   gap: 12px;
+  border-bottom: 4px solid rgba(255,255,255,0.55);
 }
 .header-icon { font-size: 28px; }
-.header h1 { font-size: 22px; font-weight: 700; }
+.header h1 {
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 0 rgba(31, 110, 160, 0.35);
+}
 .header-version {
   display: inline-block;
   font-size: 11px;
-  background: var(--green-light);
-  color: var(--green-dark);
+  background: var(--sun);
+  color: #7a5c00;
   padding: 2px 8px;
   border-radius: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
   margin-left: 4px;
 }
-.header-sub { font-size: 13px; color: var(--green-light); margin-left: auto; }
+.header-sub { font-size: 13px; color: #EAF7FF; margin-left: auto; text-shadow: 0 1px 2px rgba(31,110,160,.3); }
 
 /* ===== レイアウト ===== */
 #app { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
@@ -53,32 +69,39 @@ body {
 
 .card {
   background: white;
-  border-radius: var(--radius);
+  border-radius: 20px;
+  border: 2px solid #EDE6D6;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.08);
-  margin-bottom: 16px;
+  box-shadow: var(--pop-shadow);
+  margin-bottom: 18px;
 }
 
-/* ===== STEP タイトル ===== */
+/* ===== STEP タイトル（手書き風＋シールっぽい番号バッジ） ===== */
 .step-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 21px;
+  font-weight: 400;
   color: var(--green-dark);
   margin-bottom: 16px;
   display: flex;
   align-items: center;
   gap: 10px;
+  letter-spacing: 0.03em;
 }
 .step-num {
-  background: var(--green-dark);
-  color: white;
+  background: var(--sun);
+  color: #7a5c00;
   border-radius: 50%;
-  width: 28px; height: 28px;
+  width: 34px; height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 700;
   flex-shrink: 0;
+  border: 2.5px solid #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,.15);
+  transform: rotate(-6deg);
 }
 
 /* ===== 前回再開 ===== */
@@ -210,17 +233,18 @@ body {
   background: white;
   color: var(--green-dark);
   border: 2px solid var(--border);
-  border-radius: 24px;
+  border-radius: 999px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all .15s;
 }
-.city-tab:hover { border-color: var(--green-light); background: #f0f7f0; }
+.city-tab:hover { border-color: var(--sky-deep); background: var(--sky); }
 .city-tab.active {
-  background: var(--green-dark);
+  background: var(--sky-deep);
   color: white;
-  border-color: var(--green-dark);
+  border-color: var(--sky-deep);
+  box-shadow: 0 3px 0 #3391c4;
 }
 
 /* ===== 路線・駅セレクタ ===== */
@@ -248,11 +272,11 @@ body {
   padding: 10px 14px;
   font-size: 15px;
   border: 2px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: white;
   outline: none;
 }
-.selector-row select:focus { border-color: var(--green-light); }
+.selector-row select:focus { border-color: var(--sky-deep); }
 .selector-row select:disabled { background: #eee; color: #999; cursor: not-allowed; }
 .city-selector .step-actions {
   margin-top: 4px;
@@ -275,40 +299,44 @@ body {
   padding: 12px 16px;
   font-size: 16px;
   border: 2px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   outline: none;
   transition: border-color .2s;
 }
-.input-row input:focus { border-color: var(--green-light); }
+.input-row input:focus { border-color: var(--sky-deep); }
 
-/* ===== ボタン ===== */
+/* ===== ボタン（キャンディ風：まる角＋押し込みアニメ） ===== */
 .btn-primary {
-  padding: 12px 20px;
-  background: var(--green-dark);
+  padding: 12px 22px;
+  background: var(--green-mid);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: background .2s, opacity .2s;
+  transition: transform .08s, box-shadow .08s, background .2s, opacity .2s;
   white-space: nowrap;
+  box-shadow: 0 4px 0 #157a4a;
 }
-.btn-primary:hover { background: var(--green-mid); }
-.btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+.btn-primary:hover { background: #27b573; }
+.btn-primary:active { transform: translateY(3px); box-shadow: 0 1px 0 #157a4a; }
+.btn-primary:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
 
 .btn-secondary {
-  padding: 12px 20px;
+  padding: 12px 22px;
   background: white;
   color: var(--green-dark);
-  border: 2px solid var(--green-dark);
-  border-radius: 8px;
+  border: 2px solid var(--green-mid);
+  border-radius: 999px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: background .2s;
+  transition: transform .08s, background .2s;
+  box-shadow: 0 3px 0 rgba(34, 163, 102, 0.35);
 }
-.btn-secondary:hover { background: var(--cream); }
+.btn-secondary:hover { background: #F0FAF4; }
+.btn-secondary:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(34,163,102,.35); }
 
 .step-actions {
   margin-top: 20px;
@@ -364,15 +392,17 @@ body {
 
 .spot-card {
   border: 2px solid var(--border);
-  border-radius: 8px;
+  border-radius: 14px;
   padding: 12px;
   cursor: pointer;
-  transition: border-color .2s, background .2s;
+  transition: border-color .2s, background .2s, transform .1s;
   display: flex;
   gap: 10px;
   align-items: flex-start;
   position: relative;
+  background: white;
 }
+.spot-card:active { transform: scale(0.99); }
 
 /* 不適切スポットを削除するボタン（カード右上の小さいゴミ箱） */
 .spot-delete {
@@ -513,8 +543,8 @@ body {
 .map-container {
   width: 100%;
   height: 400px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  border-radius: 16px;
+  border: 2px solid #EDE6D6;
   background: #eee;
 }
 
@@ -621,12 +651,12 @@ body {
   letter-spacing: 0.05em;
 }
 .photo-wizard-card {
-  background: linear-gradient(180deg, #f9f8f0 0%, #ffffff 100%);
-  border: 2px solid var(--green-light);
-  border-radius: 14px;
+  background: linear-gradient(180deg, var(--sky) 0%, #ffffff 55%);
+  border: 2.5px solid var(--sky-deep);
+  border-radius: 18px;
   padding: 20px 18px 16px;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--pop-shadow);
 }
 .photo-wizard-stage-icon {
   font-size: 40px;
@@ -718,24 +748,27 @@ body {
   justify-content: center;
   gap: 8px;
   padding: 12px 20px;
-  background: var(--green-dark);
+  background: var(--green-mid);
   color: white;
-  border-radius: 8px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   transition: background .2s, transform .1s;
   flex: 1;
   min-width: 140px;
   text-align: center;
+  box-shadow: 0 4px 0 #157a4a;
 }
-.photo-upload-btn:hover { background: var(--green-mid); }
-.photo-upload-btn:active { transform: scale(0.98); }
-/* ギャラリー選択ボタンは2nd色（淡め）にして視覚区別 */
+.photo-upload-btn:hover { background: #27b573; }
+.photo-upload-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #157a4a; }
+/* ギャラリー選択ボタンは空色にして視覚区別 */
 .photo-upload-gallery {
-  background: var(--green-mid);
+  background: var(--sky-deep);
+  box-shadow: 0 4px 0 #3391c4;
 }
-.photo-upload-gallery:hover { background: var(--green-dark); }
+.photo-upload-gallery:hover { background: #6ac2ee; }
+.photo-upload-gallery:active { box-shadow: 0 1px 0 #3391c4; }
 
 .spot-select {
   padding: 10px 14px;
@@ -773,7 +806,8 @@ body {
 .modal-content {
   position: relative;
   background: white;
-  border-radius: 12px;
+  border-radius: 20px;
+  border: 2.5px solid #EDE6D6;
   padding: 24px;
   width: min(420px, 92%);
   box-shadow: 0 8px 30px rgba(0,0,0,.25);
@@ -2043,11 +2077,14 @@ body.ar-open { overflow: hidden; }
   z-index: 2;
   filter: drop-shadow(0 2px 5px rgba(0,0,0,0.18));
 }
-/* 配置スロット */
-.g-tr      { top: -10px; right: 6px;   height: 110px; }  /* タイトル横（メイン） */
-.g-mr      { top: 42%;   right: -8px;  height: 84px; }   /* 右辺中段 */
-.g-bl      { bottom: 58px; left: 8px;  height: 84px; }   /* 左下（アクション行の上） */
+/* 配置スロット（テキストと重ならないよう「タイトル帯の中」か「カードの縁またぎ」に限定） */
+.g-tr      { top: -16px; right: 10px;  height: 88px; }   /* タイトル横（メイン）。下端がタイトル帯に収まる高さ */
+.g-mr      { top: 40%;   right: -26px; height: 72px; }   /* 右辺またぎ（大半をカード外に出して本文と重ねない） */
+.g-bl      { bottom: -16px; left: 14px; height: 76px; }  /* 下辺またぎ（カードの縁に立たせる） */
 .g-br-peek { bottom: -14px; right: -10px; height: 90px; }/* 右下から覗き見 */
+
+/* メインガイド(g-tr)のぶん、タイトル行に専用の余白を確保して文字被りを防ぐ */
+.card:has(.guide-layer) .step-title { padding-right: 112px; }
 
 /* アニメーション */
 .g-anim-bounce    { animation: g-bounce 2s ease-in-out infinite; }
@@ -2071,6 +2108,8 @@ body.ar-open { overflow: hidden; }
   filter: drop-shadow(0 2px 5px rgba(0,0,0,0.18));
 }
 .photo-wizard-card { position: relative; }
+/* ガイドと重ならないよう、タイトル・ヒントの右側に余白を確保 */
+.photo-wizard-title, .photo-wizard-hint { padding-right: 100px; text-align: left; }
 .wizard-guide-fade { animation: g-pop 0.4s ease-out; }
 
 /* 画面6: レポートPDF装飾（編集画面ではうっすら予告、PDF出力時に本表示） */
@@ -2088,21 +2127,26 @@ body.ar-open { overflow: hidden; }
 
 /* 画面7: スコアモーダル */
 #score-modal .modal-content { position: relative; }
-.score-total-wrap { position: relative; display: inline-block; width: 100%; }
-.g-score-zoomy { top: 6px; left: 10px; height: 60px; }
-.g-score-nutty { top: -40px; left: 50%; transform: translateX(-50%); height: 48px; animation: g-drop 0.5s ease-out; }
-.g-score-taffy { top: -16px; right: 4%; height: 78px; animation: g-spin-in 0.7s ease-out; }
+/* ZOOMY（タイトル左）のぶんタイトルに余白を確保して文字被りを防ぐ */
+#score-modal #score-modal-title { padding-left: 72px; min-height: 56px; display: flex; align-items: center; }
+.score-total-wrap { position: relative; display: inline-block; width: 100%; margin-top: 40px; } /* 上のNUTTY着地スペース */
+.g-score-zoomy { top: 6px; left: 8px; height: 60px; }
+.g-score-nutty { top: -42px; left: 50%; transform: translateX(-50%); height: 48px; animation: g-drop 0.5s ease-out; }
+.g-score-taffy { top: -16px; right: 2%; height: 78px; animation: g-spin-in 0.7s ease-out; }
 @keyframes g-drop    { from { transform: translate(-50%, -24px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 @keyframes g-spin-in { from { transform: rotate(-360deg) scale(0.3); opacity: 0; } to { transform: rotate(0) scale(1); opacity: 1; } }
 
-/* モバイル: 3体とも表示するが、小さくして操作の邪魔にならないようにする */
+/* モバイル: 3体とも表示するが、小さくして縁またぎ配置で文字と重ねない */
 @media (max-width: 768px) {
-  .g-tr      { height: 72px; top: -6px; }
-  .g-mr      { height: 56px; right: -4px; }
-  .g-bl      { height: 56px; bottom: 52px; left: 4px; }
+  .g-tr      { height: 64px; top: -12px; right: 6px; }
+  .g-mr      { height: 52px; right: -14px; }
+  .g-bl      { height: 56px; bottom: -12px; left: 8px; }
   .g-br-peek { height: 60px; bottom: -10px; right: -6px; }
+  .card:has(.guide-layer) .step-title { padding-right: 78px; }
   .wizard-guide { height: 72px; }
+  .photo-wizard-title, .photo-wizard-hint { padding-right: 78px; }
   .g-score-taffy { height: 60px; }
+  #score-modal #score-modal-title { padding-left: 60px; min-height: 48px; }
 }
 
 /* アニメーションを好まない設定を尊重 */

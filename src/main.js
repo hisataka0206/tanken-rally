@@ -1,17 +1,17 @@
-import { CONFIG } from '../config.js?v=96';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=96';
-import { fetchOriginStory } from './utils/ai.js?v=96';
-import { generateMapPdf } from './utils/pdf.js?v=96';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=96';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=96';
-import { CITIES, localizeStationName } from './data/cities.js?v=96';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=96';
-import { addReport as addIssueReport } from './utils/issues.js?v=96';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=96';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=96';
-import { FEATURES } from './config-features.js?v=96';
-import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=96';
-import { characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY } from './utils/characters.js?v=96';
+import { CONFIG } from '../config.js?v=97';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=97';
+import { fetchOriginStory } from './utils/ai.js?v=97';
+import { generateMapPdf } from './utils/pdf.js?v=97';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=97';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=97';
+import { CITIES, localizeStationName } from './data/cities.js?v=97';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=97';
+import { addReport as addIssueReport } from './utils/issues.js?v=97';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=97';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=97';
+import { FEATURES } from './config-features.js?v=97';
+import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=97';
+import { characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=97';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1731,6 +1731,12 @@ function calculateScore() {
     else                                      paceScore = 50;
   }
 
+  // ARキャラ捕獲（9要素目）: 捕獲数 + ユニーク種ボーナス + レア捕獲ボーナス
+  const captures = state.captures || [];
+  const captureCount = captures.length;
+  const uniqueCharCount = new Set(captures.map(c => c.characterId)).size;
+  const rareCaptured = captures.some(c => c.characterId === RARE_CHARACTER_ID);
+
   // 内部計算（外部には公開しない）
   const _internalBreakdown = {
     visit:    visitCount * 100,
@@ -1741,6 +1747,7 @@ function calculateScore() {
     within60: within60bonus,
     distance: Math.round(distanceKm * 30),
     pace:     paceScore,
+    capture:  captureCount * 40 + uniqueCharCount * 40 + (rareCaptured ? 150 : 0),
   };
   const total = Object.values(_internalBreakdown).reduce((a, b) => a + b, 0);
 
@@ -1760,6 +1767,9 @@ function calculateScore() {
     userMoveMin,
     estimatedMin,
     reportWordCount: overviewLen + afterwordLen,
+    captureCount,
+    uniqueCharCount,
+    rareCaptured,
   };
 }
 
@@ -1801,6 +1811,12 @@ function buildScoreAdvice(result) {
     if (ratio < 0.8 || ratio > 1.5) {
       tips.push(t('advicePace'));
     }
+  }
+  // ARキャラ捕獲
+  if (result.captureCount === 0) {
+    tips.push(t('adviceCatchChars'));
+  } else if (result.visitCount > 0 && result.captureCount < result.visitCount) {
+    tips.push(t('adviceCatchMoreChars').replace('{n}', result.captureCount));
   }
   if (tips.length === 0) tips.push(t('advicePerfect'));
   return tips;
@@ -2006,6 +2022,7 @@ function onStartReport() {
   $('report-afterword').value = state.reportData.afterword || '';
 
   renderReportPhotos();
+  renderReportCharacters();
   showStep('step-report');
 
   // ステップ表示後（display:none が外れた後）に textarea の高さを再計算する。
@@ -2035,6 +2052,35 @@ function getPhotosInVisitOrder() {
     // 同じスポット内では撮影順（fileId or createdの代用として配列順を維持）
     return state.uploadedPhotos.indexOf(a) - state.uploadedPhotos.indexOf(b);
   });
+}
+
+// fileId から捕獲キャラを返す（捕獲写真でなければ null）
+function captureCharForPhoto(fileId) {
+  const rec = (state.captures || []).find(c => c.photoFileId === fileId);
+  return rec ? characterById(rec.characterId) : null;
+}
+
+// 「今回であったキャラたち」欄（捕獲したユニーク種を bonus ポーズで一覧表示）
+function renderReportCharacters() {
+  const section = $('report-characters-section');
+  const wrap = $('report-characters');
+  if (!section || !wrap) return;
+  const ids = [...new Set((state.captures || []).map(c => c.characterId))];
+  if (ids.length === 0) {
+    section.classList.add('hidden');
+    wrap.innerHTML = '';
+    return;
+  }
+  section.classList.remove('hidden');
+  wrap.innerHTML = ids.map(id => {
+    const ch = characterById(id);
+    if (!ch) return '';
+    return `
+      <div class="report-character-item">
+        <img src="${characterImageUrl(ch, 'captured')}" alt="${escapeHtml(charDisplayName(ch))}" />
+        <div class="report-character-name">${escapeHtml(charDisplayName(ch))}</div>
+      </div>`;
+  }).join('');
 }
 
 function renderReportPhotos() {
@@ -2075,6 +2121,11 @@ function renderReportPhotos() {
     const tagHtml = photo.spotName
       ? `<span class="report-photo-tag">📍 ${escapeHtml(photoTagDisplayLabel(photo.spotName))}</span>`
       : `<span class="report-photo-tag report-photo-tag-empty">${escapeHtml(t('photoTagless'))}</span>`;
+    // 捕獲写真には「つかまえた！」バッジを付ける
+    const capChar = captureCharForPhoto(photo.fileId);
+    const capBadgeHtml = capChar
+      ? `<span class="report-capture-badge">${escapeHtml(t('reportCaptureBadgeFmt').replace('{name}', charDisplayName(capChar)))}</span>`
+      : '';
     // 画像ソース選択：blob URL（サムネ）→ Drive URL（フォールバック） の順で試す
     // 最初の src が読めない場合に備えて候補チェーンを保存し、img.onerror で順送りに
     const imgCandidates = [
@@ -2092,6 +2143,7 @@ function renderReportPhotos() {
         <div>
           <span class="report-photo-order">${i + 1}</span>
           ${tagHtml}
+          ${capBadgeHtml}
         </div>
         <textarea class="report-photo-comment" rows="1"
           placeholder="${escapeHtml(t('photoCommentPlaceholder'))}"

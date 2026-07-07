@@ -12,7 +12,7 @@
 //   美術館=arto / 科学館=loupe / 駄菓子屋=tixy /
 //   レア（ゴール駅25%）=memry / スタート駅（ランダム）=lookie, colorey
 
-import { LANG } from './i18n.js?v=96';
+import { LANG } from './i18n.js?v=97';
 
 export const ASSET_BASE = 'src/assets/characters/';
 
@@ -99,6 +99,26 @@ export function characterImageUrl(char, pose = 'normal') {
   if (!char) return '';
   const file = char.poses[pose] || char.poses.normal;
   return ASSET_BASE + file;
+}
+
+// 「get以外」の予備ポーズ（シートに存在したもののみ）。地図PDFのお楽しみ配置などに使う。
+const EXTRA_POSES = {
+  arto: ['arto_sleep.png'],
+  colorey: ['colorey_sleep.png'],
+  loupe: ['loupe_sleep.png'],
+  lucky: ['lucky_walk.png'],
+  oakchap: ['oakchap_walk.png'],
+  taffy: ['taffy_walk.png'],
+  tixy: ['tixy_walk.png'],
+};
+
+/** ランダムなキャラ×ランダムな「get以外」ポーズの画像を返す（地図PDFのお楽しみ用）。
+ *  戻り値: { char, url } */
+export function randomFunCharacterImage() {
+  const char = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+  const pool = [char.poses.normal, char.poses.captured, ...(EXTRA_POSES[char.id] || [])];
+  const file = pool[Math.floor(Math.random() * pool.length)];
+  return { char, url: ASSET_BASE + file };
 }
 
 /** キャラの全ポーズ画像をプリロードし、{ pose: HTMLImageElement } を返す。

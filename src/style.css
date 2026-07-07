@@ -1799,3 +1799,43 @@ body.ar-open { overflow: hidden; }
   border-radius: 10px;
   margin-top: 10px;
 }
+
+/* ===== レポート: ARキャラ捕獲の装飾 ===== */
+/* 捕獲写真の「つかまえた！」バッジ */
+.report-capture-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 10px;
+  background: #fff3d6;
+  border: 1.5px solid #c9a227;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #7a5c00;
+  white-space: nowrap;
+}
+/* 今回であったキャラたち */
+.report-characters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 6px 0;
+}
+.report-character-item {
+  width: 110px;
+  text-align: center;
+}
+.report-character-item img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100px;
+  max-height: 90px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.18));
+}
+.report-character-name {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5d4037;
+}

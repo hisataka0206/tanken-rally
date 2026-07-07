@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=36" />
+  <link rel="stylesheet" href="src/style.css?v=37" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -257,6 +257,12 @@
               <div id="report-photos" class="report-photos"></div>
             </section>
 
+            <!-- ARキャラ捕獲: 今回であったキャラたち（捕獲0体なら hidden のまま） -->
+            <section class="report-section hidden" id="report-characters-section" data-pdf-block>
+              <h3 data-i18n="reportSecCharacters">🎁 今回であったキャラたち</h3>
+              <div id="report-characters" class="report-characters"></div>
+            </section>
+
             <section class="report-section">
               <h3 data-i18n="reportSecAfterword">✏️ ノートを書いてみて</h3>
               <textarea id="report-afterword" rows="4"
@@ -439,6 +445,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=96"></script>
+  <script type="module" src="src/main.js?v=97"></script>
 </body>
 </html>

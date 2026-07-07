@@ -4,9 +4,13 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=96';
-import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=96';
-import { localizeStationName } from '../data/cities.js?v=96';
+import { toLatLngLiteral } from './maps.js?v=97';
+import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=97';
+import { localizeStationName } from '../data/cities.js?v=97';
+import { randomFunCharacterImage } from './characters.js?v=97';
+
+// お楽しみ要素: ストリートビューカードにランダムでキャラを紛れ込ませる確率
+const EASTER_EGG_PROBABILITY = 0.3;
 
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
@@ -390,11 +394,22 @@ function buildTurnCard({ label, labelColor, title, subtitle, icon, lat, lng, hea
   const sv = `https://maps.googleapis.com/maps/api/streetview?size=480x320&location=${lat},${lng}&heading=${Math.round(heading)}&fov=90&pitch=0&radius=100&source=outdoor&key=${apiKey}`;
   // フォールバック：SV取得失敗時に表示する Static Map（地点中心、ズーム18、マーカー付き）
   const fallback = `https://maps.googleapis.com/maps/api/staticmap?size=480x320&scale=2&center=${lat},${lng}&zoom=18&markers=color:red%7Csize:mid%7C${lat},${lng}&maptype=roadmap&language=${apiLang()}&key=${apiKey}`;
+  // お楽しみ要素: たまにキャラクターが写真の隅に紛れ込む（get以外のポーズ）
+  let eggHtml = '';
+  if (Math.random() < EASTER_EGG_PROBABILITY) {
+    const { url } = randomFunCharacterImage();
+    const side = Math.random() < 0.5 ? 'left:8px;' : 'right:8px;';
+    const rot = (Math.random() * 16 - 8).toFixed(1);
+    eggHtml = `<img src="${url}" alt="" style="position:absolute;bottom:6px;${side}height:64px;transform:rotate(${rot}deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));" />`;
+  }
   // data-pdf-block を付けることで generateMapPdf の安全分割ロジックが
   // このカードを「割らない」対象として認識する
   return `
     <div data-pdf-block style="border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;page-break-inside:avoid;background:#fff;display:flex;flex-direction:column;">
-      <img src="${sv}" alt="streetview" data-fallback="${escapeHtml(fallback)}" crossorigin="anonymous" referrerpolicy="no-referrer-when-downgrade" style="display:block;width:100%;aspect-ratio:3/2;object-fit:cover;background:#eee;border-bottom:1px solid #ddd;" />
+      <div style="position:relative;">
+        <img src="${sv}" alt="streetview" data-fallback="${escapeHtml(fallback)}" crossorigin="anonymous" referrerpolicy="no-referrer-when-downgrade" style="display:block;width:100%;aspect-ratio:3/2;object-fit:cover;background:#eee;border-bottom:1px solid #ddd;" />
+        ${eggHtml}
+      </div>
       <div style="padding:8px 10px;font-size:12px;line-height:1.5;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
           <div style="flex-shrink:0;width:24px;height:24px;background:${labelColor};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;border:2px solid white;box-shadow:0 1px 2px rgba(0,0,0,.2);">${escapeHtml(label)}</div>

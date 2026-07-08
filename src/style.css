@@ -60,8 +60,9 @@ body {
 }
 .header-sub { font-size: 13px; color: #EAF7FF; margin-left: auto; text-shadow: 0 1px 2px rgba(31,110,160,.3); }
 
-/* ===== レイアウト ===== */
-#app { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+/* ===== レイアウト =====
+ * Instagram型: PCでもスマホ幅の単一カラムを中央に置く（モバイル原寸設計） */
+#app { max-width: 520px; margin: 0 auto; padding: 16px 12px 40px; }
 
 .step { display: none; }
 .step.active { display: block; }
@@ -71,9 +72,10 @@ body {
   background: white;
   border-radius: 20px;
   border: 2px solid #EDE6D6;
-  padding: 24px;
+  padding: 20px 16px;
   box-shadow: var(--pop-shadow);
   margin-bottom: 18px;
+  overflow: hidden; /* sticky アクションバーの角丸を保つ */
 }
 
 /* ===== STEP タイトル（手書き風＋シールっぽい番号バッジ） ===== */
@@ -379,13 +381,11 @@ body {
 .origin-story:empty { display: none; }
 
 /* ===== スポット一覧 ===== */
+/* 単一カラム化に伴い常に縦積み（Phase C で地図主役に再設計予定） */
 .spots-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 16px;
-}
-@media (max-width: 640px) {
-  .spots-layout { grid-template-columns: 1fr; }
 }
 
 .spots-list { overflow-y: auto; max-height: 400px; display: flex; flex-direction: column; gap: 8px; }
@@ -1579,7 +1579,7 @@ body {
  * （html2canvas は windowWidth:1400 でクローンを描画するため
  *   このメディアクエリ自体もPDFには適用されない。二重に安全）。
  * ============================================================ */
-@media (max-width: 768px) {
+/* ※単一カラム化（Instagram型）に伴い全幅で常時適用（旧: max-width 768px） */
   /* 「机の上の紙」演出をやめてフラットな編集画面にする */
   .report-editor {
     background: transparent;
@@ -1743,7 +1743,6 @@ body {
   /* 都市タブを横スクロール風に */
   .city-tabs { gap: 4px; }
   .city-tab { padding: 8px 12px; font-size: 13px; }
-}
 
 /* ===== ローディング ===== */
 .loading {
@@ -2153,3 +2152,140 @@ body.ar-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .guide-char, .wizard-guide { animation: none !important; }
 }
+
+/* ============================================================
+ * 冒険型シェル（Phase A / docs/ui-redesign-concept.md）
+ * ============================================================ */
+
+/* --- 進捗トレイル（すごろく・上部固定） --- */
+.trail {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 8px 6px;
+  background: rgba(229, 244, 255, 0.93);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 2px solid rgba(86, 182, 232, 0.25);
+}
+.trail.hidden { display: none; }
+.trail-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 46px;
+}
+.trail-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #CFE8F7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  filter: grayscale(0.7);
+  opacity: 0.65;
+  transition: all 0.25s ease;
+}
+.trail-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: #5b7f95;
+  letter-spacing: 0.02em;
+}
+.trail-node.done .trail-dot {
+  background: #E2F5E9;
+  border-color: var(--green-mid);
+  filter: none;
+  opacity: 1;
+}
+.trail-node.current .trail-dot {
+  width: 42px;
+  height: 42px;
+  font-size: 21px;
+  background: #FFF6DC;
+  border: 3px solid var(--sun);
+  filter: none;
+  opacity: 1;
+  box-shadow: 0 2px 10px rgba(255, 190, 0, 0.4);
+  animation: g-pop 0.35s ease-out;
+}
+.trail-node.current .trail-label { color: #b07f00; }
+.trail-link {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  background: #CFE8F7;
+  margin-top: 16px;
+  flex-shrink: 0;
+}
+
+/* --- キャラ吹き出し（見出しと説明文の代替。画面ごとに進行役が交代） --- */
+.speech-bubble-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.speech-face {
+  width: 66px;
+  height: 66px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.18));
+}
+.speech-bubble {
+  position: relative;
+  flex: 1;
+  background: #fff;
+  border: 2.5px solid var(--sky-deep);
+  border-radius: 16px 16px 16px 4px;
+  padding: 10px 14px;
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  color: #1c5e7e;
+  letter-spacing: 0.03em;
+}
+.speech-pop { animation: g-pop 0.35s ease-out; }
+/* 吹き出しがある画面では旧タイトルとメインガイド（役割が重複）を隠す */
+.card.has-speech .step-title { display: none; }
+.card.has-speech .guide-layer .g-tr { display: none; }
+
+/* --- 下部固定CTA（sticky：スクロールしても親指ゾーンに常駐） --- */
+.step.active .step-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  flex-direction: row;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  margin: 16px -16px -20px;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  border-top: 2px solid #EDE6D6;
+}
+.step.active .step-actions .btn-primary { flex: 1; }
+.step.active .step-actions .btn-secondary { flex: 0 0 auto; width: auto; }
+.step.active .step-actions > div {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+}
+.step.active .step-actions > div .btn-primary { flex: 2; }
+/* レポート画面の3ボタングリッドは維持しつつバー内に収める */
+.step.active .step-actions-report .report-action-group {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.step.active .step-actions-report .report-action-group #report-pdf-btn { grid-column: 1 / -1; width: 100%; }

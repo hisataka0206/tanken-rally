@@ -1,19 +1,20 @@
-import { CONFIG } from '../config.js?v=102';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=102';
-import { fetchOriginStory } from './utils/ai.js?v=102';
-import { generateMapPdf } from './utils/pdf.js?v=102';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=102';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=102';
-import { CITIES, localizeStationName } from './data/cities.js?v=102';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=102';
-import { addReport as addIssueReport } from './utils/issues.js?v=102';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=102';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=102';
-import { FEATURES } from './config-features.js?v=102';
-import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=102';
-import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=102';
-import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=102';
-import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=102';
+import { CONFIG } from '../config.js?v=103';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=103';
+import { fetchOriginStory } from './utils/ai.js?v=103';
+import { generateMapPdf } from './utils/pdf.js?v=103';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=103';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=103';
+import { CITIES, localizeStationName } from './data/cities.js?v=103';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=103';
+import { addReport as addIssueReport } from './utils/issues.js?v=103';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=103';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=103';
+import { FEATURES } from './config-features.js?v=103';
+import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=103';
+import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=103';
+import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=103';
+import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=103';
+import { initShell, updateShell } from './utils/shell.js?v=103';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -758,7 +759,10 @@ function showStep(stepId) {
     }
     el.style.display = ''; // 過去のインラインstyle残骸をクリア
     // ガイドキャラの受け皿をマウント（素材が無い間は自動非表示）
-    if (id === stepId) mountGuides(stepId);
+    if (id === stepId) {
+      mountGuides(stepId);
+      updateShell(stepId); // 進捗トレイル + キャラ吹き出し
+    }
   });
 }
 
@@ -2906,6 +2910,7 @@ if (versionEl) {
 }
 console.info(`[tanken-rally] v${APP_VERSION} (${RELEASE_LABEL}) — lang=${LANG}`);
 
+initShell(); // 進捗トレイル構築（showStep 前に必要）
 initCityTabs();
 // デフォルト: 名古屋タブ + 桜通線を選択（プロジェクトの主要利用エリア）
 selectCity('nagoya', { defaultLineName: '名古屋市営地下鉄 桜通線' });

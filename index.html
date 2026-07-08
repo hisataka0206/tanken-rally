@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=43" />
+  <link rel="stylesheet" href="src/style.css?v=44" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -41,6 +41,9 @@
       <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
       <button id="zukan-btn" class="zukan-btn" type="button" data-i18n-title="btnZukan" title="キャラずかん">📖</button>
     </header>
+
+    <!-- 冒険の進捗トレイル（すごろく型・shell.js が構築/更新） -->
+    <nav id="trail" class="trail" aria-label="progress"></nav>
 
     <!-- STEP 1: 駅名入力 -->
     <section id="step-station" class="step active">
@@ -473,6 +476,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=102"></script>
+  <script type="module" src="src/main.js?v=103"></script>
 </body>
 </html>

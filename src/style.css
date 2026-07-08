@@ -27,6 +27,7 @@ body {
   background-attachment: fixed;
   color: var(--text);
   min-height: 100vh;
+  overflow-x: hidden; /* 縁またぎキャラが右にはみ出しても横スクロールさせない */
 }
 
 /* ===== ヘッダー（空×雲） ===== */
@@ -75,7 +76,9 @@ body {
   padding: 20px 16px;
   box-shadow: var(--pop-shadow);
   margin-bottom: 18px;
-  overflow: hidden; /* sticky アクションバーの角丸を保つ */
+  /* overflow は visible にする（hidden だと縁またぎのガイドキャラが切れる）。
+     sticky バーの角丸はバー自身の border-radius で処理 */
+  overflow: visible;
 }
 
 /* ===== STEP タイトル（手書き風＋シールっぽい番号バッジ） ===== */
@@ -2107,8 +2110,10 @@ body.ar-open { overflow: hidden; }
   filter: drop-shadow(0 2px 5px rgba(0,0,0,0.18));
 }
 .photo-wizard-card { position: relative; }
-/* ガイドと重ならないよう、タイトル・ヒントの右側に余白を確保 */
-.photo-wizard-title, .photo-wizard-hint { padding-right: 100px; text-align: left; }
+/* ガイドと重ならないよう、タイトルの右側だけ余白を確保。
+   ヒント文はガイドの下から全幅を使う（極端な折返しを防ぐ） */
+.photo-wizard-title { padding-right: 92px; text-align: left; font-size: 20px; }
+.photo-wizard-hint { text-align: left; }
 .wizard-guide-fade { animation: g-pop 0.4s ease-out; }
 
 /* 画面6: レポートPDF装飾（編集画面ではうっすら予告、PDF出力時に本表示） */
@@ -2124,28 +2129,33 @@ body.ar-open { overflow: hidden; }
 .rg-zoomy { top: -10px;  right: 0;    height: 58px; }     /* 見出し横でレンズ拡大 */
 .rg-taffy { top: -12px;  right: -8px; height: 50px; }     /* 写真グループの角に額縁ふう */
 
-/* 画面7: スコアモーダル */
+/* 画面7: スコアモーダル
+   キャラはタイトル・点数の「上に被せない」配置に変更（文字被り/巨大化対策） */
 #score-modal .modal-content { position: relative; }
-/* ZOOMY（タイトル左）のぶんタイトルに余白を確保して文字被りを防ぐ */
-#score-modal #score-modal-title { padding-left: 72px; min-height: 56px; display: flex; align-items: center; }
-.score-total-wrap { position: relative; display: inline-block; width: 100%; margin-top: 40px; } /* 上のNUTTY着地スペース */
-.g-score-zoomy { top: 6px; left: 8px; height: 60px; }
-.g-score-nutty { top: -42px; left: 50%; transform: translateX(-50%); height: 48px; animation: g-drop 0.5s ease-out; }
-.g-score-taffy { top: -16px; right: 2%; height: 78px; animation: g-spin-in 0.7s ease-out; }
+#score-modal #score-modal-title { padding-right: 60px; } /* 右上のZOOMYぶん */
+.score-total-wrap { position: relative; display: inline-block; width: 100%; margin-top: 46px; } /* 上のNUTTY着地スペース */
+.g-score-zoomy { top: 8px; right: 10px; left: auto; height: 48px; }
+.g-score-nutty { top: -44px; left: 50%; transform: translateX(-50%); height: 44px; max-height: 44px; width: auto; animation: g-drop 0.5s ease-out; }
+.g-score-taffy { top: -10px; right: 0; height: 64px; max-height: 64px; animation: g-spin-in 0.7s ease-out; }
 @keyframes g-drop    { from { transform: translate(-50%, -24px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 @keyframes g-spin-in { from { transform: rotate(-360deg) scale(0.3); opacity: 0; } to { transform: rotate(0) scale(1); opacity: 1; } }
+
+/* レポート画面の「スヤスヤNUTTY」はカード内に全身を収める（切れて見えないように） */
+#step-report .g-bl { bottom: 10px; left: 10px; }
 
 /* モバイル: 3体とも表示するが、小さくして縁またぎ配置で文字と重ねない */
 @media (max-width: 768px) {
   .g-tr      { height: 64px; top: -12px; right: 6px; }
-  .g-mr      { height: 52px; right: -14px; }
+  .g-mr      { height: 52px; right: -10px; }
   .g-bl      { height: 56px; bottom: -12px; left: 8px; }
+  #step-report .g-bl { bottom: 8px; left: 8px; }
   .g-br-peek { height: 60px; bottom: -10px; right: -6px; }
   .card:has(.guide-layer) .step-title { padding-right: 78px; }
-  .wizard-guide { height: 72px; }
-  .photo-wizard-title, .photo-wizard-hint { padding-right: 78px; }
-  .g-score-taffy { height: 60px; }
-  #score-modal #score-modal-title { padding-left: 60px; min-height: 48px; }
+  .wizard-guide { height: 64px; }
+  .photo-wizard-title { padding-right: 70px; font-size: 18px; }
+  /* 撮る/えらぶボタンは縦積みで全幅に（2列だと文字が折れて不格好） */
+  .photo-wizard-card .photo-upload-row { flex-direction: column; }
+  .g-score-taffy { height: 56px; }
 }
 
 /* アニメーションを好まない設定を尊重 */
@@ -2366,6 +2376,7 @@ body.ar-open { overflow: hidden; }
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  padding-right: 28px; /* 右上のゴミ箱ボタンと重ならないように */
 }
 #step-spots .spot-desc {
   display: -webkit-box;
@@ -2384,9 +2395,17 @@ body.ar-open { overflow: hidden; }
   min-height: 22px;
   margin-top: -2px;
   text-align: center;
+  max-width: 100%;
 }
 #step-spots .route-preview-row:empty { display: none; }
-#step-spots .route-preview { margin-right: 0; }
+/* 長文（子ども歩速の注釈つき）でも横にはみ出さないよう折返す */
+#step-spots .route-preview {
+  margin-right: 0;
+  white-space: normal;
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 100%;
+}
 /* 地名の由来は読み物としてページ最下部（CTAの手前）へ */
 #step-spots #origin-story { order: 3; margin-bottom: 0; margin-top: 6px; }
 #step-spots .step-actions { order: 4; }
@@ -2427,6 +2446,7 @@ body.ar-open { overflow: hidden; }
   bottom: 0;
   z-index: 40;
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
@@ -2434,20 +2454,29 @@ body.ar-open { overflow: hidden; }
   margin: 16px -16px -20px;
   padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
   border-top: 2px solid #EDE6D6;
+  border-radius: 0 0 18px 18px; /* カードの角丸に合わせる（card は overflow visible のため自前で丸める） */
 }
+/* バー内のボタンは折返し許可（文字切れ・はみ出し防止） */
+.step.active .step-actions button { white-space: normal; line-height: 1.35; }
 .step.active .step-actions .btn-primary { flex: 1; }
 .step.active .step-actions .btn-secondary { flex: 0 0 auto; width: auto; }
+/* ボタンが3つ以上のグループ（STEP3など）: 副ボタンを1行に並べ、主ボタンは全幅の最下段へ */
 .step.active .step-actions > div {
-  flex: 1;
+  flex: 1 1 100%;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
-.step.active .step-actions > div .btn-primary { flex: 2; }
-/* レポート画面の3ボタングリッドは維持しつつバー内に収める */
+.step.active .step-actions > div .btn-secondary { flex: 1 1 40%; }
+.step.active .step-actions > div .btn-primary { flex: 1 1 100%; order: 9; }
+/* レポート画面: 保存/スコアを上段2分割・PDFを全幅・戻るは最下段全幅 */
+.step.active .step-actions-report { flex-wrap: wrap; }
 .step.active .step-actions-report .report-action-group {
-  flex: 1;
+  flex: 1 1 100%;
+  order: -1;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 .step.active .step-actions-report .report-action-group #report-pdf-btn { grid-column: 1 / -1; width: 100%; }
+.step.active .step-actions-report > .btn-secondary { flex: 1 1 100%; }

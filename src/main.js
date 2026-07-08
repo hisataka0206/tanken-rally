@@ -1,20 +1,20 @@
-import { CONFIG } from '../config.js?v=104';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=104';
-import { fetchOriginStory } from './utils/ai.js?v=104';
-import { generateMapPdf } from './utils/pdf.js?v=104';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=104';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=104';
-import { CITIES, localizeStationName } from './data/cities.js?v=104';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=104';
-import { addReport as addIssueReport } from './utils/issues.js?v=104';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=104';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=104';
-import { FEATURES } from './config-features.js?v=104';
-import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=104';
-import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=104';
-import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=104';
-import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=104';
-import { initShell, updateShell } from './utils/shell.js?v=104';
+import { CONFIG } from '../config.js?v=105';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=105';
+import { fetchOriginStory } from './utils/ai.js?v=105';
+import { generateMapPdf } from './utils/pdf.js?v=105';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=105';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=105';
+import { CITIES, localizeStationName } from './data/cities.js?v=105';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=105';
+import { addReport as addIssueReport } from './utils/issues.js?v=105';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=105';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=105';
+import { FEATURES } from './config-features.js?v=105';
+import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=105';
+import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=105';
+import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=105';
+import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=105';
+import { initShell, updateShell } from './utils/shell.js?v=105';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1049,11 +1049,11 @@ function renderSpotsList(map) {
     card.addEventListener('click', () => toggleSpot(spot, card, _spotMarkers));
     list.appendChild(card);
 
-    // マーカークリックでカードをハイライト
+    // マーカータップ = そのスポットを選択/解除（Phase C: 地図主役化）
+    // 該当カードへ横スクロールして視覚フィードバックも添える
     marker.addListener('click', () => {
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      card.style.outline = '3px solid #004029';
-      setTimeout(() => { card.style.outline = ''; }, 1500);
+      toggleSpot(spot, card, _spotMarkers);
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     });
   });
 

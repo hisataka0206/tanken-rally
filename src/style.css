@@ -2313,6 +2313,99 @@ body.ar-open { overflow: hidden; }
   margin: 0;
 }
 
+/* --- Phase C: STEP2 地図主役レイアウト --- */
+/* カードを flex 化して「吹き出し → カテゴリ → 地図 → スポット横スワイプ → 由来 → CTA」の順に */
+#step-spots .card { display: flex; flex-direction: column; }
+#step-spots .speech-bubble-row { order: 0; }
+#step-spots #category-filter {
+  order: 1;
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 6px;
+  margin: 0 -16px 10px;
+  padding: 8px 16px;
+  background: transparent;
+  border-radius: 0;
+  scrollbar-width: none;
+}
+#step-spots #category-filter::-webkit-scrollbar { display: none; }
+#step-spots .category-filter-label { display: none; }  /* セリフが説明を担うので省く */
+#step-spots .cat-chip { flex: 0 0 auto; white-space: nowrap; }
+#step-spots .spots-layout { order: 2; display: flex; flex-direction: column; gap: 10px; }
+/* 地図が主役: 画面の約4割 + カード幅いっぱいにブリード */
+#step-spots #map {
+  order: 0;
+  height: 42vh;
+  min-height: 260px;
+  margin: 0 -8px;
+}
+/* スポットは下の横スワイプカード（スナップ付き） */
+#step-spots #spots-list {
+  order: 1;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-height: none;
+  margin: 0 -16px;
+  padding: 6px 16px 10px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+#step-spots #spots-list::-webkit-scrollbar { display: none; }
+#step-spots .spot-card {
+  flex: 0 0 auto;
+  width: min(76vw, 300px);
+  scroll-snap-align: center;
+  align-items: flex-start;
+}
+#step-spots .spot-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#step-spots .spot-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#step-spots #origin-story { order: 3; margin-bottom: 0; margin-top: 4px; }
+#step-spots .step-actions { order: 4; }
+
+/* --- Phase C: STEP3 地図優先 + 統計ピル --- */
+#step-route .card { display: flex; flex-direction: column; }
+#step-route .speech-bubble-row { order: 0; }
+#step-route #route-map {
+  order: 1;
+  height: 46vh;
+  min-height: 280px;
+  margin: 0 -8px;
+}
+#step-route #route-info { order: 2; margin: 10px 0 4px; }
+#step-route .route-stats {
+  background: transparent;
+  padding: 0;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+#step-route .route-stats > div {
+  background: #fff;
+  border: 2px solid #EDE6D6;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  box-shadow: 0 2px 6px rgba(86, 182, 232, 0.12);
+  white-space: nowrap;
+}
+#step-route .route-stats strong { font-size: 15px; }
+#step-route #route-spots { order: 3; margin-top: 8px; }
+#step-route .step-actions { order: 4; }
+
 /* --- 下部固定CTA（sticky：スクロールしても親指ゾーンに常駐） --- */
 .step.active .step-actions {
   position: sticky;

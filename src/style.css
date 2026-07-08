@@ -2373,7 +2373,22 @@ body.ar-open { overflow: hidden; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-#step-spots #origin-story { order: 3; margin-bottom: 0; margin-top: 4px; }
+/* 距離プレビュー: スポットカードの直下に密着させ、選択→結果の距離を最短に */
+#step-spots .route-preview-row {
+  order: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 10px;
+  min-height: 22px;
+  margin-top: -2px;
+  text-align: center;
+}
+#step-spots .route-preview-row:empty { display: none; }
+#step-spots .route-preview { margin-right: 0; }
+/* 地名の由来は読み物としてページ最下部（CTAの手前）へ */
+#step-spots #origin-story { order: 3; margin-bottom: 0; margin-top: 6px; }
 #step-spots .step-actions { order: 4; }
 
 /* --- Phase C: STEP3 地図優先 + 統計ピル --- */

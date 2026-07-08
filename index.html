@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=46" />
+  <link rel="stylesheet" href="src/style.css?v=47" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -152,11 +152,14 @@
         <div class="spots-layout">
           <div id="spots-list" class="spots-list"></div>
           <div id="map" class="map-container"></div>
+          <!-- 距離プレビューはカードの直下（選択の結果がすぐ見える位置） -->
+          <div class="route-preview-row">
+            <span id="route-btn-hint" class="route-btn-hint"></span>
+            <span id="route-preview" class="route-preview"></span>
+          </div>
         </div>
         <div class="step-actions">
           <button id="back-to-station" class="btn-secondary" data-i18n="btnBackStation">← 駅を変える</button>
-          <span id="route-btn-hint" class="route-btn-hint"></span>
-          <span id="route-preview" class="route-preview"></span>
           <button id="make-route-btn" class="btn-primary" disabled data-i18n="btnMakeRoute">ルートをつくる →</button>
         </div>
       </div>

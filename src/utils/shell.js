@@ -8,7 +8,7 @@
 // ロジック（main.js）には手を入れず、showStep() から updateShell(stepId) を
 // 呼んでもらうだけで動く付け足し型の設計。
 
-import { t } from './i18n.js?v=103';
+import { t } from './i18n.js?v=104';
 
 const CHAR_BASE = 'src/assets/characters/';
 const GUIDE_BASE = 'src/assets/characters/guide/';

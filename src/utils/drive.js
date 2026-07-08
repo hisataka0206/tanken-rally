@@ -156,6 +156,21 @@ export class DriveClient {
     if (!data.ok) throw new Error(data.error);
     return data.ranking;
   }
+
+  /** スポット検索キャッシュを取得。戻り値: { hit, spots?, updatedAt?, ageDays? }
+   *  （Places API 課金削減のため、駅ごとの検索結果を Sheets に保存して再利用する） */
+  async getSpotsCache(key) {
+    const data = await this._post({ action: 'getSpotsCache', key });
+    if (!data.ok) throw new Error(data.error);
+    return data;
+  }
+
+  /** スポット検索キャッシュを保存（fire-and-forget 推奨） */
+  async saveSpotsCache({ key, stationName, lang, spots }) {
+    const data = await this._post({ action: 'saveSpotsCache', key, stationName, lang, spots });
+    if (!data.ok) throw new Error(data.error);
+    return data;
+  }
 }
 
 // ===== ユーティリティ =====

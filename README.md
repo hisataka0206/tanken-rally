@@ -97,6 +97,8 @@ GAS が提供する API（POST `action`）：
 | `getRanking`    | スコアを Sheets から取得 |
 | `saveCaptures`  | ARキャラ捕獲記録を Sheets「captures」タブにマージ保存（図鑑用） |
 | `getCaptures`   | 端末ローカルID（explorerId）の図鑑コレクションを取得 |
+| `getSpotsCache` | 駅単位のスポット検索キャッシュを取得（Sheets「spots_cache」タブ、TTL 1年。Places API 課金削減） |
+| `saveSpotsCache`| スポット検索結果をキャッシュに upsert 保存 |
 
 ## PoC の対象機能
 

@@ -2259,6 +2259,60 @@ body.ar-open { overflow: hidden; }
 .card.has-speech .step-title { display: none; }
 .card.has-speech .guide-layer .g-tr { display: none; }
 
+/* --- 段階タップ式ピッカー（Phase B: STEP1のselect代替） --- */
+.selector-row-hidden { display: none !important; }
+.picker-stage { margin-bottom: 14px; }
+.picker-label {
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 15px;
+  color: var(--green-dark);
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+}
+.chip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+.chip-grid-scroll {
+  max-height: 264px;
+  overflow-y: auto;
+  padding: 2px;
+  border-radius: 12px;
+}
+.pick-chip {
+  padding: 12px 6px;
+  min-height: 46px;               /* タップしやすい高さ */
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: #4a5a55;
+  cursor: pointer;
+  transition: transform .08s, border-color .15s, background .15s;
+  line-height: 1.3;
+  word-break: keep-all;
+}
+.pick-chip:active { transform: scale(0.96); }
+.pick-chip.active {
+  background: var(--sky-deep);
+  border-color: var(--sky-deep);
+  color: #fff;
+  box-shadow: 0 3px 0 #3391c4;
+}
+.pick-chip-station { font-size: 13px; padding: 10px 4px; min-height: 44px; }
+.chip-hint {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--sky);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0;
+}
+
 /* --- 下部固定CTA（sticky：スクロールしても親指ゾーンに常駐） --- */
 .step.active .step-actions {
   position: sticky;

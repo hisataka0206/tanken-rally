@@ -3,6 +3,6 @@
 //   - メジャー: 大きな機能追加・破壊的変更
 //   - マイナー: 機能追加（後方互換）
 //   - パッチ: バグ修正
-export const APP_VERSION = '1.1.0';
-export const RELEASE_DATE = '2026-07-07';
+export const APP_VERSION = '1.2.0';
+export const RELEASE_DATE = '2026-07-08';
 export const RELEASE_LABEL = 'リリース版';

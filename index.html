@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=44" />
+  <link rel="stylesheet" href="src/style.css?v=45" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -75,18 +75,30 @@
 
         <!-- 都市選択 → 路線/駅セレクタ -->
         <div id="city-selector" class="city-selector hidden">
-          <div class="selector-row">
+          <!-- 旧selectはチップUIの状態保持用として温存（非表示・ロジック互換のため） -->
+          <div class="selector-row selector-row-hidden">
             <label data-i18n="labelLine">路線</label>
             <select id="line-select">
               <option value="" data-i18n="optLineEmpty">── 路線をえらんでね ──</option>
             </select>
           </div>
-          <div class="selector-row">
+          <div class="selector-row selector-row-hidden">
             <label data-i18n="labelStation">駅</label>
             <select id="station-select" disabled>
               <option value="" data-i18n="optStationEmpty">── 先に路線をえらんでね ──</option>
             </select>
           </div>
+
+          <!-- 段階タップ式ピッカー（Phase B: selectの代替UI） -->
+          <div class="picker-stage">
+            <div class="picker-label" data-i18n="pickerLine">🚃 ろせんをえらぶ</div>
+            <div id="line-chips" class="chip-grid"></div>
+          </div>
+          <div class="picker-stage">
+            <div class="picker-label" data-i18n="pickerStation">🚉 えきをえらぶ</div>
+            <div id="station-chips" class="chip-grid chip-grid-scroll"></div>
+          </div>
+
           <div class="step-actions">
             <button id="search-by-select-btn" class="btn-primary" disabled data-i18n="btnSearchSelect">この駅でさがす →</button>
           </div>
@@ -476,6 +488,6 @@
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=103"></script>
+  <script type="module" src="src/main.js?v=104"></script>
 </body>
 </html>

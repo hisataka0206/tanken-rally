@@ -1,20 +1,20 @@
-import { CONFIG } from '../config.js?v=103';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=103';
-import { fetchOriginStory } from './utils/ai.js?v=103';
-import { generateMapPdf } from './utils/pdf.js?v=103';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=103';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=103';
-import { CITIES, localizeStationName } from './data/cities.js?v=103';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=103';
-import { addReport as addIssueReport } from './utils/issues.js?v=103';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=103';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=103';
-import { FEATURES } from './config-features.js?v=103';
-import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=103';
-import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=103';
-import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=103';
-import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=103';
-import { initShell, updateShell } from './utils/shell.js?v=103';
+import { CONFIG } from '../config.js?v=104';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=104';
+import { fetchOriginStory } from './utils/ai.js?v=104';
+import { generateMapPdf } from './utils/pdf.js?v=104';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=104';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=104';
+import { CITIES, localizeStationName } from './data/cities.js?v=104';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=104';
+import { addReport as addIssueReport } from './utils/issues.js?v=104';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=104';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=104';
+import { FEATURES } from './config-features.js?v=104';
+import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=104';
+import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=104';
+import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=104';
+import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=104';
+import { initShell, updateShell } from './utils/shell.js?v=104';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -677,6 +677,8 @@ function selectCity(cityId, opts = {}) {
     if (idx === '') {
       stationSel.disabled = true;
       $('search-by-select-btn').disabled = true;
+      renderStationChips(null);
+      syncChipActive('line-chips', '');
       return;
     }
     const line = city.lines[Number(idx)];
@@ -688,10 +690,17 @@ function selectCity(cityId, opts = {}) {
     });
     stationSel.disabled = false;
     $('search-by-select-btn').disabled = true;
+    // チップUIを路線選択済み状態に同期
+    syncChipActive('line-chips', idx);
+    renderStationChips(line);
   };
   stationSel.onchange = () => {
     $('search-by-select-btn').disabled = !stationSel.value;
+    syncChipActive('station-chips', stationSel.value);
   };
+
+  // チップUI（selectの代替。クリックで select を操作しロジック互換を保つ）
+  renderLineChips(city);
 
   // デフォルト路線を選択する（指定がある場合）
   if (opts.defaultLineName) {
@@ -701,6 +710,63 @@ function selectCity(cityId, opts = {}) {
       lineSel.dispatchEvent(new Event('change'));
     }
   }
+}
+
+// ===== STEP1: 段階タップ式ピッカー（Phase B） =====
+// select は状態保持用に温存し、チップのタップで select の値を書き換えて
+// change イベントを発火する。検索ロジック（onSearchBySelect）は無変更で動く。
+function renderLineChips(city) {
+  const wrap = $('line-chips');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  city.lines.forEach((line, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pick-chip';
+    b.dataset.value = String(i);
+    b.textContent = locName(line);
+    b.addEventListener('click', () => {
+      const lineSel = $('line-select');
+      lineSel.value = String(i);
+      lineSel.dispatchEvent(new Event('change'));
+    });
+    wrap.appendChild(b);
+  });
+  syncChipActive('line-chips', $('line-select').value);
+  // 駅チップは路線未選択のヒント表示に戻す
+  if ($('line-select').value === '') renderStationChips(null);
+}
+
+function renderStationChips(line) {
+  const wrap = $('station-chips');
+  if (!wrap) return;
+  if (!line) {
+    wrap.innerHTML = `<p class="chip-hint">${escapeHtml(t('optStationEmpty'))}</p>`;
+    return;
+  }
+  wrap.innerHTML = '';
+  line.stations.forEach(name => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pick-chip pick-chip-station';
+    b.dataset.value = name;
+    b.textContent = localizeStationName(name, LANG);
+    b.addEventListener('click', () => {
+      const sSel = $('station-select');
+      sSel.value = name;
+      sSel.dispatchEvent(new Event('change'));
+      // 選んだ駅が見えるように少しスクロール（次のCTAへ視線誘導）
+      b.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+    wrap.appendChild(b);
+  });
+  syncChipActive('station-chips', $('station-select').value);
+}
+
+function syncChipActive(wrapId, value) {
+  document.querySelectorAll(`#${wrapId} .pick-chip`).forEach(c => {
+    c.classList.toggle('active', c.dataset.value === String(value));
+  });
 }
 
 // 詳細絞り込みフォームから営業時間フィルタの値を取得
@@ -813,7 +879,37 @@ async function onSearchStation(context) {
     // （map 要素を innerHTML で書き換えるため、Places の検索が終わるまで地図描画は待つ）
     const placesScratch = document.createElement('div');
     const placesService = new google.maps.places.PlacesService(placesScratch);
-    const spots = await searchNearbySpotsWith(placesService, state.stationLocation);
+
+    // ===== スポット検索キャッシュ（GAS/Sheets DB） =====
+    // Places API（Nearby ×14 + Text ×1 ≒ ¥70/検索）がコストの支配項のため、
+    // 既知の駅は Sheets 上のキャッシュ（TTL 1年・GAS側で判定）を再利用する。
+    // キー: スキーマ版 | APIレスポンス言語 | 駅座標（小数4桁 ≒ 11m 粒度）
+    // maps.js の検索キーワード構成を変えたら SPOTS_CACHE_SCHEMA を上げること。
+    const SPOTS_CACHE_SCHEMA = 'v1';
+    const sll = toLL(state.stationLocation);
+    const spotsCacheKey = `${SPOTS_CACHE_SCHEMA}|${apiLang()}|${sll.lat.toFixed(4)},${sll.lng.toFixed(4)}`;
+
+    let spots = null;
+    if (drive) {
+      try {
+        const cached = await drive.getSpotsCache(spotsCacheKey);
+        if (cached.hit && Array.isArray(cached.spots) && cached.spots.length) {
+          spots = cached.spots;
+          console.info(`[spots-cache] HIT ${spotsCacheKey} (${cached.spots.length}件, ${cached.ageDays}日前) — Places API 呼び出しをスキップ`);
+        }
+      } catch (e) {
+        console.warn('[spots-cache] 読み込み失敗（通常検索にフォールバック）:', e);
+      }
+    }
+    if (!spots) {
+      spots = await searchNearbySpotsWith(placesService, state.stationLocation);
+      // 検索成功時のみ保存（fire-and-forget。失敗してもゲーム進行に影響させない）
+      if (drive && spots.length) {
+        drive.saveSpotsCache({ key: spotsCacheKey, stationName: name, lang: apiLang(), spots })
+          .then(() => console.info(`[spots-cache] SAVED ${spotsCacheKey} (${spots.length}件)`))
+          .catch(e => console.warn('[spots-cache] 保存失敗:', e));
+      }
+    }
     // 不適切スポット（学習塾・予備校等のキーワード or ユーザーが過去削除した場所）を除外
     let resultSpots = filterBlocked(spots);
 

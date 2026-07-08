@@ -90,6 +90,12 @@ function doPost(e) {
     if (action === 'getCaptures') {
       return respond(headers, getCaptures(body));
     }
+    if (action === 'getSpotsCache') {
+      return respond(headers, getSpotsCache(body));
+    }
+    if (action === 'saveSpotsCache') {
+      return respond(headers, saveSpotsCache(body));
+    }
 
     return respond(headers, { ok: false, error: 'unknown action' });
 
@@ -722,4 +728,92 @@ function getRanking(body) {
     .slice(0, limit || 50);
 
   return { ok: true, ranking: data };
+}
+
+// ===== スポット検索結果キャッシュ（Sheets DB） =====
+//
+// 目的: Places API（Nearby Search ×14 + Text Search ×1 ≒ $0.48/検索）が
+//       コストの支配項のため、駅ごとの検索結果を Sheets に保存して再利用する。
+// キー: フロントで生成（例: "v1|ja|35.1709,136.8815"）
+//       = スキーマ版 | 言語 | 駅座標（小数4桁 ≒ 11m 粒度）
+//       maps.js の検索キーワード構成を変えたらフロント側の SPOTS_CACHE_SCHEMA を上げること。
+// TTL: SPOTS_CACHE_TTL_DAYS（既定 365日）。期限切れは miss として返し、
+//      フロントが再検索 → saveSpotsCache で同じ行を上書きする。
+// 注意: Google Maps Platform 規約上、Places コンテンツのキャッシュは
+//       原則30日以内（place_id は無期限可）。1年キャッシュは規約リスクあり
+//       （docs/public-release-plan.md リスク#10 参照）。
+
+const SHEET_TAB_SPOTS_CACHE = 'spots_cache';
+const SHEET_HEADERS_SPOTS_CACHE = ['key', 'stationName', 'lang', 'updatedAt', 'spotCount', 'json'];
+const SPOTS_CACHE_TTL_DAYS = 365;
+const SPOTS_CACHE_MAX_JSON_CHARS = 45000; // Sheets セル上限 50,000 文字への安全マージン
+
+/** キャッシュ取得。body: { key }
+ *  戻り値: { ok, hit, updatedAt?, ageDays?, spots? } */
+function getSpotsCache(body) {
+  try {
+    const key = String(body.key || '');
+    if (!key) return { ok: false, error: 'key が必要です' };
+
+    const sheet = getLogSheet(SHEET_TAB_SPOTS_CACHE, SHEET_HEADERS_SPOTS_CACHE);
+    const rowNum = findSpotsCacheRow_(sheet, key);
+    if (!rowNum) return { ok: true, hit: false };
+
+    const row = sheet.getRange(rowNum, 1, 1, SHEET_HEADERS_SPOTS_CACHE.length).getValues()[0];
+    const updatedAt = String(row[3] || '');
+    const ageDays = (Date.now() - new Date(updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+    if (!updatedAt || isNaN(ageDays) || ageDays > SPOTS_CACHE_TTL_DAYS) {
+      return { ok: true, hit: false, stale: true, updatedAt };
+    }
+
+    let spots;
+    try {
+      spots = JSON.parse(String(row[5] || '[]'));
+    } catch (e) {
+      return { ok: true, hit: false, error: 'cache JSON 破損' };
+    }
+    if (!Array.isArray(spots) || !spots.length) return { ok: true, hit: false };
+
+    return { ok: true, hit: true, updatedAt, ageDays: Math.round(ageDays), spots };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** キャッシュ保存（upsert）。body: { key, stationName, lang, spots } */
+function saveSpotsCache(body) {
+  try {
+    const key = String(body.key || '');
+    const spots = body.spots;
+    if (!key) return { ok: false, error: 'key が必要です' };
+    if (!Array.isArray(spots) || !spots.length) return { ok: false, error: 'spots が空です' };
+
+    const json = JSON.stringify(spots);
+    if (json.length > SPOTS_CACHE_MAX_JSON_CHARS) {
+      return { ok: false, error: `spots JSON が大きすぎます (${json.length} chars)` };
+    }
+
+    const sheet = getLogSheet(SHEET_TAB_SPOTS_CACHE, SHEET_HEADERS_SPOTS_CACHE);
+    const now = new Date().toISOString();
+    const rowValues = [key, String(body.stationName || ''), String(body.lang || ''), now, spots.length, json];
+
+    const rowNum = findSpotsCacheRow_(sheet, key);
+    if (rowNum) {
+      sheet.getRange(rowNum, 1, 1, rowValues.length).setValues([rowValues]);
+    } else {
+      sheet.appendRow(rowValues);
+    }
+    return { ok: true, savedAt: now, spotCount: spots.length };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** key 列（A列）から行番号を返す。なければ null */
+function findSpotsCacheRow_(sheet, key) {
+  const finder = sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 1), 1)
+    .createTextFinder(key)
+    .matchEntireCell(true);
+  const cell = finder.findNext();
+  return cell ? cell.getRow() : null;
 }

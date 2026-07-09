@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js?v=105';
 import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=105';
-import { fetchOriginStory } from './utils/ai.js?v=105';
+import { fetchOriginStory, tidyMemo } from './utils/ai.js?v=105';
 import { generateMapPdf } from './utils/pdf.js?v=105';
 import { DriveClient, generateSessionId } from './utils/drive.js?v=105';
 import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=105';
@@ -1956,8 +1956,18 @@ function calculateScore() {
   };
   const total = Object.values(_internalBreakdown).reduce((a, b) => a + b, 0);
 
+  // 「計画点」と「実行点」の2分割（合計は total と一致する）。
+  //   計画点 = どんな探検を計画したか（訪問スポット数 + 移動距離）
+  //   実行点 = 実際にどれだけ楽しんで動けたか（写真・タグ・コメント・時間・ペース・キャラ捕獲）
+  const planScore = _internalBreakdown.visit + _internalBreakdown.distance;
+  const execScore = _internalBreakdown.photo + _internalBreakdown.tagged
+    + _internalBreakdown.cmtNum + _internalBreakdown.cmtChar
+    + _internalBreakdown.within60 + _internalBreakdown.pace + _internalBreakdown.capture;
+
   return {
     total,
+    planScore,
+    execScore,
     // breakdown は内部計算のみで、UIへは渡さない（秘匿）
     visitCount,
     photoCount,
@@ -2043,6 +2053,12 @@ function openScoreModal() {
   const result = calculateScore();
   $('score-total').textContent = `${result.total}${t('suffPoints')}`;
   $('score-rank-label').textContent = scoreMoodLabel(result.total);
+
+  // 計画点 / 実行点 の内訳表示
+  const planEl = $('score-plan');
+  const execEl = $('score-exec');
+  if (planEl) planEl.textContent = `${result.planScore}${t('suffPoints')}`;
+  if (execEl) execEl.textContent = `${result.execScore}${t('suffPoints')}`;
 
   // 弱点アドバイス（FEATURES.showScoreAdvice が true のときだけ）
   const adviceEl = $('score-advice');
@@ -2172,6 +2188,7 @@ function serializeReportData(rd) {
     overview: rd.overview || '',
     afterword: rd.afterword || '',
     photoComments: rd.photoComments || {},
+    photoCommentsRaw: rd.photoCommentsRaw || {},
     excludedPhotoIds: Array.from(rd.excludedPhotoIds || []),
     // ARキャラの捕獲記録も report.json に相乗りさせて永続化する（P1実装）
     captures: (state.captures || []).map(c => ({ ...c })),
@@ -2186,6 +2203,7 @@ function deserializeReportData(obj) {
     overview: obj?.overview || '',
     afterword: obj?.afterword || '',
     photoComments: obj?.photoComments || {},
+    photoCommentsRaw: obj?.photoCommentsRaw || {},
     excludedPhotoIds: new Set(obj?.excludedPhotoIds || []),
   };
 }
@@ -2215,6 +2233,93 @@ async function onSaveReportToDrive() {
   }
 }
 
+// 「ひと言メモをすっきり整える」ボタン。
+// 写真ごとのひと言メモ（音声入力でつなぎ言葉が乗りやすい）を OpenAI で整形する。
+// 元テキストは photoCommentsRaw に退避し、いつでも「元に戻す」ができる。
+// 整形済み状態のときは、同じボタンが「元に戻す」として働く（トグル）。
+async function onTidyMemos() {
+  const btn = $('tidy-memos-btn');
+  if (!btn || btn.disabled) return;
+
+  const rd = state.reportData;
+  if (!rd.photoCommentsRaw) rd.photoCommentsRaw = {};
+
+  // すでに整形済み（退避テキストがある）→ 元に戻す
+  if (Object.keys(rd.photoCommentsRaw).length > 0) {
+    Object.entries(rd.photoCommentsRaw).forEach(([fileId, raw]) => {
+      rd.photoComments[fileId] = raw;
+    });
+    rd.photoCommentsRaw = {};
+    renderReportPhotos();
+    setTidyButtonState(false);
+    return;
+  }
+
+  // 整形対象＝表示中の写真のうち、中身のあるメモ
+  const visibleIds = new Set(
+    getPhotosInVisitOrder()
+      .filter(p => !rd.excludedPhotoIds.has(p.fileId))
+      .map(p => p.fileId)
+  );
+  const targets = Object.keys(rd.photoComments)
+    .filter(fileId => visibleIds.has(fileId))
+    .filter(fileId => (rd.photoComments[fileId] || '').trim().length > 0);
+
+  if (targets.length === 0) {
+    alert(t('tidyMemosNone'));
+    return;
+  }
+  if (!CONFIG.OPENAI_API_KEY || CONFIG.OPENAI_API_KEY === 'YOUR_OPENAI_API_KEY') {
+    alert(t('tidyMemosNoKey'));
+    return;
+  }
+  if (!confirm(t('tidyMemosConfirm'))) return;
+
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = t('tidyMemosRunning');
+
+  const raw = {};
+  let errorCount = 0;
+  // 並列で整形（写真は多くないので gpt-4o-mini の並列で十分速い）
+  await Promise.all(targets.map(async fileId => {
+    const before = rd.photoComments[fileId];
+    try {
+      const cleaned = await tidyMemo(before, CONFIG.OPENAI_API_KEY);
+      // 実際に変化があったメモだけ退避（元に戻す対象にする）
+      if (cleaned && cleaned !== before) {
+        raw[fileId] = before;
+        rd.photoComments[fileId] = cleaned;
+      }
+    } catch (e) {
+      console.warn('[tidy-memos] 整形失敗（元のメモを保持）:', fileId, e);
+      errorCount++;
+    }
+  }));
+
+  rd.photoCommentsRaw = raw;
+  renderReportPhotos();
+
+  const changed = Object.keys(raw).length;
+  if (changed > 0) {
+    setTidyButtonState(true);
+    alert(errorCount > 0 ? t('tidyMemosDonePartial') : t('tidyMemosDone'));
+  } else {
+    // 変化なし（すでにきれい / 全部失敗）
+    btn.disabled = false;
+    btn.textContent = original;
+    alert(errorCount > 0 ? t('tidyMemosError') : t('tidyMemosAlreadyClean'));
+  }
+}
+
+// 整形ボタンの見た目を「整形」⇄「元に戻す」で切り替える
+function setTidyButtonState(tidied) {
+  const btn = $('tidy-memos-btn');
+  if (!btn) return;
+  btn.disabled = false;
+  btn.textContent = tidied ? t('btnTidyMemosUndo') : t('btnTidyMemos');
+}
+
 // ===== STEP 5: レポート =====
 function onStartReport() {
   // メタ情報初期化（日付はシステム側で自動入力しない。ユーザーが date picker で入力）
@@ -2228,6 +2333,8 @@ function onStartReport() {
 
   renderReportPhotos();
   renderReportCharacters();
+  // 整形ボタンの状態を復元（保存セッションで整形済みなら「元に戻す」表示）
+  setTidyButtonState(Object.keys(state.reportData.photoCommentsRaw || {}).length > 0);
   showStep('step-report');
 
   // ステップ表示後（display:none が外れた後）に textarea の高さを再計算する。
@@ -2920,6 +3027,9 @@ $('tag-modal').addEventListener('click', e => {
 // STEP 5（レポート）
 $('back-to-photos').addEventListener('click', () => showStep('step-photos'));
 $('report-pdf-btn').addEventListener('click', onReportPdf);
+
+// ひと言メモを OpenAI で整形（無意味語の除去）
+$('tidy-memos-btn').addEventListener('click', onTidyMemos);
 
 // ノートを Drive に保存
 $('save-report-btn').addEventListener('click', onSaveReportToDrive);

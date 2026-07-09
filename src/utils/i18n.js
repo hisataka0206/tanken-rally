@@ -133,9 +133,22 @@ const TRANSLATIONS = {
     reportSecAfterword: '✏️ ノートを書いてみて',
     reportAfterwordPh: 'ノートを書いてみて、新しく気づいたことや、もっと知りたくなったことがあれば書こう',
     btnBackPhotos: '← 写真にもどる',
+    btnTidyMemos: '✨ メモをすっきり',
+    btnTidyMemosUndo: '↩️ メモを元に戻す',
     btnSaveReport: '💾 保存',
     btnSubmitScore: '🏆 スコア',
     btnReportPdf: '📄 PDF出力',
+
+    // ひと言メモ整形（OpenAIで無意味語を除去）
+    tidyMemosTitle: '写真のひと言メモを整える（音声入力のつなぎ言葉などをすっきり）',
+    tidyMemosRunning: '✨ 整えています…',
+    tidyMemosConfirm: '写真のひと言メモをOpenAIですっきり整えます。よろしいですか？（あとで元に戻せます）',
+    tidyMemosNone: '整えるひと言メモがまだありません。写真にコメントを書いてから使ってね。',
+    tidyMemosNoKey: 'OpenAIのAPIキーが設定されていないため、メモを整えられません。',
+    tidyMemosDone: 'ひと言メモをすっきり整えました✨（「↩️ メモを元に戻す」でいつでも戻せます）',
+    tidyMemosDonePartial: '一部のメモを整えました✨（うまくいかなかったものは元のままです）',
+    tidyMemosAlreadyClean: 'メモはすでにすっきりしていました。変更はありません。',
+    tidyMemosError: '整形中にエラーがありました。元のメモはそのままです。',
 
     // 写真タグモーダル
     tagModalTitle: '📍 タグをつける',
@@ -146,6 +159,9 @@ const TRANSLATIONS = {
 
     // スコア・ランキングモーダル
     scoreModalTitle: '🏆 たんけんスコア',
+    scorePlanLabel: '🗺 計画点',
+    scoreExecLabel: '🚶 実行点',
+    scoreSplitNote: '🗺 計画点＝どんな探検を計画したか（スポット数・距離） ／ 🚶 実行点＝実際にどれだけ楽しめたか（写真・コメント・ペース・キャラ捕獲など）',
     scoreNameLabel: '✏️ 名前（ニックネームでもOK）',
     scoreNamePh: '（探検者の名前）',
     scoreDesc: 'ランキングに登録すると、同じ地域で探検した他の人と点数を比べられます。',
@@ -441,9 +457,22 @@ const TRANSLATIONS = {
     reportSecAfterword: '✏️ Reflecting on writing this note',
     reportAfterwordPh: 'Did writing this note give you new ideas or things you want to look up?',
     btnBackPhotos: '← Back to photos',
+    btnTidyMemos: '✨ Tidy memos',
+    btnTidyMemosUndo: '↩️ Undo tidy',
     btnSaveReport: '💾 Save',
     btnSubmitScore: '🏆 Score',
     btnReportPdf: '📄 Export PDF',
+
+    // One-line memo tidy-up (remove filler words with OpenAI)
+    tidyMemosTitle: 'Tidy up the one-line photo memos (clean filler words from voice input)',
+    tidyMemosRunning: '✨ Tidying…',
+    tidyMemosConfirm: 'Tidy up your photo memos with OpenAI? (You can undo this later.)',
+    tidyMemosNone: 'No photo memos to tidy yet. Write a comment on a photo first.',
+    tidyMemosNoKey: 'OpenAI API key is not set, so memos cannot be tidied.',
+    tidyMemosDone: 'Memos tidied up ✨ (Use "↩️ Undo tidy" to restore anytime.)',
+    tidyMemosDonePartial: 'Some memos were tidied ✨ (the rest were kept as-is).',
+    tidyMemosAlreadyClean: 'The memos were already clean. Nothing changed.',
+    tidyMemosError: 'An error occurred while tidying. Your original memos are unchanged.',
 
     tagModalTitle: '📍 Add tag',
     tagModalDesc: 'Choose where this photo was taken (optional).',
@@ -452,6 +481,9 @@ const TRANSLATIONS = {
     btnSave: 'Save',
 
     scoreModalTitle: '🏆 Exploration score',
+    scorePlanLabel: '🗺 Plan pts',
+    scoreExecLabel: '🚶 Action pts',
+    scoreSplitNote: '🗺 Plan points = how you planned the trip (spots & distance) / 🚶 Action points = how much you actually did (photos, comments, pace, character catches, etc.)',
     scoreNameLabel: '✏️ Name (nickname OK)',
     scoreNamePh: '(explorer name)',
     scoreDesc: 'Submit to the ranking to compare your score with others in the same region.',
@@ -733,9 +765,22 @@ const TRANSLATIONS = {
     reportSecAfterword: '✏️ ノートを書（か）いてみて',
     reportAfterwordPh: 'ノートを書（か）いてみて、新（あたら）しく気（き）づいたことや、もっと知（し）りたくなったことがあれば書（か）こう',
     btnBackPhotos: '← 写真（しゃしん）にもどる',
+    btnTidyMemos: '✨ メモをすっきり',
+    btnTidyMemosUndo: '↩️ メモを元（もと）にもどす',
     btnSaveReport: '💾 保存（ほぞん）',
     btnSubmitScore: '🏆 スコア',
     btnReportPdf: '📄 PDFにだす',
+
+    // ひと言メモ整形（OpenAIで無意味語（むいみご）をけす）
+    tidyMemosTitle: '写真（しゃしん）のひと言（こと）メモを、すっきりさせる（音声（おんせい）にゅうりょくのつなぎ言葉（ことば）などをけす）',
+    tidyMemosRunning: '✨ ととのえています…',
+    tidyMemosConfirm: '写真（しゃしん）のひと言（こと）メモを、OpenAIですっきりさせます。いいですか？（あとで元（もと）にもどせます）',
+    tidyMemosNone: 'ととのえるひと言（こと）メモが、まだありません。写真（しゃしん）にコメントを書（か）いてから使（つか）ってね。',
+    tidyMemosNoKey: 'OpenAIのAPIキーがせっていされていないので、メモをととのえられません。',
+    tidyMemosDone: 'ひと言（こと）メモをすっきりさせました✨（「↩️ メモを元（もと）にもどす」でいつでももどせます）',
+    tidyMemosDonePartial: 'いくつかのメモをととのえました✨（うまくいかなかったものは、そのままです）',
+    tidyMemosAlreadyClean: 'メモはもうすっきりしていました。かわりはありません。',
+    tidyMemosError: 'ととのえるときにエラーがありました。元（もと）のメモは、そのままです。',
 
     tagModalTitle: '📍 タグをつける',
     tagModalDesc: 'この写真（しゃしん）をとった場所をえらんでね（任意（にんい））。',
@@ -744,6 +789,9 @@ const TRANSLATIONS = {
     btnSave: '保存（ほぞん）',
 
     scoreModalTitle: '🏆 たんけんスコア',
+    scorePlanLabel: '🗺 計画点（けいかくてん）',
+    scoreExecLabel: '🚶 実行点（じっこうてん）',
+    scoreSplitNote: '🗺 計画点（けいかくてん）＝どんなたんけんを計画（けいかく）したか（スポットの数（かず）・きょり） ／ 🚶 実行点（じっこうてん）＝じっさいにどれだけ楽（たの）しめたか（写真（しゃしん）・コメント・ペース・キャラつかまえ　など）',
     scoreNameLabel: '✏️ 名前（ニックネームでもOK）',
     scoreNamePh: '（探検（たんけん）する人の名前）',
     scoreDesc: 'ランキングに登録（とうろく）すると、同（おな）じ地域（ちいき）でたんけんした他（ほか）の人と点数（てんすう）をくらべられます。',

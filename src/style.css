@@ -853,6 +853,50 @@ body {
   margin: 0 0 16px;
   letter-spacing: 0.04em;
 }
+/* 計画点 / 実行点 の2分割表示 */
+.score-split {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 0 0 10px;
+}
+.score-split-item {
+  flex: 1 1 0;
+  max-width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  background: #f1f8e9;
+  border: 2px solid var(--border);
+}
+.score-split-plan { background: #e8f2fb; border-color: #b6d8f2; }
+.score-split-exec { background: #eafbea; border-color: #b6e2b6; }
+.score-split-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--green-dark);
+  letter-spacing: 0.02em;
+}
+.score-split-plan .score-split-label { color: #2f6ea5; }
+.score-split-val {
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 26px;
+  color: var(--green-dark);
+  letter-spacing: 0.03em;
+}
+.score-split-plan .score-split-val { color: #2f6ea5; }
+.score-split-note {
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #777;
+  margin: 0 0 14px;
+  padding: 0 6px;
+}
+
 .score-name-label {
   display: flex;
   flex-direction: column;

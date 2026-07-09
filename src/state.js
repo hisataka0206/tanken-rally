@@ -36,6 +36,7 @@ export const state = {
     overview: '',
     afterword: '',
     photoComments: {},          // { fileId: '感想' }
+    photoCommentsRaw: {},       // { fileId: '整形前の元メモ' } — 整形のやり直し用に保持
     excludedPhotoIds: new Set(),// レポートから除外する写真ID
   },
 };
@@ -61,6 +62,7 @@ export function resetSearchState() {
   state.reportData = {
     date: '', author: '', overview: '', afterword: '',
     photoComments: {},
+    photoCommentsRaw: {},
     excludedPhotoIds: new Set(),
   };
 }

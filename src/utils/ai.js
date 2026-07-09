@@ -79,3 +79,60 @@ export async function enrichSpotDescription(spotName, category, apiKey) {
   const data = await res.json();
   return data.choices[0].message.content.trim();
 }
+
+// 写真の「ひと言メモ」を OpenAI で整形する。
+// 主に音声入力（スマホの音声認識）で紛れ込む無意味語・言い淀み・言葉の繰り返しを
+// 取り除いて読みやすくする。子どもの語り口・語彙・素直な表現はできるだけ残し、
+// 内容を要約したり新しい情報を足したりはしない。
+//
+// - text が空/空白のみのときはそのまま返す（API を呼ばない）。
+// - apiKey 未設定のときは例外を投げる（呼び出し側で「元のまま」にフォールバック）。
+// - API エラー時も例外を投げる（呼び出し側で握りつぶして元テキストを保持する想定）。
+export async function tidyMemo(text, apiKey) {
+  const original = (text || '').trim();
+  if (!original) return original;
+  if (!apiKey) throw new Error('OPENAI_API_KEY 未設定');
+
+  let systemPrompt;
+  if (LANG === 'en') {
+    systemPrompt = `You clean up a child's short one-line memo that was written by voice input.
+Rules:
+1. Remove filler words, hesitations, and repeated words (e.g. "um", "uh", "like", "you know", stutters).
+2. Fix obvious speech-to-text mis-recognitions and add natural punctuation.
+3. Keep the child's own wording, tone, and vocabulary as much as possible. Do NOT make it sound like an adult.
+4. Do NOT add new information, do NOT summarize, do NOT embellish.
+5. Keep it short (one or two lines). Output ONLY the cleaned text, with no quotes or extra commentary.`;
+  } else {
+    // ja / elementary 共通（表示側でふりがな化）
+    systemPrompt = `あなたは、子どもが音声入力で書いた短い「ひと言メモ」を読みやすく整える編集者です。
+次のルールを厳守してください。
+1. 「えーと」「あの」「なんか」「まあ」「その」などのつなぎ言葉・言い淀み・言葉の繰り返しを取り除く。
+2. 音声認識にありがちな明らかな誤変換を直し、読点・句点を自然に整える。
+3. 子どもの語り口・素直な表現・語彙はできるだけそのまま残す。大人っぽい文章に書き換えない。
+4. 新しい情報を足さない。要約・脚色・言い換えのしすぎをしない。
+5. 短く（1〜2行）。整えた本文だけを出力し、かぎかっこや余計な説明は付けない。`;
+  }
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: original },
+      ],
+      max_tokens: Math.min(400, Math.max(60, original.length * 3)),
+      temperature: 0.2,   // 書き換えを最小限にするため低め
+    }),
+  });
+
+  if (!res.ok) throw new Error('OpenAI API エラー');
+  const data = await res.json();
+  const cleaned = (data.choices?.[0]?.message?.content || '').trim();
+  // 念のため：空が返ってきたら元テキストを保持
+  return cleaned || original;
+}

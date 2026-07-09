@@ -300,6 +300,7 @@
         <div class="step-actions step-actions-report">
           <button id="back-to-photos" class="btn-secondary" data-i18n="btnBackPhotos">← 写真にもどる</button>
           <div class="report-action-group">
+            <button id="tidy-memos-btn" class="btn-secondary" data-i18n="btnTidyMemos" data-i18n-title="tidyMemosTitle" title="写真のひと言メモを整える">✨ メモをすっきり</button>
             <button id="save-report-btn" class="btn-secondary" data-i18n="btnSaveReport">💾 保存</button>
             <button id="submit-score-btn" class="btn-secondary" data-i18n="btnSubmitScore">🏆 スコア</button>
             <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf">📄 PDF出力</button>
@@ -325,6 +326,19 @@
             <div id="score-total" class="score-total">0 点</div>
           </div>
           <p id="score-rank-label" class="score-rank-label"></p>
+
+          <!-- 計画点 / 実行点 の2分割表示 -->
+          <div id="score-split" class="score-split">
+            <div class="score-split-item score-split-plan">
+              <span class="score-split-label" data-i18n="scorePlanLabel">🗺 計画点</span>
+              <span id="score-plan" class="score-split-val">0</span>
+            </div>
+            <div class="score-split-item score-split-exec">
+              <span class="score-split-label" data-i18n="scoreExecLabel">🚶 実行点</span>
+              <span id="score-exec" class="score-split-val">0</span>
+            </div>
+          </div>
+          <p class="score-split-note" data-i18n="scoreSplitNote">🗺 計画点＝どんな探検を計画したか（スポット数・距離） / 🚶 実行点＝実際にどれだけ楽しめたか（写真・コメント・ペース・キャラ捕獲など）</p>
 
           <!-- スコアの仕組み（簡単な説明・係数は非公開） -->
           <details class="score-howto">

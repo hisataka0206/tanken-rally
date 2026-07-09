@@ -1,6 +1,7 @@
 import { CONFIG } from '../config.js?v=105';
 import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=105';
-import { fetchOriginStory, tidyMemo } from './utils/ai.js?v=105';
+import { fetchOriginStory, tidyMemo, transcribeAudio } from './utils/ai.js?v=105';
+import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=105';
 import { generateMapPdf } from './utils/pdf.js?v=105';
 import { DriveClient, generateSessionId } from './utils/drive.js?v=105';
 import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=105';
@@ -1552,6 +1553,13 @@ async function onPhotoInputChange(e) {
   const camInput = $('photo-camera-input');
   if (camInput) camInput.value = '';
   updatePhotosCount();
+
+  // 撮影直後の自動メモ：1枚だけ追加したとき（＝その場撮影/1枚選択）に音声メモを促す。
+  // 複数枚まとめて選んだときは煩わしいので出さない（レポート画面で各自書ける）。
+  if (files.length === 1 && state.uploadedPhotos.length > 0) {
+    const latest = state.uploadedPhotos[state.uploadedPhotos.length - 1];
+    if (latest && !latest.uploading) openVoiceMemoModal(latest);
+  }
 }
 
 function renderPhotosGrid() {
@@ -1684,6 +1692,221 @@ async function saveTagModal() {
       console.warn('[tag] Drive 永続化に失敗（ローカル状態は反映済）:', e);
     }
   }
+}
+
+// ===== STEP 4: 音声メモモーダル =====
+// 撮影直後に自動で開き、写真ごとの「ひと言メモ」を声で入力できる。
+// 方式は2つ：webspeech（標準・端末内・無料） / whisper（高精度・OpenAI）。
+// 既定は webspeech。選択は localStorage に保存して次回以降も維持する。
+const VOICE_METHOD_KEY = 'tankenVoiceMethod';
+let _voiceMemoTarget = null;   // メモ対象の photo オブジェクト
+let _voiceStopFn = null;       // Web Speech の停止関数
+let _voiceRecorder = null;     // Whisper 用 AudioRecorder
+let _voiceRecording = false;   // 録音/認識 中フラグ
+let _voiceBaseText = '';       // 認識開始時点のテキスト（interim を上書き表示するための土台）
+
+function getVoiceMethod() {
+  try {
+    const v = localStorage.getItem(VOICE_METHOD_KEY);
+    if (v === 'whisper' || v === 'webspeech') return v;
+  } catch (e) { /* localStorage 不可環境 */ }
+  return 'webspeech';   // 既定
+}
+function setVoiceMethod(method) {
+  try { localStorage.setItem(VOICE_METHOD_KEY, method); } catch (e) { /* no-op */ }
+}
+
+function openVoiceMemoModal(photo) {
+  _voiceMemoTarget = photo;
+
+  // サムネ表示
+  const thumb = $('voice-memo-thumb');
+  if (thumb) thumb.src = photo.thumbnailUrl || photo.url || '';
+
+  // 既存メモがあれば読み込む（撮り直し・再オープン時）
+  const ta = $('voice-memo-text');
+  ta.value = state.reportData.photoComments[photo.fileId] || '';
+
+  // 方式ラジオを保存値へ復元
+  let method = getVoiceMethod();
+  // 標準（Web Speech）が使えない端末なら高精度へ自動フォールバック
+  if (method === 'webspeech' && !supportsWebSpeech()) method = 'whisper';
+  document.querySelectorAll('input[name="voice-method"]').forEach(r => {
+    r.checked = (r.value === method);
+  });
+  updateVoiceMethodNote(method);
+
+  // ステータス/ボタンを初期化
+  _voiceRecording = false;
+  setMicButtonState(false);
+  $('voice-status').textContent = '';
+
+  $('voice-memo-modal').classList.remove('hidden');
+}
+
+function closeVoiceMemoModal() {
+  stopVoiceCapture();          // 認識/録音中なら止める
+  _voiceMemoTarget = null;
+  $('voice-memo-modal').classList.add('hidden');
+}
+
+// 現在の方式に応じた注意書き（非対応・キー無し等）を表示
+function updateVoiceMethodNote(method) {
+  const note = $('voice-method-note');
+  if (!note) return;
+  let msg = '';
+  if (method === 'webspeech' && !supportsWebSpeech()) {
+    msg = t('voiceNoteWebspeechUnsupported');
+  } else if (method === 'whisper') {
+    if (!supportsRecording()) msg = t('voiceNoteRecordingUnsupported');
+    else if (!hasOpenAiKey()) msg = t('voiceNoteNoKey');
+  }
+  note.textContent = msg;
+  note.classList.toggle('hidden', !msg);
+}
+
+function hasOpenAiKey() {
+  return !!(CONFIG.OPENAI_API_KEY && CONFIG.OPENAI_API_KEY !== 'YOUR_OPENAI_API_KEY');
+}
+
+function currentVoiceMethod() {
+  const checked = document.querySelector('input[name="voice-method"]:checked');
+  return checked ? checked.value : 'webspeech';
+}
+
+function setMicButtonState(recording) {
+  const btn = $('voice-mic-btn');
+  const label = $('voice-mic-label');
+  if (!btn || !label) return;
+  btn.classList.toggle('recording', recording);
+  label.textContent = recording ? t('voiceMicStop') : t('voiceMicStart');
+}
+
+// マイクボタン：押すたびに 開始 ⇄ 停止 をトグル
+async function onMicButton() {
+  if (_voiceRecording) {
+    stopVoiceCapture();
+    return;
+  }
+  const method = currentVoiceMethod();
+  if (method === 'whisper') {
+    await startWhisperCapture();
+  } else {
+    startWebSpeechCapture();
+  }
+}
+
+function startWebSpeechCapture() {
+  if (!supportsWebSpeech()) {
+    $('voice-status').textContent = t('voiceNoteWebspeechUnsupported');
+    return;
+  }
+  const ta = $('voice-memo-text');
+  _voiceBaseText = ta.value ? ta.value.replace(/\s*$/, '') + ' ' : '';
+  _voiceRecording = true;
+  setMicButtonState(true);
+  $('voice-status').textContent = t('voiceStatusListening');
+
+  _voiceStopFn = startWebSpeech({
+    lang: speechLang(),
+    interim: true,
+    onInterim: (interimText) => {
+      ta.value = _voiceBaseText + interimText;
+    },
+    onFinal: (finalText) => {
+      ta.value = _voiceBaseText + finalText;
+    },
+    onError: (err) => {
+      console.warn('[voice] web speech error:', err);
+      const code = (err && err.toString) ? err.toString() : '';
+      $('voice-status').textContent = (code.includes('not-allowed') || code.includes('denied'))
+        ? t('voiceStatusMicDenied')
+        : t('voiceStatusError');
+      _voiceRecording = false;
+      setMicButtonState(false);
+    },
+    onEnd: () => {
+      _voiceRecording = false;
+      setMicButtonState(false);
+      if ($('voice-status').textContent === t('voiceStatusListening')) {
+        $('voice-status').textContent = '';
+      }
+    },
+  });
+}
+
+async function startWhisperCapture() {
+  if (!supportsRecording()) {
+    $('voice-status').textContent = t('voiceNoteRecordingUnsupported');
+    return;
+  }
+  if (!hasOpenAiKey()) {
+    $('voice-status').textContent = t('voiceNoteNoKey');
+    return;
+  }
+  try {
+    _voiceRecorder = new AudioRecorder();
+    await _voiceRecorder.start();
+    _voiceRecording = true;
+    setMicButtonState(true);
+    $('voice-status').textContent = t('voiceStatusRecording');
+  } catch (err) {
+    console.warn('[voice] recorder start failed:', err);
+    $('voice-status').textContent = t('voiceStatusMicDenied');
+    _voiceRecording = false;
+    setMicButtonState(false);
+    _voiceRecorder = null;
+  }
+}
+
+// 認識/録音を停止。Whisper の場合は停止後に文字起こしを実行。
+async function stopVoiceCapture() {
+  if (!_voiceRecording && !_voiceStopFn && !_voiceRecorder) return;
+
+  // Web Speech
+  if (_voiceStopFn) {
+    const stop = _voiceStopFn;
+    _voiceStopFn = null;
+    _voiceRecording = false;
+    setMicButtonState(false);
+    stop();
+    return;
+  }
+
+  // Whisper（録音停止 → 文字起こし）
+  if (_voiceRecorder) {
+    const recorder = _voiceRecorder;
+    _voiceRecorder = null;
+    _voiceRecording = false;
+    setMicButtonState(false);
+    $('voice-status').textContent = t('voiceStatusTranscribing');
+    try {
+      const blob = await recorder.stop();
+      const text = await transcribeAudio(blob, CONFIG.OPENAI_API_KEY, apiLang());
+      if (text) {
+        const ta = $('voice-memo-text');
+        ta.value = ta.value ? (ta.value.replace(/\s*$/, '') + ' ' + text) : text;
+        $('voice-status').textContent = '';
+      } else {
+        $('voice-status').textContent = t('voiceStatusNoSpeech');
+      }
+    } catch (err) {
+      console.warn('[voice] whisper failed:', err);
+      $('voice-status').textContent = t('voiceStatusError');
+    }
+    return;
+  }
+
+  _voiceRecording = false;
+  setMicButtonState(false);
+}
+
+function saveVoiceMemo() {
+  if (_voiceMemoTarget) {
+    const text = $('voice-memo-text').value;
+    state.reportData.photoComments[_voiceMemoTarget.fileId] = text;
+  }
+  closeVoiceMemoModal();
 }
 
 // ===== セッション再開（パスワード入力） =====
@@ -3022,6 +3245,22 @@ $('finish-explore-btn').addEventListener('click', onStartReport);
 $('tag-modal-save').addEventListener('click', saveTagModal);
 $('tag-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'close') closeTagModal();
+});
+
+// 音声メモモーダル
+$('voice-mic-btn').addEventListener('click', onMicButton);
+$('voice-memo-save').addEventListener('click', saveVoiceMemo);
+$('voice-memo-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'close') closeVoiceMemoModal();
+});
+document.querySelectorAll('input[name="voice-method"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    stopVoiceCapture();          // 方式を変えたら進行中の認識は止める
+    const method = currentVoiceMethod();
+    setVoiceMethod(method);       // 選択を保存（次回以降も維持）
+    updateVoiceMethodNote(method);
+    $('voice-status').textContent = '';
+  });
 });
 
 // STEP 5（レポート）

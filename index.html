@@ -433,6 +433,47 @@
       </div>
     </div>
 
+    <!-- 音声メモモーダル（撮影直後に自動で開く） -->
+    <div id="voice-memo-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="voice-memo-title">
+      <div class="modal-backdrop" data-action="close"></div>
+      <div class="modal-content">
+        <h3 id="voice-memo-title" data-i18n="voiceMemoTitle">📝 この写真にひと言メモ</h3>
+        <p class="modal-desc" data-i18n="voiceMemoDesc">マイクボタンを押して、気づいたことを声で話してみよう。あとから書き直してもOK。</p>
+
+        <div class="voice-memo-photo">
+          <img id="voice-memo-thumb" src="" alt="" />
+        </div>
+
+        <!-- 音声認識の方式切り替え（デフォルト: 標準 = Web Speech API） -->
+        <div class="voice-method-toggle" role="radiogroup" aria-label="音声認識の方式">
+          <span class="voice-method-label" data-i18n="voiceMethodLabel">音声にんしきのほうしき：</span>
+          <label class="voice-method-opt">
+            <input type="radio" name="voice-method" value="webspeech" checked />
+            <span data-i18n="voiceMethodWebspeech">標準（すぐ・無料）</span>
+          </label>
+          <label class="voice-method-opt">
+            <input type="radio" name="voice-method" value="whisper" />
+            <span data-i18n="voiceMethodWhisper">高精度（Whisper）</span>
+          </label>
+        </div>
+        <p id="voice-method-note" class="voice-method-note hidden"></p>
+
+        <button id="voice-mic-btn" class="voice-mic-btn" type="button">
+          <span id="voice-mic-label" data-i18n="voiceMicStart">🎤 おして話す</span>
+        </button>
+        <p id="voice-status" class="voice-status" aria-live="polite"></p>
+
+        <textarea id="voice-memo-text" rows="3"
+          data-i18n-placeholder="voiceMemoPh"
+          placeholder="声のメモがここに入るよ（手で書いてもOK）"></textarea>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" data-action="close" data-i18n="voiceMemoSkip">スキップ</button>
+          <button id="voice-memo-save" class="btn-primary" data-i18n="voiceMemoSave">保存</button>
+        </div>
+      </div>
+    </div>
+
     <!-- STEP 3: ルート確認 + PDF出力 -->
     <section id="step-route" class="step hidden">
       <div class="card">

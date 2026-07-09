@@ -136,3 +136,32 @@ Rules:
   // 念のため：空が返ってきたら元テキストを保持
   return cleaned || original;
 }
+
+// 録音した音声 Blob を OpenAI Whisper で文字起こしする（撮影画面の音声メモ「高精度」方式）。
+// - lang は ISO-639-1（'ja' / 'en'）。apiLang() の戻り値をそのまま渡せる。
+// - apiKey 未設定時・APIエラー時は例外を投げる（呼び出し側でフォールバック表示）。
+export async function transcribeAudio(blob, apiKey, lang) {
+  if (!apiKey) throw new Error('OPENAI_API_KEY 未設定');
+  if (!blob || !blob.size) return '';
+
+  const ext = (blob.type && blob.type.includes('mp4')) ? 'mp4' : 'webm';
+  const form = new FormData();
+  form.append('file', blob, `memo.${ext}`);
+  form.append('model', 'whisper-1');
+  if (lang) form.append('language', lang);   // 認識精度向上のため言語を明示
+  // 子どもの短い発話なので、余計な補完を避ける
+  form.append('temperature', '0');
+
+  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      // Content-Type は FormData に任せる（boundary 付与のため手動指定しない）
+    },
+    body: form,
+  });
+
+  if (!res.ok) throw new Error('Whisper API エラー');
+  const data = await res.json();
+  return (data.text || '').trim();
+}

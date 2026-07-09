@@ -1508,7 +1508,16 @@ async function onPhotoInputChange(e) {
     });
     refreshPhotosView();
 
-    // Drive にアップロード
+    // 撮影直後の自動メモ：アップロード完了を待たず、プレビュー表示の直後にすぐ開く。
+    // （1枚だけ追加したとき＝その場撮影/1枚選択のみ。複数枚選択時は煩わしいので出さない）
+    // この時点では fileId は temp_ のまま。アップロード完了時に photoComments のキーを
+    // 正式IDへ引き継ぐ（下の Object.assign → migratePhotoCommentKey）。
+    if (files.length === 1) {
+      const justAdded = state.uploadedPhotos[state.uploadedPhotos.length - 1];
+      if (justAdded) openVoiceMemoModal(justAdded);
+    }
+
+    // Drive にアップロード（ポップアップを出したあと、裏で進める）
     if (drive && state.driveSession) {
       try {
         const result = await drive.uploadPhoto({
@@ -1521,8 +1530,10 @@ async function onPhotoInputChange(e) {
         // Drive 側のメタ情報は driveUrl / driveThumbnailUrl として別途保存
         const idx = state.uploadedPhotos.findIndex(p => p.fileId === tempId);
         if (idx >= 0) {
-          state.uploadedPhotos[idx] = {
-            ...state.uploadedPhotos[idx],   // ローカル情報を保持（url, thumbnailUrl は blob:）
+          // オブジェクトは「置換」ではなく「上書き（mutate）」する。
+          // → 音声メモモーダルが保持している photo 参照を生かしたまま fileId を更新でき、
+          //   録音中にアップロードが完了しても保存先が迷子にならない。
+          Object.assign(state.uploadedPhotos[idx], {
             fileId: result.fileId,          // Drive のファイルID で置き換え
             driveUrl: result.url,
             driveThumbnailUrl: result.thumbnailUrl,
@@ -1531,7 +1542,9 @@ async function onPhotoInputChange(e) {
             lat: result.lat ?? null,
             lng: result.lng ?? null,
             uploading: false,
-          };
+          });
+          // temp_ ID で先に付いたメモ（音声メモ等）を正式IDへ引き継ぐ
+          migratePhotoCommentKey(tempId, result.fileId);
         }
       } catch (err) {
         console.warn('Upload failed:', err);
@@ -1553,12 +1566,20 @@ async function onPhotoInputChange(e) {
   const camInput = $('photo-camera-input');
   if (camInput) camInput.value = '';
   updatePhotosCount();
+}
 
-  // 撮影直後の自動メモ：1枚だけ追加したとき（＝その場撮影/1枚選択）に音声メモを促す。
-  // 複数枚まとめて選んだときは煩わしいので出さない（レポート画面で各自書ける）。
-  if (files.length === 1 && state.uploadedPhotos.length > 0) {
-    const latest = state.uploadedPhotos[state.uploadedPhotos.length - 1];
-    if (latest && !latest.uploading) openVoiceMemoModal(latest);
+// temp_ ID で先に保存された写真メモ（音声メモ等）を、アップロード完了後の正式IDへ移す。
+// 撮影直後にアップロードを待たずメモを取れるようにしたため、キーの引き継ぎが必要になる。
+function migratePhotoCommentKey(oldId, newId) {
+  if (!oldId || !newId || oldId === newId) return;
+  const rd = state.reportData;
+  if (rd.photoComments && rd.photoComments[oldId] != null) {
+    rd.photoComments[newId] = rd.photoComments[oldId];
+    delete rd.photoComments[oldId];
+  }
+  if (rd.photoCommentsRaw && rd.photoCommentsRaw[oldId] != null) {
+    rd.photoCommentsRaw[newId] = rd.photoCommentsRaw[oldId];
+    delete rd.photoCommentsRaw[oldId];
   }
 }
 

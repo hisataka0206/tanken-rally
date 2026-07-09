@@ -2074,6 +2074,14 @@ async function onResumeSession() {
   }
 }
 
+// ===== 計画点の正規化パラメータ（あとで調整しやすいよう1か所に集約）=====
+// 計画点を 0〜100 に正規化するときの「満点の定義」に使う。
+//   満点スポット数 n* = 時間予算 ÷ ( そのルートの平均移動時間/スポット + 標準滞在 )
+//   → 平均移動時間/スポット が「スポットの近さ（＝選んだ方向の密集度）」を表すので、
+//     満点基準がルート・駅・方向ごとに自動で変わる。
+const PLAN_TIME_BUDGET_MIN = 60;    // 探検の時間予算（分）
+const PLAN_STAY_PER_SPOT_MIN = 10;  // 1スポットの標準滞在時間（分）
+
 // ===== スコア計算 & ランキング =====
 //
 // ⚠️ 配点ロジックは秘匿対象（ユーザーには合計点のみ表示）。
@@ -2187,9 +2195,23 @@ function calculateScore() {
     + _internalBreakdown.cmtNum + _internalBreakdown.cmtChar
     + _internalBreakdown.within60 + _internalBreakdown.pace + _internalBreakdown.capture;
 
+  // 計画点の 0〜100 正規化（満点基準は駅・ルートごとに動的）。
+  //   avgMovePerSpot = そのルートの1スポットあたり平均移動時間（＝スポットの近さ）。
+  //     スポットが密集した方向を選ぶほど小さく → n* が大きく（満点ハードルが上がる）。
+  //     疎な方向を選ぶほど大きく → n* が小さく（少ないスポットでも満点に届く）。
+  //   → どの方向を狙っても「その方向なりに回り切れば満点」に近づき、方向の有利/不利を緩和する。
+  const avgMovePerSpot = (visitCount > 0 && estimatedMin > 0) ? estimatedMin / visitCount : 0;
+  let planIdealSpots = PLAN_TIME_BUDGET_MIN / (avgMovePerSpot + PLAN_STAY_PER_SPOT_MIN);
+  if (!isFinite(planIdealSpots) || planIdealSpots < 1) planIdealSpots = 1;
+  const planScore100 = visitCount > 0
+    ? Math.round(100 * Math.min(1, visitCount / planIdealSpots))
+    : 0;
+
   return {
     total,
     planScore,
+    planScore100,
+    planIdealSpots,
     execScore,
     // breakdown は内部計算のみで、UIへは渡さない（秘匿）
     visitCount,
@@ -2278,9 +2300,11 @@ function openScoreModal() {
   $('score-rank-label').textContent = scoreMoodLabel(result.total);
 
   // 計画点 / 実行点 の内訳表示
+  //   計画点は 0〜100 に正規化した独立指標（XX/100）で表示。
+  //   実行点は従来どおりの生スコア（合計点・ランキングは生スコアのまま）。
   const planEl = $('score-plan');
   const execEl = $('score-exec');
-  if (planEl) planEl.textContent = `${result.planScore}${t('suffPoints')}`;
+  if (planEl) planEl.textContent = `${result.planScore100}/100`;
   if (execEl) execEl.textContent = `${result.execScore}${t('suffPoints')}`;
 
   // 弱点アドバイス（FEATURES.showScoreAdvice が true のときだけ）

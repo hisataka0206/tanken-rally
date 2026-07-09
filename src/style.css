@@ -797,11 +797,16 @@ body {
   z-index: 100;
   display: flex;
   align-items: center;
+  align-items: safe center;      /* 対応ブラウザでは、縦に長い時に上寄せへ退避して先頭が切れないように */
   justify-content: center;
+  overflow-y: auto;              /* 画面より高いモーダルは縦スクロールできる */
+  -webkit-overflow-scrolling: touch;
+  padding: 20px 12px;            /* 上下に余白（末尾ボタンが画面端で隠れないように）*/
+  box-sizing: border-box;
 }
 .modal.hidden { display: none; }
 .modal-backdrop {
-  position: absolute;
+  position: fixed;              /* 縦長モーダルをスクロールしても背景が常に画面全体を覆う */
   inset: 0;
   background: rgba(0,0,0,.5);
   cursor: pointer;
@@ -862,12 +867,13 @@ body {
 }
 .score-split-item {
   flex: 1 1 0;
+  min-width: 0;            /* flex 子要素が縮めるように（文字はみ出し防止）*/
   max-width: 180px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 10px 8px;
+  padding: 10px 6px;
   border-radius: 12px;
   background: #f1f8e9;
   border: 2px solid var(--border);
@@ -875,17 +881,20 @@ body {
 .score-split-plan { background: #e8f2fb; border-color: #b6d8f2; }
 .score-split-exec { background: #eafbea; border-color: #b6e2b6; }
 .score-split-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
   color: var(--green-dark);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
 .score-split-plan .score-split-label { color: #2f6ea5; }
 .score-split-val {
   font-family: 'Yusei Magic', 'Klee One', sans-serif;
-  font-size: 26px;
+  font-size: 22px;
   color: var(--green-dark);
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
+  white-space: nowrap;      /* 「54点」などが途中で改行しないように */
 }
 .score-split-plan .score-split-val { color: #2f6ea5; }
 .score-split-note {
@@ -2267,11 +2276,25 @@ body.ar-open { overflow: hidden; }
 @keyframes g-drop    { from { transform: translate(-50%, -24px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 @keyframes g-spin-in { from { transform: rotate(-360deg) scale(0.3); opacity: 0; } to { transform: rotate(0) scale(1); opacity: 1; } }
 
+/* 合計点の大表示は出さない。
+   計画点(0-100の正規化値)と実行点(生点)が並ぶと「足し算が合わない」ように見えて
+   紛らわしいため、大きな合計数字は非表示にする。合計の生スコアはランキング送信用に
+   内部（calculateScore().total）でのみ保持する。 */
+#score-total { display: none; }
+.score-total-wrap { margin-top: 8px; }
+/* 数字に寄り添う演出キャラ（NUTTY=点数の上／TAFFY=横でスピン）は、数字が無いので隠す。
+   タイトル横の ZOOMY(g-score-zoomy) は残す。 */
+.g-score-nutty, .g-score-taffy { display: none; }
+/* 気分ラベルを見出し扱いにして、上部が寂しくならないようにする */
+.score-rank-label { font-size: 20px; margin-top: 2px; }
+
 /* レポート画面の「スヤスヤNUTTY」はカード内に全身を収める（切れて見えないように） */
 #step-report .g-bl { bottom: 10px; left: 10px; }
 
-/* モバイル: 3体とも表示するが、小さくして縁またぎ配置で文字と重ねない */
+/* モバイル: メインガイド(g-tr)のみ表示。脇役(g-sub)は画面が狭く、
+   カードの縁またぎ配置だと下辺・左下で見切れてしまうため隠す（設計意図どおり）。 */
 @media (max-width: 768px) {
+  .g-sub     { display: none; }
   .g-tr      { height: 64px; top: -12px; right: 6px; }
   .g-mr      { height: 52px; right: -10px; }
   .g-bl      { height: 56px; bottom: -12px; left: 8px; }

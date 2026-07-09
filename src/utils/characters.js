@@ -12,7 +12,7 @@
 //   美術館=arto / 科学館=loupe / 駄菓子屋=tixy /
 //   レア（ゴール駅25%）=memry / スタート駅（ランダム）=lookie, colorey
 
-import { LANG } from './i18n.js?v=105';
+import { LANG } from './i18n.js?v=106';
 
 export const ASSET_BASE = 'src/assets/characters/';
 

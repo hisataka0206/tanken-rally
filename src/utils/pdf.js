@@ -4,10 +4,10 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=105';
-import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=105';
-import { localizeStationName } from '../data/cities.js?v=105';
-import { randomFunCharacterImage } from './characters.js?v=105';
+import { toLatLngLiteral } from './maps.js?v=106';
+import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=106';
+import { localizeStationName } from '../data/cities.js?v=106';
+import { randomFunCharacterImage } from './characters.js?v=106';
 
 // お楽しみ要素: ストリートビューカードにランダムでキャラを紛れ込ませる確率
 const EASTER_EGG_PROBABILITY = 0.3;

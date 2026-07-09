@@ -8,7 +8,7 @@
 //
 // 新しい機能を追加するときは、まずここに3言語分のフラグを宣言してから実装に取りかかる。
 // そうすると言語ごとの差別化が一望できる。
-import { LANG } from './utils/i18n.js?v=105';
+import { LANG } from './utils/i18n.js?v=106';
 
 const FEATURES_BY_LANG = {
   ja: {

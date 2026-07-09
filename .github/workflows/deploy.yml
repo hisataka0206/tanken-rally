@@ -76,6 +76,18 @@ jobs:
           touch site/.nojekyll
           rm -rf site/.git site/beta/.git
 
+      - name: Stamp cache-busting version (?v=)
+        # 各デプロイで、全アセットの ?v=... をこのコミットの SHA(短縮) に書き換える。
+        # → ブラウザキャッシュが毎デプロイ確実に更新され、手動での番号上げ(?v=105→106…)が不要になる。
+        #   ソース側の ?v= は固定のプレースホルダのままでよい（ここで上書きされる）。
+        #   ?family= 等の無関係なクエリは "?v=" にマッチしないため影響しない。
+        run: |
+          SHA="${GITHUB_SHA::8}"
+          find site -type f \( -name '*.js' -o -name '*.html' -o -name '*.css' \) \
+            -not -path '*/.git/*' -print0 \
+            | xargs -0 --no-run-if-empty sed -i "s/?v=[0-9A-Za-z._-]*/?v=${SHA}/g"
+          echo "✅ Stamped all assets with ?v=${SHA}"
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 

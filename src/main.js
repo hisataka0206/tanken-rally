@@ -1,21 +1,21 @@
-import { CONFIG } from '../config.js?v=105';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=105';
-import { fetchOriginStory, tidyMemo, transcribeAudio } from './utils/ai.js?v=105';
-import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=105';
-import { generateMapPdf } from './utils/pdf.js?v=105';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=105';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=105';
-import { CITIES, localizeStationName } from './data/cities.js?v=105';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=105';
-import { addReport as addIssueReport } from './utils/issues.js?v=105';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=105';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=105';
-import { FEATURES } from './config-features.js?v=105';
-import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=105';
-import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=105';
-import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=105';
-import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=105';
-import { initShell, updateShell } from './utils/shell.js?v=105';
+import { CONFIG } from '../config.js?v=106';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=106';
+import { fetchOriginStory, tidyMemo, transcribeAudio } from './utils/ai.js?v=106';
+import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=106';
+import { generateMapPdf } from './utils/pdf.js?v=106';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=106';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=106';
+import { CITIES, localizeStationName } from './data/cities.js?v=106';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=106';
+import { addReport as addIssueReport } from './utils/issues.js?v=106';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=106';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=106';
+import { FEATURES } from './config-features.js?v=106';
+import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=106';
+import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=106';
+import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=106';
+import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
+import { initShell, updateShell } from './utils/shell.js?v=106';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'

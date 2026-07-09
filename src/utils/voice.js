@@ -7,7 +7,7 @@
 //      録音自体はこのファイルの AudioRecorder が担当する。
 //
 // [[音声入力]] [[Web Speech API]] [[Whisper]]
-import { LANG } from './i18n.js?v=105';
+import { LANG } from './i18n.js?v=106';
 
 // Web Speech API 用の言語コード（BCP-47）
 export function speechLang() {

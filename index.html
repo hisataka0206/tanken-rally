@@ -10,15 +10,16 @@
     HTTPS→HTTPS 間ではフル URL を送信する。
   -->
   <meta name="referrer" content="no-referrer-when-downgrade">
-  <title data-i18n="appTitle">たんけんラリー</title>
+  <title data-i18n="appTitle">テクタン</title>
 
   <!-- 子供向け手書き風フォント (Google Fonts):
-       - Yusei Magic: 元気でやわらかい手書き風（タイトル用）
+       - Mochiy Pop P One: 丸くて弾むポップ体（ブランドロゴ「テクタン」用）
+       - Yusei Magic: 元気でやわらかい手書き風（見出し用）
        - Klee One: 学校の教科書のような手書き感（本文用）
        - Hachi Maru Pop: 丸くて可愛い（差し色用） -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+P+One&family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="src/style.css?v=49" />
 
@@ -36,7 +37,7 @@
     <!-- 起動時ログインゲート（なまえ＋あいことば）。未ログイン時のみ表示してアプリを覆う -->
     <div id="login-gate" class="login-gate hidden" role="dialog" aria-modal="true" aria-labelledby="login-title">
       <div class="login-card">
-        <div class="login-logo">🗺️ <span data-i18n="appTitle">たんけんラリー</span></div>
+        <div class="login-logo">🗺️ <span data-i18n="appTitle">テクタン</span></div>
         <h2 id="login-title" class="login-title" data-i18n="loginTitleRegister">はじめまして！なまえを つくろう</h2>
         <p id="login-lead" class="login-lead" data-i18n="loginLead">なまえと あいことばを きめると、じぶんだけの図鑑ができるよ。</p>
 
@@ -68,7 +69,7 @@
     <!-- ヘッダー -->
     <header class="header">
       <span class="header-icon">🗺️</span>
-      <h1 data-i18n="appTitle">たんけんラリー</h1>
+      <h1 data-i18n="appTitle">テクタン</h1>
       <span class="header-version" id="header-version">v1.0.0</span>
       <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
       <button id="history-btn" class="zukan-btn" type="button" data-i18n-title="btnHistory" title="ぼうけんの履歴">📜</button>

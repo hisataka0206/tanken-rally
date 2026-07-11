@@ -42,10 +42,11 @@ body {
 }
 .header-icon { font-size: 28px; }
 .header h1 {
-  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  /* ブランドロゴ「テクタン」はポップ体（Mochiy Pop P One）で個性を出す */
+  font-family: 'Mochiy Pop P One', 'Yusei Magic', 'Klee One', sans-serif;
   font-size: 24px;
   font-weight: 400;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-shadow: 0 2px 0 rgba(31, 110, 160, 0.35);
 }
 .header-version {
@@ -1014,8 +1015,9 @@ body {
   text-align: center;
 }
 .login-logo {
-  font-family: 'Yusei Magic', 'Klee One', sans-serif;
-  font-size: 22px;
+  /* ブランドロゴ「テクタン」はポップ体（Mochiy Pop P One） */
+  font-family: 'Mochiy Pop P One', 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 24px;
   color: var(--green-dark);
   margin-bottom: 10px;
 }

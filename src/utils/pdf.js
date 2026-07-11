@@ -244,7 +244,7 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
     }
 
     mark('saved');
-    doc.save(`たんけんラリー_${stationName}.pdf`);
+    doc.save(`Tekutan_${stationName}.pdf`);
   } catch (e) {
     // ★診断: 失敗時に「どの段階で止まったか」のトレースをエラーに埋め込む。
     //   スマホでコンソールが見えなくても、アラート文面から落とし穴の位置が分かる。

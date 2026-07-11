@@ -174,7 +174,7 @@ export const CHARACTERS = [
     story: {
       ja: '元々は白紙のページばかりで引き出しの奥で寂しがっていた。探検ラリーでみんなとの写真でページが埋まっていくのが今の最大の生きがい。',
       en: 'Once just blank pages, feeling lonely at the back of a drawer. Now its greatest joy is watching its pages fill up with photos from everyone\'s expeditions.',
-      elementary: 'もともとは白紙（はくし）のページばかりで、引（ひ）き出（だ）しのおくでさびしがっていた。たんけんラリーでみんなとの写真（しゃしん）でページがうまっていくのが、いまのいちばんの生（い）きがい。',
+      elementary: 'もともとは白紙（はくし）のページばかりで、引（ひ）き出（だ）しのおくでさびしがっていた。テクタンでみんなとの写真（しゃしん）でページがうまっていくのが、いまのいちばんの生（い）きがい。',
     },
     poses: { normal: 'memry_discovery.png', found: 'memry_get.png', captured: 'memry_bonus.png' } },
   // スタート駅（ランダム）

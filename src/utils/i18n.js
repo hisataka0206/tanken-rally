@@ -18,7 +18,7 @@
 const TRANSLATIONS = {
   // ============ 日本語（デフォルト） ============
   ja: {
-    appTitle: 'たんけんラリー',
+    appTitle: 'テクタン',
     headerSub: '駅から街を探検しよう',
 
     // ステップタイトル
@@ -341,7 +341,7 @@ const TRANSLATIONS = {
     pdfGoalCardTitle: '{name}駅',
     pdfGoalCardSubtitle: 'ゴール — おつかれさま！',
     pdfNextDirection: '→ 次は{name}方面',
-    pdfFooter: 'たんけんラリー — {name} 探検マップ',
+    pdfFooter: 'テクタン — {name} 探検マップ',
     pdfNoTurns: '曲がる場所はありません。まっすぐ進んでね。',
     pdfNoApiKey: '（地図画像はAPIキー未設定のため省略）',
     pdfSegmentHeaderFmt: '🚶 区間 {from}（{fromName}） → {to}（{toName}）',
@@ -423,7 +423,7 @@ const TRANSLATIONS = {
 
   // ============ English ============
   en: {
-    appTitle: 'Tanken Rally',
+    appTitle: 'Tekutan',
     headerSub: 'Explore your town from the station',
 
     step1Title: 'Pick a station to explore',
@@ -729,7 +729,7 @@ const TRANSLATIONS = {
     pdfGoalCardTitle: '{name} Sta.',
     pdfGoalCardSubtitle: 'Goal — well done!',
     pdfNextDirection: '→ next: toward {name}',
-    pdfFooter: 'Tanken Rally — {name} Exploration Map',
+    pdfFooter: 'Tekutan — {name} Exploration Map',
     pdfNoTurns: 'No turns. Go straight ahead.',
     pdfNoApiKey: '(Map image omitted: API key not set)',
     pdfSegmentHeaderFmt: '🚶 Leg {from} ({fromName}) → {to} ({toName})',
@@ -805,7 +805,7 @@ const TRANSLATIONS = {
 
   // ============ Elementary（漢字＋ふりがな併記、G2以下は併記なし） ============
   elementary: {
-    appTitle: 'たんけんラリー',
+    appTitle: 'テクタン',
     headerSub: '駅から街（まち）を探検（たんけん）しよう',
 
     step1Title: '探検（たんけん）する駅をえらぼう',
@@ -1112,7 +1112,7 @@ const TRANSLATIONS = {
     pdfNextDirection: '→ 次（つぎ）は{name}方面（ほうめん）',
     pdfSegmentHeaderFmt: '🚶 区間（くかん） {from}（{fromName}） → {to}（{toName}）',
     pdfSegmentNoTurns: '曲（ま）がり角（かど）なし — まっすぐ進（すす）んでね',
-    pdfFooter: 'たんけんラリー — {name} 探検（たんけん）マップ',
+    pdfFooter: 'テクタン — {name} 探検（たんけん）マップ',
     pdfNoTurns: '曲（ま）がる場所はありません。まっすぐ進（すす）んでね。',
     pdfNoApiKey: '（地図画像（がぞう）はAPIキー未設定（みせってい）のため省略（しょうりゃく））',
 

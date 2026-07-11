@@ -21,7 +21,10 @@ function detectConstrainedDevice() {
     const ua = navigator.userAgent || '';
     const isMobile = /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle/i.test(ua)
       || (navigator.maxTouchPoints > 1 && /Mac/.test(ua)); // iPadOS（Macを名乗る）
-    const lowMem = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
+    // navigator.deviceMemory は上限8・2のべき乗に丸められる粗い指標で、4〜6GB級の
+    // 普通のPCも「4」を返す。<=4 だとPCまで遅い(bake)経路に入れてしまうため、
+    // 本当に非力な端末だけを拾うよう <=2 にする（判定の主軸は isMobile）。
+    const lowMem = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 2;
     return isMobile || lowMem;
   } catch (_) {
     return false;
@@ -610,13 +613,24 @@ async function bakeCrossOriginImages(root) {
     try { return new URL(src, location.href).origin !== location.origin; }
     catch (_) { return false; }
   });
+  // 長辺の上限。これより大きい画像（特に 1280px の Static Map）は縮小してから焼く。
+  // フル解像度で toDataURL するとエンコード/再デコード/メモリが重く、体感フリーズの主因になる。
+  // PDF はモバイルで低scale描画のため、この程度で見た目の劣化はほぼ無い。
+  const MAX_SIDE = 1024;
   for (const img of imgs) {
     try {
+      let w = img.naturalWidth, h = img.naturalHeight;
+      const longest = Math.max(w, h);
+      if (longest > MAX_SIDE) {
+        const r = MAX_SIDE / longest;
+        w = Math.max(1, Math.round(w * r));
+        h = Math.max(1, Math.round(h * r));
+      }
       const c = document.createElement('canvas');
-      c.width = img.naturalWidth;
-      c.height = img.naturalHeight;
+      c.width = w;
+      c.height = h;
       const cx = c.getContext('2d');
-      cx.drawImage(img, 0, 0);
+      cx.drawImage(img, 0, 0, w, h); // 必要に応じて縮小描画
       // 地図・SVは不透明なので JPEG でOK（軽い）。透過が要る画像はスマホでは出していない。
       const dataUrl = c.toDataURL('image/jpeg', 0.85);
       c.width = c.height = 0; // 一時キャンバス解放

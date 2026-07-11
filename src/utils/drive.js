@@ -46,15 +46,23 @@ export class DriveClient {
     return data; // { reportData }
   }
 
-  /** 探検開始時にセッションのメタデータを Sheet に保存 */
-  async saveSession({ sessionId, stationName, playerName, folderUrl, orderedSpots, routeStats }) {
+  /** 探検開始時にセッションのメタデータを Sheet に保存（アカウントに紐づける userId/userName 付き） */
+  async saveSession({ sessionId, stationName, playerName, folderUrl, orderedSpots, routeStats, userId, userName }) {
     const data = await this._post({
       action: 'saveSession',
       sessionId, stationName, playerName, folderUrl,
-      orderedSpots, routeStats,
+      orderedSpots, routeStats, userId, userName,
     });
     if (!data.ok) throw new Error(data.error);
     return data;
+  }
+
+  /** ログインユーザーの冒険履歴を取得。
+   *  戻り値: [{ sessionId, date, stationName, folderUrl, spotCount, score }]（新しい順） */
+  async getUserHistory({ userId, limit } = {}) {
+    const data = await this._post({ action: 'getUserHistory', userId, limit });
+    if (!data.ok) throw new Error(data.error);
+    return data.history || [];
   }
 
   /** ユーザーからの不具合報告を Sheet に送信 */

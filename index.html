@@ -71,6 +71,7 @@
       <h1 data-i18n="appTitle">たんけんラリー</h1>
       <span class="header-version" id="header-version">v1.0.0</span>
       <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
+      <button id="history-btn" class="zukan-btn" type="button" data-i18n-title="btnHistory" title="ぼうけんの履歴">📜</button>
       <button id="zukan-btn" class="zukan-btn" type="button" data-i18n-title="btnZukan" title="キャラずかん">📖</button>
     </header>
 
@@ -561,6 +562,22 @@
         </div>
         <div id="zukan-detail" class="zukan-detail hidden"></div>
         <div id="zukan-grid" class="zukan-grid"></div>
+        <div class="modal-actions">
+          <button class="btn-secondary" data-action="close" data-i18n="btnArClose">✖ とじる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ぼうけんの履歴モーダル -->
+    <div id="history-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="history-title">
+      <div class="modal-backdrop" data-action="close"></div>
+      <div class="modal-content modal-content-wide">
+        <h3 id="history-title" data-i18n="historyTitle">📜 ぼうけんの履歴</h3>
+        <p class="modal-desc" data-i18n="historyDesc">これまでに探検した記録だよ。「ひらく」で写真フォルダを開いたり、「つづき」でノートの続きが書けるよ。</p>
+        <div class="zukan-account">
+          <span id="history-account-name" class="zukan-account-name"></span>
+        </div>
+        <div id="history-list" class="history-list"></div>
         <div class="modal-actions">
           <button class="btn-secondary" data-action="close" data-i18n="btnArClose">✖ とじる</button>
         </div>

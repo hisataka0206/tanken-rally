@@ -1107,6 +1107,67 @@ body {
 }
 .logout-btn:hover { border-color: var(--green-dark); }
 
+/* ヘッダーに履歴＋図鑑の2ボタンが並ぶ時、2つ目は auto ではなく詰めて配置 */
+.zukan-btn + .zukan-btn { margin-left: 6px; }
+
+/* ===== ぼうけんの履歴 ===== */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 2px;
+}
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #faf6ec;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+}
+.history-main { min-width: 0; }
+.history-station {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--green-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.history-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.history-link, .history-resume {
+  font-size: 12px;
+  font-family: inherit;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.history-link {
+  background: #fff;
+  border: 2px solid var(--border);
+  color: var(--green-dark);
+}
+.history-link:hover { border-color: var(--green-dark); }
+.history-resume {
+  background: var(--green-dark);
+  border: 2px solid var(--green-dark);
+  color: #fff;
+}
+.history-resume:active { transform: scale(0.96); }
+.history-empty, .history-loading {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 24px 8px;
+}
+
 .score-name-label {
   display: flex;
   flex-direction: column;

@@ -142,6 +142,17 @@ const TRANSLATIONS = {
     logoutConfirm: 'ログアウトする？（図鑑は なまえと あいことばで また 見られるよ）',
     zukanAccountFmt: '👤 {name}',
 
+    // ぼうけんの履歴
+    btnHistory: 'ぼうけんの履歴',
+    historyTitle: '📜 ぼうけんの履歴',
+    historyDesc: 'これまでに探検した記録だよ。「ひらく」で写真フォルダを開いたり、「つづき」でノートの続きが書けるよ。',
+    historyLoading: '読み込み中…',
+    historyEmpty: 'まだ探検の記録がないよ。探検してみよう！',
+    historyNoGas: '（この端末では履歴の保存先が設定されていないよ）',
+    historyError: '履歴の読み込みに失敗したよ。もう一度ためしてね。',
+    historyOpenFolder: '📂 ひらく',
+    historyResume: '✏️ つづき',
+
     btnZukan: '📖 キャラずかん',
     zukanTitle: '📖 キャラずかん',
     zukanDesc: 'たんけん中にARカメラでつかまえたキャラのコレクションだよ。つかまえたキャラをタップすると、ひみつのストーリーが読めるよ！',
@@ -519,6 +530,17 @@ const TRANSLATIONS = {
     logoutConfirm: 'Log out? (You can see your collection again with your name and secret word.)',
     zukanAccountFmt: '👤 {name}',
 
+    // Adventure history
+    btnHistory: 'Adventure history',
+    historyTitle: '📜 Adventure history',
+    historyDesc: 'A record of your past explorations. Use "Open" for the photo folder, or "Continue" to keep writing the note.',
+    historyLoading: 'Loading…',
+    historyEmpty: 'No explorations yet. Go on an adventure!',
+    historyNoGas: '(History storage is not set up on this device.)',
+    historyError: 'Failed to load history. Please try again.',
+    historyOpenFolder: '📂 Open',
+    historyResume: '✏️ Continue',
+
     btnZukan: '📖 Character Collection',
     zukanTitle: '📖 Character Collection',
     zukanDesc: 'Characters you caught with the AR camera during your explorations. Tap a caught character to read its secret story!',
@@ -878,6 +900,17 @@ const TRANSLATIONS = {
     btnLogout: 'ログアウト',
     logoutConfirm: 'ログアウトする？（図鑑（ずかん）は なまえと あいことばで また 見（み）られるよ）',
     zukanAccountFmt: '👤 {name}',
+
+    // ぼうけんの履歴（りれき）
+    btnHistory: 'ぼうけんの履歴（りれき）',
+    historyTitle: '📜 ぼうけんの履歴（りれき）',
+    historyDesc: 'これまでに探検（たんけん）した記録（きろく）だよ。「ひらく」で写真（しゃしん）フォルダを開（ひら）いたり、「つづき」でノートのつづきが書（か）けるよ。',
+    historyLoading: '読（よ）み込（こ）み中（ちゅう）…',
+    historyEmpty: 'まだ探検（たんけん）の記録（きろく）がないよ。探検（たんけん）してみよう！',
+    historyNoGas: '（このたんまつでは履歴（りれき）のほぞんさきがせっていされていないよ）',
+    historyError: '履歴（りれき）のよみこみに しっぱいしたよ。もういちど ためしてね。',
+    historyOpenFolder: '📂 ひらく',
+    historyResume: '✏️ つづき',
 
     btnZukan: '📖 キャラずかん',
     zukanTitle: '📖 キャラずかん',

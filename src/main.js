@@ -488,6 +488,74 @@ async function openZukan() {
   }
 }
 
+// ===== ぼうけんの履歴 =====
+async function openHistory() {
+  const list = $('history-list');
+  const accEl = $('history-account-name');
+  if (accEl) {
+    const a = getStoredAuth();
+    accEl.textContent = a ? t('zukanAccountFmt').replace('{name}', a.name || '') : '';
+  }
+  $('history-modal').classList.remove('hidden');
+
+  if (!drive) {
+    list.innerHTML = `<p class="history-empty">${escapeHtml(t('historyNoGas'))}</p>`;
+    return;
+  }
+  list.innerHTML = `<p class="history-loading">${escapeHtml(t('historyLoading'))}</p>`;
+  try {
+    const items = await drive.getUserHistory({ userId: getExplorerId(), limit: 50 });
+    renderHistory(items);
+  } catch (e) {
+    console.warn('[history] 取得失敗:', e);
+    list.innerHTML = `<p class="history-empty">${escapeHtml(t('historyError'))}</p>`;
+  }
+}
+
+function formatHistoryDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso).slice(0, 10);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
+}
+
+function renderHistory(items) {
+  const list = $('history-list');
+  if (!items || !items.length) {
+    list.innerHTML = `<p class="history-empty">${escapeHtml(t('historyEmpty'))}</p>`;
+    return;
+  }
+  list.innerHTML = '';
+  items.forEach(it => {
+    const dateStr = formatHistoryDate(it.date);
+    const scoreStr = (it.score != null) ? `${it.score}${t('suffPoints')}` : '—';
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.innerHTML = `
+      <div class="history-main">
+        <div class="history-station">🚉 ${escapeHtml(it.stationName || '')}</div>
+        <div class="history-meta">${escapeHtml(dateStr)} ・ 🏆 ${escapeHtml(scoreStr)} ・ 📍 ${Number(it.spotCount) || 0}</div>
+      </div>
+      <div class="history-actions">
+        ${it.folderUrl ? `<a class="history-link" href="${escapeHtml(it.folderUrl)}" target="_blank" rel="noopener">${escapeHtml(t('historyOpenFolder'))}</a>` : ''}
+        ${it.sessionId ? `<button class="history-resume" type="button" data-sid="${escapeHtml(it.sessionId)}">${escapeHtml(t('historyResume'))}</button>` : ''}
+      </div>
+    `;
+    list.appendChild(item);
+  });
+  // 「つづき」= 既存のセッション再開フローを流用（sessionId をパスワード欄に入れて復元）
+  list.querySelectorAll('.history-resume').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sid = btn.dataset.sid;
+      if (!sid) return;
+      $('history-modal').classList.add('hidden');
+      $('resume-session-input').value = sid;
+      onResumeSession();
+    });
+  });
+}
+
 function closeArOverlay() {
   if (arSession) {
     arSession.stop();
@@ -1416,7 +1484,9 @@ async function onStartExplore() {
       const info = $('photos-session-info');
       info.textContent = t('driveCreatingFolder');
       try {
-        const playerName = 'たんけんたろう'; // TODO: プレーヤー名入力UI
+        // ログイン中アカウントの名前を使う（履歴はこのアカウントに紐づく）
+        const account = getStoredAuth();
+        const playerName = (account && account.name) || t('rankNoName');
         state.driveSession = await drive.createSession({
           sessionId: state.sessionId,
           stationName: state.stationName,
@@ -1434,6 +1504,8 @@ async function onStartExplore() {
             sessionId: state.sessionId,
             stationName: state.stationName,
             playerName,
+            userId: getExplorerId(),          // ログイン中はアカウントの userId
+            userName: (account && account.name) || '',
             folderUrl: state.driveSession.folderUrl,
             orderedSpots: state.orderedSpots.map(s => ({
               id: s.id,
@@ -2382,6 +2454,8 @@ async function onSubmitScore() {
       distanceM: result.distanceM,
       photoCount: result.photoCount,
       reportWordCount: result.reportWordCount,
+      userId: getExplorerId(),                  // アカウントに紐づけ（履歴でスコアを突合）
+      sessionId: state.sessionId || '',         // どの探検のスコアか
     });
     // 同じ地域内（例: 名古屋）のランキングを取得
     const ranking = await drive.getRanking({ cityId: state.cityId || 'other', limit: 10 });
@@ -3251,6 +3325,12 @@ $('photo-camera-input').addEventListener('change', onPhotoInputChange);
 // キャラずかん
 $('zukan-btn').addEventListener('click', openZukan);
 $('logout-btn').addEventListener('click', onLogout);
+
+// ぼうけんの履歴
+$('history-btn').addEventListener('click', openHistory);
+$('history-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'close') $('history-modal').classList.add('hidden');
+});
 $('zukan-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'close') $('zukan-modal').classList.add('hidden');
 });

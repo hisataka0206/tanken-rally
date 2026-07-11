@@ -96,6 +96,9 @@ function doPost(e) {
     if (action === 'loginUser') {
       return respond(headers, loginUser(body));
     }
+    if (action === 'getUserHistory') {
+      return respond(headers, getUserHistory(body));
+    }
     if (action === 'getSpotsCache') {
       return respond(headers, getSpotsCache(body));
     }
@@ -211,8 +214,19 @@ function resumeSession(body) {
 
 const SHEET_TAB_SESSION = 'セッション';
 const SHEET_TAB_ISSUE   = '不具合報告';
-const SHEET_HEADERS_SESSION = ['日時', 'sessionId', '駅名', 'プレーヤー名', 'フォルダURL', 'スポット数', 'スポット詳細(JSON)', '総距離', '推定時間(分)'];
+const SHEET_HEADERS_SESSION = ['日時', 'sessionId', '駅名', 'プレーヤー名', 'フォルダURL', 'スポット数', 'スポット詳細(JSON)', '総距離', '推定時間(分)', 'userId', 'userName'];
 const SHEET_HEADERS_ISSUE   = ['日時', 'sessionId', '駅名', '都市タブ', 'ステップ', '種類', '詳細', 'userAgent', 'URL'];
+
+/** シートのヘッダ行に、不足している列を末尾に追加する（既存シートのスキーマ移行用）。 */
+function ensureColumns_(sheet, requiredHeaders) {
+  const lastCol = Math.max(sheet.getLastColumn(), 1);
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  let changed = false;
+  requiredHeaders.forEach(h => {
+    if (headers.indexOf(h) < 0) { headers.push(h); changed = true; }
+  });
+  if (changed) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+}
 
 /** ログ用 Spreadsheet の指定タブを取得（無ければ作成、ヘッダ行も自動投入） */
 function getLogSheet(tabName, headers) {
@@ -230,20 +244,26 @@ function getLogSheet(tabName, headers) {
 /** 探検開始時にセッションのメタデータを Sheet に保存 */
 function saveSession(body) {
   try {
-    const { sessionId, stationName, playerName, folderUrl, orderedSpots, routeStats } = body;
+    const { sessionId, stationName, playerName, folderUrl, orderedSpots, routeStats, userId, userName } = body;
     if (!sessionId) return { ok: false, error: 'sessionId が必要です' };
     const sheet = getLogSheet(SHEET_TAB_SESSION, SHEET_HEADERS_SESSION);
-    sheet.appendRow([
-      new Date().toISOString(),
-      sessionId,
-      stationName || '',
-      playerName || '',
-      folderUrl || '',
-      (orderedSpots && orderedSpots.length) || 0,
-      JSON.stringify(orderedSpots || []),
-      (routeStats && routeStats.distanceText) || '',
-      (routeStats && routeStats.durationMin) || '',
-    ]);
+    // 既存シートに userId / userName 列が無ければ追加（スキーマ移行）
+    ensureColumns_(sheet, SHEET_HEADERS_SESSION);
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const map = {
+      '日時': new Date().toISOString(),
+      'sessionId': sessionId,
+      '駅名': stationName || '',
+      'プレーヤー名': playerName || '',
+      'フォルダURL': folderUrl || '',
+      'スポット数': (orderedSpots && orderedSpots.length) || 0,
+      'スポット詳細(JSON)': JSON.stringify(orderedSpots || []),
+      '総距離': (routeStats && routeStats.distanceText) || '',
+      '推定時間(分)': (routeStats && routeStats.durationMin) || '',
+      'userId': userId || '',
+      'userName': userName || '',
+    };
+    sheet.appendRow(headers.map(h => (map[h] !== undefined ? map[h] : '')));
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
@@ -586,7 +606,7 @@ function getRankingSheet() {
     const ss = SpreadsheetApp.create(RANKING_SHEET_NAME);
     DriveApp.getFileById(ss.getId()).moveTo(root);
     sheet = ss.getActiveSheet();
-    sheet.appendRow(['日時', '地域', '駅名', 'プレーヤー名', 'スコア', '訪問スポット数', '移動距離(m)', '写真枚数', 'レポート文字数']);
+    sheet.appendRow(['日時', '地域', '駅名', 'プレーヤー名', 'スコア', '訪問スポット数', '移動距離(m)', '写真枚数', 'レポート文字数', 'userId', 'sessionId']);
   }
   // 既存シートのスキーマ移行：「地域」列が無ければ「駅名」の前に挿入
   const lastCol = Math.max(sheet.getLastColumn(), 1);
@@ -597,12 +617,14 @@ function getRankingSheet() {
     sheet.insertColumnBefore(insertIdx + 1);
     sheet.getRange(1, insertIdx + 1).setValue('地域');
   }
+  // userId / sessionId 列を末尾に追加（履歴とスコアの突合用）
+  ensureColumns_(sheet, ['userId', 'sessionId']);
   return sheet;
 }
 
 function saveRanking(body) {
   try {
-    const { stationName, cityId, playerName, score, visitCount, distanceM, photoCount, reportWordCount } = body;
+    const { stationName, cityId, playerName, score, visitCount, distanceM, photoCount, reportWordCount, userId, sessionId } = body;
     if (!stationName || score == null) return { ok: false, error: 'stationName と score が必要です' };
 
     const sheet = getRankingSheet();
@@ -619,6 +641,8 @@ function saveRanking(body) {
       '移動距離(m)': distanceM || 0,
       '写真枚数': photoCount || 0,
       'レポート文字数': reportWordCount || 0,
+      'userId': userId || '',
+      'sessionId': sessionId || '',
     };
     const row = headers.map(h => map[h] !== undefined ? map[h] : '');
     sheet.appendRow(row);
@@ -782,6 +806,66 @@ function loginUser(body) {
       }
     }
     return { ok: false, error: 'not-found' };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** ログインユーザーの冒険履歴を返す。
+ *  body: { userId, limit? }
+ *  戻り値: { ok, history: [{ sessionId, date, stationName, folderUrl, spotCount, score }] } （新しい順）
+ *  スコアはランキングtabの同 sessionId の最高点を突合（無ければ null）。 */
+function getUserHistory(body) {
+  try {
+    const userId = String(body.userId || '');
+    if (!userId) return { ok: false, error: 'userId が必要です' };
+    const limit = body.limit || 50;
+
+    // セッション一覧（userId 一致のみ。過去の無記名セッションは userId 空なので自然に除外）
+    const sSheet = getLogSheet(SHEET_TAB_SESSION, SHEET_HEADERS_SESSION);
+    const sRows = sSheet.getDataRange().getValues();
+    if (sRows.length < 2) return { ok: true, history: [] };
+    const sHead = sRows[0];
+    const sCol = n => sHead.indexOf(n);
+    const uidIdx = sCol('userId');
+    if (uidIdx < 0) return { ok: true, history: [] };
+
+    const sessions = [];
+    for (let i = 1; i < sRows.length; i++) {
+      if (String(sRows[i][uidIdx]) !== userId) continue;
+      sessions.push({
+        sessionId:   String(sRows[i][sCol('sessionId')] || ''),
+        date:        String(sRows[i][sCol('日時')] || ''),
+        stationName: String(sRows[i][sCol('駅名')] || ''),
+        folderUrl:   String(sRows[i][sCol('フォルダURL')] || ''),
+        spotCount:   Number(sRows[i][sCol('スポット数')]) || 0,
+        score:       null,
+      });
+    }
+
+    // スコアを sessionId で突合（ランキングtab）。
+    try {
+      const rSheet = getRankingSheet();
+      const rRows = rSheet.getDataRange().getValues();
+      if (rRows.length >= 2) {
+        const rHead = rRows[0];
+        const sidIdx = rHead.indexOf('sessionId');
+        const scoreIdx = rHead.indexOf('スコア');
+        if (sidIdx >= 0 && scoreIdx >= 0) {
+          const bySid = {};
+          for (let i = 1; i < rRows.length; i++) {
+            const sid = String(rRows[i][sidIdx] || '');
+            if (!sid) continue;
+            const sc = Number(rRows[i][scoreIdx]) || 0;
+            if (bySid[sid] == null || sc > bySid[sid]) bySid[sid] = sc;
+          }
+          sessions.forEach(s => { if (bySid[s.sessionId] != null) s.score = bySid[s.sessionId]; });
+        }
+      }
+    } catch (_) { /* スコア突合失敗は履歴自体には影響させない */ }
+
+    sessions.sort((a, b) => (a.date < b.date ? 1 : -1)); // 新しい順
+    return { ok: true, history: sessions.slice(0, limit) };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
   }

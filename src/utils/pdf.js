@@ -10,7 +10,7 @@ import { localizeStationName } from '../data/cities.js?v=106';
 import { randomFunCharacterImage } from './characters.js?v=106';
 
 // お楽しみ要素: ストリートビューカードにランダムでキャラを紛れ込ませる確率
-const EASTER_EGG_PROBABILITY = 0.3;
+const EASTER_EGG_PROBABILITY = 0.1;
 
 // 端末が非力（スマホ / 低メモリ）かどうか。generateMapPdf の冒頭で判定してセットする。
 // true のときは html2canvas の解像度を下げ、キャラ画像も出さない（メモリ不足で固まる対策）。
@@ -462,10 +462,10 @@ function buildTurnCard({ label, labelColor, title, subtitle, icon, lat, lng, hea
   const sv = `https://maps.googleapis.com/maps/api/streetview?size=480x320&location=${lat},${lng}&heading=${Math.round(heading)}&fov=90&pitch=0&radius=100&source=outdoor&key=${apiKey}`;
   // フォールバック：SV取得失敗時に表示する Static Map（地点中心、ズーム18、マーカー付き）
   const fallback = `https://maps.googleapis.com/maps/api/staticmap?size=480x320&scale=2&center=${lat},${lng}&zoom=18&markers=color:red%7Csize:mid%7C${lat},${lng}&maptype=roadmap&language=${apiLang()}&key=${apiKey}`;
-  // お楽しみ要素: たまにキャラクターが写真の隅に紛れ込む（get以外のポーズ）
-  // ※スマホ/低メモリ端末では、重いPNGでメモリを圧迫して固まるため出さない。
+  // お楽しみ要素: たまにキャラクターが写真の隅に紛れ込む（get以外のポーズ）。
+  // キャラPNGは同一オリジンなので html2canvas がそのまま扱える（別ドメイン画像の固まり問題とは無関係）。
   let eggHtml = '';
-  if (!_pdfConstrained && Math.random() < EASTER_EGG_PROBABILITY) {
+  if (Math.random() < EASTER_EGG_PROBABILITY) {
     const { url } = randomFunCharacterImage();
     const side = Math.random() < 0.5 ? 'left:8px;' : 'right:8px;';
     const rot = (Math.random() * 16 - 8).toFixed(1);
@@ -601,8 +601,15 @@ function escapeHtml(s) {
 // taint 等で失敗した画像は元の src のまま残す（安全側）。
 async function bakeCrossOriginImages(root) {
   console.time('[pdf] bakeImages');
-  const imgs = Array.from(root.querySelectorAll('img'))
-    .filter(img => img.complete && img.naturalWidth > 0 && !(img.src || '').startsWith('data:'));
+  // 別ドメイン画像だけを対象にする。同一オリジンのキャラPNG（透過あり）は焼かない
+  // （JPEG化すると透過が白背景になってしまうため & そもそも html2canvas で問題なく扱えるため）。
+  const imgs = Array.from(root.querySelectorAll('img')).filter(img => {
+    if (!img.complete || img.naturalWidth === 0) return false;
+    const src = img.currentSrc || img.src || '';
+    if (!src || src.startsWith('data:')) return false;
+    try { return new URL(src, location.href).origin !== location.origin; }
+    catch (_) { return false; }
+  });
   for (const img of imgs) {
     try {
       const c = document.createElement('canvas');

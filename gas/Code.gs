@@ -22,6 +22,13 @@ const SHARED_SECRET    = 'tanken-rally-poc-2026'; // config.js の GAS_SECRET �
 const SESSION_RETENTION_DAYS = 30;                 // セッションフォルダ（写真）の保持期間（日）。約1か月。
                                                    // ※フロントの履歴に出す「削除済み」文言と一致させること。
 
+// ===== キャラ自動生成（NanoBanana Pro / Gemini 3 Pro Image）=====
+// APIキーはコードに直書きせず、スクリプトプロパティに置く（GAS: プロジェクト設定 → スクリプト プロパティ）。
+//   キー名: GEMINI_API_KEY
+// 未設定なら generateCharacters は ok:false を返し、フロントは自動でモック生成にフォールバックする。
+const NANOBANANA_MODEL = 'gemini-3-pro-image'; // 要確認: 最新の正式モデル名に合わせる
+const NANOBANANA_MAX_IMAGES = 4;               // 1リクエストの上限（仕様上4枚まで）
+
 // ===== エントリポイント =====
 function doPost(e) {
   const headers = {
@@ -105,6 +112,9 @@ function doPost(e) {
     }
     if (action === 'saveSpotsCache') {
       return respond(headers, saveSpotsCache(body));
+    }
+    if (action === 'generateCharacters') {
+      return respond(headers, generateCharacters(body));
     }
 
     return respond(headers, { ok: false, error: 'unknown action' });
@@ -990,4 +1000,70 @@ function findSpotsCacheRow_(sheet, key) {
     .matchEntireCell(true);
   const cell = finder.findNext();
   return cell ? cell.getRow() : null;
+}
+
+// ===== キャラ自動生成: NanoBanana Pro（Gemini 3 Pro Image）=====
+// body: { prompt, count }
+// 返り値: { ok:true, images:[{dataUrl}] } / 失敗時 { ok:false, error }
+// ※APIキーはスクリプトプロパティ GEMINI_API_KEY に設定。未設定なら ok:false（フロントはモックへ）。
+// ※モデル名・レスポンス形状は最新ドキュメントで要確認（下記は generateContent の一般形に基づく実装）。
+function generateCharacters(body) {
+  try {
+    var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+    if (!apiKey) {
+      return { ok: false, error: 'GEMINI_API_KEY not set (falling back to mock)' };
+    }
+    var prompt = String((body && body.prompt) || '').slice(0, 4000);
+    if (!prompt) return { ok: false, error: 'empty prompt' };
+    var count = Math.max(1, Math.min(NANOBANANA_MAX_IMAGES, parseInt((body && body.count) || 3, 10)));
+
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+      + encodeURIComponent(NANOBANANA_MODEL) + ':generateContent?key=' + encodeURIComponent(apiKey);
+
+    // 子供向け: 安全側の指示をプロンプト末尾にも明示（サーバ側 IMAGE_SAFETY と二重）。
+    var safePrompt = prompt + ' Safe for young children. No text, no logos, no real people.';
+
+    var payload = {
+      contents: [{ role: 'user', parts: [{ text: safePrompt }] }],
+      generationConfig: {
+        // 画像出力を要求。1リクエストで複数枚。※パラメータ名は要確認。
+        responseModalities: ['IMAGE'],
+        candidateCount: count
+      }
+    };
+
+    var res = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    var code = res.getResponseCode();
+    if (code !== 200) {
+      return { ok: false, error: 'gemini http ' + code + ': ' + res.getContentText().slice(0, 300) };
+    }
+    var json = JSON.parse(res.getContentText());
+
+    // candidates[].content.parts[].inlineData(.data,.mimeType) から画像を収集。
+    var images = [];
+    var cands = (json && json.candidates) || [];
+    for (var i = 0; i < cands.length; i++) {
+      // 生成物の安全ブロック（IMAGE_SAFETY 等）はスキップ。
+      if (cands[i].finishReason && String(cands[i].finishReason).indexOf('SAFETY') >= 0) continue;
+      var parts = (cands[i].content && cands[i].content.parts) || [];
+      for (var j = 0; j < parts.length; j++) {
+        var inline = parts[j].inlineData || parts[j].inline_data;
+        if (inline && inline.data) {
+          var mime = inline.mimeType || inline.mime_type || 'image/png';
+          images.push({ dataUrl: 'data:' + mime + ';base64,' + inline.data });
+        }
+      }
+    }
+    if (!images.length) {
+      return { ok: false, error: 'no images (possibly all IMAGE_SAFETY blocked)' };
+    }
+    return { ok: true, images: images };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
 }

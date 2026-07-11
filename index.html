@@ -467,6 +467,27 @@
       </div>
     </div>
 
+    <!-- キャラ自動生成: 変数選択ティーザー（case X。探検おわり時に すき を選ぶ→裏で先行生成） -->
+    <div id="chargen-pick-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="chargen-var-title">
+      <div class="modal-backdrop" data-action="chargen-pick-skip"></div>
+      <div class="modal-content chargen-content">
+        <h3 id="chargen-var-title" class="chargen-title" data-i18n="chargenVarTitle">あたらしい なかまが つくれそう！</h3>
+        <p class="chargen-lead" data-i18n="chargenVarSub">どんなのが すき？ えらぶと その子に ちかづくよ（あとで つくれるよ）</p>
+        <div class="chargen-var-group">
+          <div class="chargen-var-label" data-i18n="chargenVarMotif">🧩 タイプ</div>
+          <div id="chargen-var-motif" class="chargen-var-chips"></div>
+        </div>
+        <div class="chargen-var-group">
+          <div class="chargen-var-label" data-i18n="chargenVarAtmo">✨ ふんいき</div>
+          <div id="chargen-var-atmo" class="chargen-var-chips"></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" data-action="chargen-pick-skip" data-i18n="chargenVarSkip">おまかせ</button>
+          <button id="chargen-var-ok" type="button" class="btn-primary" data-i18n="chargenVarOk">これで きめた →</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 不具合報告：フローティングボタン（全ステップ共通） -->
     <button id="report-issue-btn" type="button" class="report-issue-fab"
       title="アプリの不具合を報告" aria-label="不具合を報告" data-i18n="btnReportIssue">

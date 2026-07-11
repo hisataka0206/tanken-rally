@@ -150,6 +150,12 @@ const TRANSLATIONS = {
     chargenSave: 'ずかんに とうろく →',
     chargenDoneFmt: '「{name}」を なかまに した！',
     chargenZukanSection: '🌟 つくった なかま',
+    chargenVarTitle: 'あたらしい なかまが つくれそう！',
+    chargenVarSub: 'どんなのが すき？ えらぶと その子に ちかづくよ（あとで つくれるよ）',
+    chargenVarMotif: '🧩 タイプ',
+    chargenVarAtmo: '✨ ふんいき',
+    chargenVarSkip: 'おまかせ',
+    chargenVarOk: 'これで きめた →',
     zukanAccountFmt: '👤 {name}',
 
     // ぼうけんの履歴
@@ -559,6 +565,12 @@ const TRANSLATIONS = {
     chargenSave: 'Add to collection →',
     chargenDoneFmt: 'You welcomed "{name}"!',
     chargenZukanSection: '🌟 Created friends',
+    chargenVarTitle: 'You can make a new friend!',
+    chargenVarSub: 'What do you like? Your pick shapes your friend. (You can make it later.)',
+    chargenVarMotif: '🧩 Type',
+    chargenVarAtmo: '✨ Vibe',
+    chargenVarSkip: 'Surprise me',
+    chargenVarOk: 'Set →',
     zukanAccountFmt: '👤 {name}',
 
     // Adventure history
@@ -951,6 +963,12 @@ const TRANSLATIONS = {
     chargenSave: 'ずかんに とうろく →',
     chargenDoneFmt: '「{name}」を なかまに した！',
     chargenZukanSection: '🌟 つくった なかま',
+    chargenVarTitle: 'あたらしい なかまが つくれそう！',
+    chargenVarSub: 'どんなのが すき？ えらぶと その子に ちかづくよ（あとで つくれるよ）',
+    chargenVarMotif: '🧩 タイプ',
+    chargenVarAtmo: '✨ ふんいき',
+    chargenVarSkip: 'おまかせ',
+    chargenVarOk: 'これで きめた →',
     zukanAccountFmt: '👤 {name}',
 
     // ぼうけんの履歴（りれき）

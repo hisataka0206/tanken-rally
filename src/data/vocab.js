@@ -137,9 +137,10 @@ export function pickVocab(axis, pool){
   return pick(a[pool] || []);
 }
 
-/** 1体分の語彙選択（user_selectable=個性 / app_auto=ベース flavor）を返す */
-export function makeVocabPicks(){
-  return {
+/** 1体分の語彙選択（user_selectable=個性 / app_auto=ベース flavor）を返す。
+ *  overrides で特定軸をユーザー選択値に固定できる（case X 明示メニュー用）。 */
+export function makeVocabPicks(overrides){
+  const base = {
     motif:      pickVocab('motif','user_selectable'),
     atmosphere: pickVocab('atmosphere','user_selectable'),
     expression: pickVocab('expression','user_selectable'),
@@ -147,4 +148,8 @@ export function makeVocabPicks(){
     texture:    pickVocab('texture','app_auto'),
     decoration: pickVocab('decoration','app_auto'),
   };
+  if (overrides) {
+    for (const k in overrides) { if (overrides[k]) base[k] = overrides[k]; }
+  }
+  return base;
 }

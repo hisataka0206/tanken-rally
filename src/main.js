@@ -17,12 +17,16 @@ import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, lo
 import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout } from './utils/auth.js?v=106';
 import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
 import { initShell, updateShell } from './utils/shell.js?v=106';
-import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, SILHOUETTE_FILTER } from './utils/chargen.js?v=106';
+import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices } from './utils/chargen.js?v=106';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
   ? new DriveClient(CONFIG.GAS_URL, CONFIG.GAS_SECRET)
   : null;
+
+// キャラ自動生成のバックエンドとして drive を登録（GAS側に GEMINI_API_KEY が
+// 設定されていれば実API生成、無ければ chargen 側が自動でモックにフォールバック）。
+setChargenBackend(drive);
 
 // デバッグ用：drive 接続状態を可視化
 console.log('[tanken-rally] drive client:', drive ? 'enabled' : 'disabled (GAS未設定)');
@@ -2705,6 +2709,8 @@ async function openChargen() {
   if (!state.charGen || !state.charGen.eligible || state.charGen.consumed) return;
   $('chargen-modal').classList.remove('hidden');
   chargenSetPhase('loading');
+  // 念のため: 変数ティーザーを閉じずにここへ来た等で未開始なら、ここで開始（おまかせ扱い）
+  if (!state.charGen.result && !state.charGen.promise) startCharGenBg();
   let result = state.charGen.result;
   if (!result && state.charGen.promise) result = await state.charGen.promise;
   if (!result || !result.candidates || !result.candidates.length) {
@@ -3054,7 +3060,7 @@ function buildGenSummary() {
   };
 }
 function maybeStartCharGen() {
-  state.charGen = { eligible: false, consumed: false, result: null, promise: null, params: null, summary: null, rarityId: 'common' };
+  state.charGen = { eligible: false, consumed: false, result: null, promise: null, params: null, summary: null, rarityId: 'common', userPicks: null };
   if (!FEATURES.scoringEnabled) return; // Phase 1 はスコア有効言語のみ
   const summary = buildGenSummary();
   const elig = evaluateEligibility(summary);
@@ -3064,16 +3070,58 @@ function maybeStartCharGen() {
   console.info('[chargen] eligibility', elig.ok, elig.reasons, summary);
   if (!elig.ok) return;
   const spots = (state.orderedSpots || []).map(s => s.name);
-  state.charGen.params = { station: state.stationName, spots, distanceKm: summary.distanceKm };
-  // 投機実行（裏で先行生成）。失敗しても握りつぶす（表出時にフォールバック）。
+  state.charGen.params = { station: state.stationName, spots, distanceKm: summary.distanceKm, userPicks: null };
+  // ※生成の開始は case X の変数選択（openChargenPickModal → finalizeChargenPick）確定後。
+}
+
+// 先行生成を裏で開始（変数選択の確定後・重複開始しない）
+function startCharGenBg() {
+  if (!state.charGen || !state.charGen.params || state.charGen.promise) return;
   state.charGen.promise = startGeneration(state.charGen.params)
     .then(r => { state.charGen.result = r; return r; })
     .catch(e => { console.warn('[chargen] 先行生成失敗', e); return null; });
 }
 
+// case X: 変数選択ティーザー（探検おわり時に すき を選ぶ）
+let _chargenVarMotif = null;
+let _chargenVarAtmo = null;
+function openChargenPickModal() {
+  if (!state.charGen || !state.charGen.eligible || state.charGen.consumed) return;
+  if (state.charGen.promise) return; // 既に生成開始済みなら出さない
+  _chargenVarMotif = null;
+  _chargenVarAtmo = null;
+  const choices = getUserVocabChoices();
+  const buildChips = (containerId, list, onPick) => {
+    const c = $(containerId);
+    if (!c) return;
+    c.innerHTML = (list || []).map(k =>
+      `<button type="button" class="chargen-var-chip" data-k="${escapeHtml(k)}">${escapeHtml(k)}</button>`).join('');
+    c.querySelectorAll('.chargen-var-chip').forEach(b => b.addEventListener('click', () => {
+      c.querySelectorAll('.chargen-var-chip').forEach(x => x.classList.toggle('selected', x === b));
+      onPick(b.dataset.k);
+    }));
+  };
+  buildChips('chargen-var-motif', choices.motif, k => { _chargenVarMotif = k; });
+  buildChips('chargen-var-atmo', choices.atmosphere, k => { _chargenVarAtmo = k; });
+  $('chargen-pick-modal').classList.remove('hidden');
+}
+function finalizeChargenPick(useSelection) {
+  const picks = {};
+  if (useSelection) {
+    if (_chargenVarMotif) picks.motif = _chargenVarMotif;
+    if (_chargenVarAtmo) picks.atmosphere = _chargenVarAtmo;
+  }
+  if (state.charGen) {
+    state.charGen.userPicks = picks;
+    if (state.charGen.params) state.charGen.params.userPicks = picks;
+  }
+  $('chargen-pick-modal').classList.add('hidden');
+  startCharGenBg(); // 選択が済んだので裏で先行生成
+}
+
 function onStartReport() {
-  // ★キャラ自動生成: レポート生成の前に可否判定＋先行生成を開始（裏で走らせる）
-  try { maybeStartCharGen(); } catch (e) { console.warn('[chargen] pre-gen skip', e); }
+  // ★キャラ自動生成: レポート生成の前に可否判定（生成開始は変数選択の後）
+  try { maybeStartCharGen(); } catch (e) { console.warn('[chargen] eligibility skip', e); }
 
   // メタ情報初期化（日付はシステム側で自動入力しない。ユーザーが date picker で入力）
   $('report-date').value = state.reportData.date || '';
@@ -3098,6 +3146,12 @@ function onStartReport() {
       if (t._autoGrow) t._autoGrow();
     });
   });
+
+  // case X: 条件クリアなら「どんなのが すき？」ティーザーを軽く出す（レポート描画後）。
+  // 選択/おまかせで裏の先行生成が始まり、スコア後に「むかえる」で表出する。
+  if (state.charGen && state.charGen.eligible && !state.charGen.promise) {
+    setTimeout(() => openChargenPickModal(), 500);
+  }
 }
 
 // 写真を「行った順」に並び替える
@@ -3853,6 +3907,12 @@ $('chargen-start-btn').addEventListener('click', openChargen);
 $('chargen-save-btn').addEventListener('click', onChargenSave);
 $('chargen-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'chargen-close') $('chargen-modal').classList.add('hidden');
+});
+
+// キャラ自動生成（case X 変数選択ティーザー）
+$('chargen-var-ok').addEventListener('click', () => finalizeChargenPick(true));
+$('chargen-pick-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'chargen-pick-skip') finalizeChargenPick(false);
 });
 
 // セッション再開（パスワードで前回の写真を復元）

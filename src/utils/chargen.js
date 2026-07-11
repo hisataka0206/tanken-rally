@@ -10,7 +10,16 @@
 import { CHARACTERS, characterImageUrl } from './characters.js?v=106';
 import { getExplorerId } from './collection.js?v=106';
 import { AXIS_BODY, AXIS_IMPRESSION, bodyById, impressionById, axisLabel } from '../data/archetypes.js?v=106';
-import { makeVocabPicks } from '../data/vocab.js?v=106';
+import { makeVocabPicks, VOCAB } from '../data/vocab.js?v=106';
+
+// case X 明示メニュー用: ユーザーが選べる語彙（被りにくい user_selectable プール）。
+// 子供向けに軸を絞る＝モチーフ（タイプ的な"なに"）＋ふんいき（"どんな感じ"）。
+export function getUserVocabChoices() {
+  return {
+    motif:      (VOCAB.motif && VOCAB.motif.user_selectable) || [],
+    atmosphere: (VOCAB.atmosphere && VOCAB.atmosphere.user_selectable) || [],
+  };
+}
 
 // ===== しきい値（暫定・要決定 / docs 参照）=====
 export const GEN_MIN_EXEC        = 250;   // 実行点の下限
@@ -133,7 +142,7 @@ function pickDistinct(arr, n) {
   return out;
 }
 
-function mockCandidates({ distanceKm }) {
+function mockCandidates({ distanceKm, userPicks }) {
   const rarity = rarityForDistance(distanceKm);
   const chars = pickDistinct(CHARACTERS, 3);
   const bodies = pickDistinct(AXIS_BODY, 3);
@@ -153,8 +162,9 @@ function mockCandidates({ distanceKm }) {
       // カラー登場用の色替え（実APIでは imageDataUrl を使うので不要になる）
       colorFilter: `hue-rotate(${hue}deg) saturate(${sat})`,
       imageDataUrl: null,
-      // 記述語彙DB（6論点）を候補ごとに付与＝実API生成プロンプト＆保存メタに使う
-      vocab: makeVocabPicks(),
+      // 記述語彙DB（6論点）を候補ごとに付与＝実API生成プロンプト＆保存メタに使う。
+      // userPicks（case X のユーザー選択：motif/atmosphere）があれば全候補で固定。
+      vocab: makeVocabPicks(userPicks),
     };
   });
 }
@@ -166,7 +176,7 @@ export async function startGeneration(params) {
   const p = params || {};
   const count = 3;
   // 候補ごとに語彙DB（6論点）を選定。実APIでは各候補の vocab で個別プロンプト生成する。
-  const perCandidate = Array.from({ length: count }, () => makeVocabPicks());
+  const perCandidate = Array.from({ length: count }, () => makeVocabPicks(p.userPicks));
   const bodies = pickDistinct(AXIS_BODY, count);
   const rarity = rarityForDistance(p.distanceKm);
 
@@ -199,7 +209,7 @@ export async function startGeneration(params) {
 
   // フォールバック（Phase 1 標準）
   return {
-    candidates: mockCandidates({ distanceKm: p.distanceKm }),
+    candidates: mockCandidates({ distanceKm: p.distanceKm, userPicks: p.userPicks }),
     rarityId: rarityForDistance(p.distanceKm).id,
     source: 'mock',
   };

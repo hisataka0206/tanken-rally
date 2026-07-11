@@ -191,6 +191,14 @@ export class DriveClient {
     if (!data.ok) throw new Error(data.error);
     return data;
   }
+
+  /** キャラ自動生成: NanoBanana Pro（GAS側でAPIキー保持）で count 枚生成。
+   *  返り値: { ok, images: [{ dataUrl }] } を想定。GAS未対応/失敗時は呼び出し側でモックにフォールバック。 */
+  async generateCharacters({ prompt, count = 3 }) {
+    const data = await this._post({ action: 'generateCharacters', prompt, count });
+    if (!data || !data.ok) throw new Error((data && data.error) || 'generateCharacters failed');
+    return data; // { ok:true, images:[{dataUrl}] }
+  }
 }
 
 // ===== ユーティリティ =====

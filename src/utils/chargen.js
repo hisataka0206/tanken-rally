@@ -10,6 +10,7 @@
 import { CHARACTERS, characterImageUrl } from './characters.js?v=106';
 import { getExplorerId } from './collection.js?v=106';
 import { AXIS_BODY, AXIS_IMPRESSION, bodyById, impressionById, axisLabel } from '../data/archetypes.js?v=106';
+import { makeVocabPicks } from '../data/vocab.js?v=106';
 
 // ===== しきい値（暫定・要決定 / docs 参照）=====
 export const GEN_MIN_EXEC        = 250;   // 実行点の下限
@@ -63,18 +64,22 @@ export function evaluateEligibility(summary) {
 // ===== 生成プロンプト構築 =====
 // ブランディング固定部＋駅名＋スポット名＋距離(レア度)＋ユーザー変数(軸A×B)。
 // ユーザー由来の自由テキストは入れない（安全・プロンプト混入対策）。
-export function buildPrompt({ station, spots, distanceKm, body, impression }) {
+export function buildPrompt({ station, spots, distanceKm, vocab }) {
   const rarity = rarityForDistance(distanceKm);
-  const b = bodyById(body) || AXIS_BODY[0];
-  const i = impressionById(impression) || AXIS_IMPRESSION[0];
+  const v = vocab || {};
   const spotThemes = (spots || []).slice(0, 5).map(sanitizeTheme).filter(Boolean).join(', ');
   return [
     // --- ブランディング固定部（画風・安全）---
     'Original mascot character for a kids station-exploration game "Tekutan".',
     'Consistent house art style: thick clean outlines, rounded chibi proportions, big friendly eyes, soft candy-pop colors, sticker-like flat shading. Single character, centered, plain transparent background.',
     'Child-friendly: not scary, no violence, no text, no weapons.',
-    // --- ユーザー変数（軸A×B）---
-    `Base form: ${b.promptHint}. Overall impression: ${i.promptHint}.`,
+    // --- ユーザー変数＝記述語彙DB（6論点・IP非依存の一般名詞。日英混在でOK、Geminiは両対応）---
+    v.motif      ? `Creature motif: ${v.motif}.`        : '',
+    v.type       ? `Elemental essence: ${v.type}.`      : '',
+    v.texture    ? `Texture: ${v.texture}.`             : '',
+    v.decoration ? `Decoration: ${v.decoration}.`       : '',
+    v.expression ? `Expression: ${v.expression}.`       : '',
+    v.atmosphere ? `Atmosphere: ${v.atmosphere}.`       : '',
     // --- 旅のモチーフ ---
     station ? `Inspired by the area around ${sanitizeTheme(station)} station.` : '',
     spotThemes ? `Subtle motifs from: ${spotThemes}.` : '',
@@ -148,6 +153,8 @@ function mockCandidates({ distanceKm }) {
       // カラー登場用の色替え（実APIでは imageDataUrl を使うので不要になる）
       colorFilter: `hue-rotate(${hue}deg) saturate(${sat})`,
       imageDataUrl: null,
+      // 記述語彙DB（6論点）を候補ごとに付与＝実API生成プロンプト＆保存メタに使う
+      vocab: makeVocabPicks(),
     };
   });
 }
@@ -158,28 +165,32 @@ function mockCandidates({ distanceKm }) {
 export async function startGeneration(params) {
   const p = params || {};
   const count = 3;
-  // 実 API 接続時はここで prompt を作って生成（body/impression 未指定時は候補ごとに多様化）。
+  // 候補ごとに語彙DB（6論点）を選定。実APIでは各候補の vocab で個別プロンプト生成する。
+  const perCandidate = Array.from({ length: count }, () => makeVocabPicks());
+  const bodies = pickDistinct(AXIS_BODY, count);
+  const rarity = rarityForDistance(p.distanceKm);
+
+  // 実 API 接続時: 各候補の vocab でプロンプトを作って生成（ここでは代表1本で疎通確認）。
   const real = await callNanoBananaPro({
     prompt: buildPrompt({
       station: p.station, spots: p.spots, distanceKm: p.distanceKm,
-      body: p.body, impression: p.impression,
+      vocab: perCandidate[0],
     }),
     count,
   });
 
   if (real && real.length >= count) {
-    const rarity = rarityForDistance(p.distanceKm);
-    const bodies = pickDistinct(AXIS_BODY, count);
     return {
       candidates: real.slice(0, count).map((r, idx) => ({
         candidateId: 'g' + idx,
         bodyId: (bodies[idx] || AXIS_BODY[0]).id,
-        impressionId: (p.impression || AXIS_IMPRESSION[0].id),
+        impressionId: AXIS_IMPRESSION[0].id,
         rarityId: rarity.id,
         baseCharId: null,
         imageUrl: r.imageDataUrl,
         colorFilter: 'none',
         imageDataUrl: r.imageDataUrl,
+        vocab: perCandidate[idx],
       })),
       rarityId: rarity.id,
       source: 'nanobanana',
@@ -237,6 +248,7 @@ export function saveGeneratedCharacter(def) {
     rarityId: def.rarityId || 'common',
     bodyId: def.bodyId || null,
     impressionId: def.impressionId || null,
+    vocab: def.vocab || null,              // 記述語彙DB（6論点）の選定結果
     baseCharId: def.baseCharId || null,   // モック描画用
     colorFilter: def.colorFilter || 'none',
     imageDataUrl: def.imageDataUrl || null, // 実API画像

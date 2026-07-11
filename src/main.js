@@ -2776,6 +2776,7 @@ function onChargenSave() {
     rarityId: _chargenChosen.rarityId,
     bodyId: _chargenChosen.bodyId,
     impressionId: _chargenChosen.impressionId,
+    vocab: _chargenChosen.vocab,
     baseCharId: _chargenChosen.baseCharId,
     colorFilter: _chargenChosen.colorFilter,
     imageDataUrl: _chargenChosen.imageDataUrl,

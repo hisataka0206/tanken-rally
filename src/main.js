@@ -17,6 +17,7 @@ import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, lo
 import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout } from './utils/auth.js?v=106';
 import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
 import { initShell, updateShell } from './utils/shell.js?v=106';
+import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, SILHOUETTE_FILTER } from './utils/chargen.js?v=106';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -608,7 +609,7 @@ function renderZukanGrid(collection) {
   const compEl = $('zukan-comp');
   if (compEl) compEl.textContent = t('zukanCompFmt', 'コンプ {n}/{total}').replace('{n}', String(owned)).replace('{total}', String(total));
 
-  grid.innerHTML = CHARACTERS.map(ch => {
+  const charsHtml = CHARACTERS.map(ch => {
     const ownedSet = ownedVariantIds(_zukanCollection, ch.id);
     const caught = ownedSet.size > 0;
     const name = caught ? charDisplayName(ch) : t('zukanUnknown');
@@ -627,6 +628,25 @@ function renderZukanGrid(collection) {
         ${badge}
       </div>`;
   }).join('');
+
+  // つくったなかま（キャラ自動生成）: 専用ストアから追記
+  const genRecs = loadGeneratedCharacters();
+  let genHtml = '';
+  if (genRecs.length) {
+    genHtml = `<div class="zukan-section-label">${escapeHtml(t('chargenZukanSection', '🌟 つくった なかま'))}</div>` +
+      genRecs.map(rec => {
+        const rar = rarityById(rec.rarityId);
+        const style = rec.imageDataUrl ? '' : ` style="filter:${rec.colorFilter || 'none'}"`;
+        return `
+          <div class="zukan-item zukan-generated">
+            <img src="${escapeHtml(generatedImageUrl(rec))}" alt=""${style} />
+            <div class="zukan-name">${escapeHtml(rec.name || '')}</div>
+            <div class="zukan-count">${'★'.repeat(rar.stars || 1)}</div>
+          </div>`;
+      }).join('');
+  }
+
+  grid.innerHTML = charsHtml + genHtml;
   grid.querySelectorAll('.zukan-clickable').forEach(el => {
     el.addEventListener('click', () => showZukanDetail(el.dataset.charId));
   });
@@ -2656,10 +2676,116 @@ function openScoreModal() {
     submitBtn.classList.toggle('hidden', !FEATURES.rankingEnabled);
   }
 
+  // キャラ自動生成の導線（条件クリア＆未消費のときだけ）
+  const genEntry = $('chargen-entry');
+  if (genEntry) {
+    const show = !!(state.charGen && state.charGen.eligible && !state.charGen.consumed);
+    genEntry.classList.toggle('hidden', !show);
+  }
+
   $('score-player-name').value = state.reportData.author || '';
   $('score-phase-input').classList.remove('hidden');
   $('score-phase-ranking').classList.add('hidden');
   $('score-modal').classList.remove('hidden');
+}
+
+// ===== キャラ自動生成: 表出フロー（3体シルエット→選択→カラー登場→命名→登録）=====
+let _chargenCandidates = [];
+let _chargenChosen = null;
+let _chargenChosenName = '';
+
+function chargenSetPhase(phase) {
+  ['loading', 'pick', 'reveal', 'done'].forEach(p => {
+    const el = $('chargen-phase-' + p);
+    if (el) el.classList.toggle('hidden', p !== phase);
+  });
+}
+
+async function openChargen() {
+  if (!state.charGen || !state.charGen.eligible || state.charGen.consumed) return;
+  $('chargen-modal').classList.remove('hidden');
+  chargenSetPhase('loading');
+  let result = state.charGen.result;
+  if (!result && state.charGen.promise) result = await state.charGen.promise;
+  if (!result || !result.candidates || !result.candidates.length) {
+    $('chargen-modal').classList.add('hidden');
+    alert(t('chargenLoading'));
+    return;
+  }
+  _chargenCandidates = result.candidates;
+  _chargenChosen = null;
+  _chargenChosenName = '';
+  renderChargenSilhouettes(_chargenCandidates);
+  chargenSetPhase('pick');
+}
+
+function renderChargenSilhouettes(cands) {
+  const wrap = $('chargen-silhouettes');
+  if (!wrap) return;
+  wrap.innerHTML = cands.map((c, i) => `
+    <button type="button" class="chargen-silhouette" data-idx="${i}">
+      <img src="${escapeHtml(c.imageUrl || '')}" alt="" style="filter:${SILHOUETTE_FILTER}" />
+      <span class="chargen-silhouette-q">？</span>
+    </button>`).join('');
+  wrap.querySelectorAll('.chargen-silhouette').forEach(btn => {
+    btn.addEventListener('click', () => onChargenPick(parseInt(btn.dataset.idx, 10)));
+  });
+}
+
+function onChargenPick(idx) {
+  const cand = _chargenCandidates[idx];
+  if (!cand) return;
+  _chargenChosen = cand;
+  _chargenChosenName = '';
+
+  // カラー登場（実API画像があればそれを、無ければベース絵＋色替えフィルタ）
+  const img = $('chargen-reveal-img');
+  if (cand.imageDataUrl) {
+    img.src = cand.imageDataUrl; img.style.filter = 'none';
+  } else {
+    img.src = cand.imageUrl || ''; img.style.filter = cand.colorFilter || 'none';
+  }
+  const rar = rarityById(cand.rarityId);
+  const rarLabel = (rar.label && (rar.label[LANG] || rar.label.ja)) || '';
+  $('chargen-rarity').textContent = `${rarLabel} ${'★'.repeat(rar.stars || 1)}`;
+
+  // 命名候補（候補から選ぶ・自由入力なし）
+  const names = nameCandidates(state.charGen.params.station, cand.bodyId, LANG === 'en' ? 'en' : 'ja');
+  const nopt = $('chargen-name-options');
+  nopt.innerHTML = names.map(n =>
+    `<button type="button" class="chargen-name-opt" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join('');
+  nopt.querySelectorAll('.chargen-name-opt').forEach(b => {
+    b.addEventListener('click', () => {
+      _chargenChosenName = b.dataset.name;
+      nopt.querySelectorAll('.chargen-name-opt').forEach(x => x.classList.toggle('selected', x === b));
+      $('chargen-save-btn').disabled = false;
+    });
+  });
+  $('chargen-save-btn').disabled = true;
+  chargenSetPhase('reveal');
+}
+
+function onChargenSave() {
+  if (!_chargenChosen || !_chargenChosenName) return;
+  const p = state.charGen.params || {};
+  const rec = saveGeneratedCharacter({
+    name: _chargenChosenName,
+    station: p.station,
+    spots: p.spots,
+    distanceKm: p.distanceKm,
+    rarityId: _chargenChosen.rarityId,
+    bodyId: _chargenChosen.bodyId,
+    impressionId: _chargenChosen.impressionId,
+    baseCharId: _chargenChosen.baseCharId,
+    colorFilter: _chargenChosen.colorFilter,
+    imageDataUrl: _chargenChosen.imageDataUrl,
+  });
+  state.charGen.consumed = true;
+  $('chargen-done-msg').textContent = t('chargenDoneFmt').replace('{name}', rec.name);
+  chargenSetPhase('done');
+  const genEntry = $('chargen-entry');
+  if (genEntry) genEntry.classList.add('hidden');
+  if (!$('zukan-modal').classList.contains('hidden')) renderZukanGrid(loadCollection());
 }
 
 async function onSubmitScore() {
@@ -2898,7 +3024,56 @@ function setTidyButtonState(tidied) {
 }
 
 // ===== STEP 5: レポート =====
+// ===== キャラ自動生成（Phase 1）=====
+// レポート表示の"前"に作成可否を判定し、可なら3体を裏で先行生成しておく（レイテンシ隠蔽）。
+// 表出はスコア表示後にユーザーが「むかえる」を押したとき（openChargen）。
+function parseKm(distanceText) {
+  const m = String(distanceText || '').match(/([\d.]+)\s*(km|m)\b/i);
+  if (!m) return 0;
+  const v = parseFloat(m[1]) || 0;
+  return /km/i.test(m[2]) ? v : v / 1000;
+}
+function buildGenSummary() {
+  const score = FEATURES.scoringEnabled ? calculateScore() : { execScore: 0 };
+  const meaningfulSpots = new Set(
+    (state.uploadedPhotos || [])
+      .map(p => p.spotName)
+      .filter(n => n && n !== PHOTO_TAG_START && n !== PHOTO_TAG_GOAL)
+  );
+  const gps = new Set(
+    (state.captures || [])
+      .filter(c => c.lat != null && c.lng != null)
+      .map(c => `${(+c.lat).toFixed(3)},${(+c.lng).toFixed(3)}`)
+  );
+  return {
+    execScore: score.execScore || 0,
+    spotsWithPhotos: meaningfulSpots.size,
+    distinctGpsPoints: gps.size,
+    distanceKm: parseKm(state.routeStats && state.routeStats.distanceText),
+  };
+}
+function maybeStartCharGen() {
+  state.charGen = { eligible: false, consumed: false, result: null, promise: null, params: null, summary: null, rarityId: 'common' };
+  if (!FEATURES.scoringEnabled) return; // Phase 1 はスコア有効言語のみ
+  const summary = buildGenSummary();
+  const elig = evaluateEligibility(summary);
+  state.charGen.summary = summary;
+  state.charGen.eligible = elig.ok;
+  state.charGen.rarityId = elig.rarity.id;
+  console.info('[chargen] eligibility', elig.ok, elig.reasons, summary);
+  if (!elig.ok) return;
+  const spots = (state.orderedSpots || []).map(s => s.name);
+  state.charGen.params = { station: state.stationName, spots, distanceKm: summary.distanceKm };
+  // 投機実行（裏で先行生成）。失敗しても握りつぶす（表出時にフォールバック）。
+  state.charGen.promise = startGeneration(state.charGen.params)
+    .then(r => { state.charGen.result = r; return r; })
+    .catch(e => { console.warn('[chargen] 先行生成失敗', e); return null; });
+}
+
 function onStartReport() {
+  // ★キャラ自動生成: レポート生成の前に可否判定＋先行生成を開始（裏で走らせる）
+  try { maybeStartCharGen(); } catch (e) { console.warn('[chargen] pre-gen skip', e); }
+
   // メタ情報初期化（日付はシステム側で自動入力しない。ユーザーが date picker で入力）
   $('report-date').value = state.reportData.date || '';
   $('report-author').value = state.reportData.author || '';
@@ -3670,6 +3845,13 @@ $('submit-score-btn').addEventListener('click', openScoreModal);
 $('score-submit-btn').addEventListener('click', onSubmitScore);
 $('score-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'close') $('score-modal').classList.add('hidden');
+});
+
+// キャラ自動生成（表出フロー）
+$('chargen-start-btn').addEventListener('click', openChargen);
+$('chargen-save-btn').addEventListener('click', onChargenSave);
+$('chargen-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'chargen-close') $('chargen-modal').classList.add('hidden');
 });
 
 // セッション再開（パスワードで前回の写真を復元）

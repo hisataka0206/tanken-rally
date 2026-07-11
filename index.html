@@ -392,6 +392,12 @@
           <!-- 個別アドバイス（弱点ピックアップ） -->
           <div id="score-advice" class="score-advice hidden"></div>
 
+          <!-- キャラ自動生成の導線（条件クリア時のみ表示。可否はレポート前に判定し裏で先行生成済み） -->
+          <div id="chargen-entry" class="chargen-entry hidden">
+            <p class="chargen-entry-lead" data-i18n="chargenEntryLead">🌟 きょうの たんけんから あたらしい なかまが つくれるよ！</p>
+            <button id="chargen-start-btn" type="button" class="btn-primary chargen-start-btn" data-i18n="chargenStart">あたらしい なかまを むかえる →</button>
+          </div>
+
           <label class="score-name-label">
             <span data-i18n="scoreNameLabel">✏️ 名前（ニックネームでもOK）</span>
             <input id="score-player-name" type="text" data-i18n-placeholder="scoreNamePh" placeholder="（探検者の名前）" maxlength="30" />
@@ -412,6 +418,50 @@
           <ol id="ranking-list" class="ranking-list"></ol>
           <div class="modal-actions">
             <button class="btn-primary" data-action="close" data-i18n="btnClose">閉じる</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- キャラ自動生成モーダル（3体シルエット → 選択 → カラー登場 → 命名 → 図鑑登録） -->
+    <div id="chargen-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="chargen-title">
+      <div class="modal-backdrop" data-action="chargen-close"></div>
+      <div class="modal-content chargen-content">
+        <button type="button" class="modal-x" data-action="chargen-close" aria-label="close">✕</button>
+
+        <!-- フェーズ: 生成待ち（先行生成が間に合っていない時だけ） -->
+        <div id="chargen-phase-loading" class="chargen-phase hidden">
+          <div class="chargen-spinner" aria-hidden="true"></div>
+          <p class="chargen-lead" data-i18n="chargenLoading">なかまを さがしてるよ…</p>
+        </div>
+
+        <!-- フェーズ: 3体シルエットから選ぶ -->
+        <div id="chargen-phase-pick" class="chargen-phase hidden">
+          <h3 id="chargen-title" class="chargen-title" data-i18n="chargenPickTitle">どの なかまに する？</h3>
+          <p class="chargen-lead" data-i18n="chargenPickSub">かげを よく見て、ひとつ えらんでね</p>
+          <div id="chargen-silhouettes" class="chargen-silhouettes"></div>
+        </div>
+
+        <!-- フェーズ: カラー登場＋命名 -->
+        <div id="chargen-phase-reveal" class="chargen-phase hidden">
+          <h3 class="chargen-title" data-i18n="chargenRevealTitle">あたらしい なかま とうじょう！</h3>
+          <div class="chargen-reveal-wrap">
+            <img id="chargen-reveal-img" class="chargen-reveal-img" src="" alt="" />
+            <div id="chargen-rarity" class="chargen-rarity"></div>
+          </div>
+          <p class="chargen-lead" data-i18n="chargenNameSub">なまえを えらんでね</p>
+          <div id="chargen-name-options" class="chargen-name-options"></div>
+          <div class="modal-actions">
+            <button id="chargen-save-btn" type="button" class="btn-primary" data-i18n="chargenSave" disabled>ずかんに とうろく →</button>
+          </div>
+        </div>
+
+        <!-- フェーズ: 完了 -->
+        <div id="chargen-phase-done" class="chargen-phase hidden">
+          <div class="chargen-done-emoji" aria-hidden="true">🎉</div>
+          <p id="chargen-done-msg" class="chargen-lead"></p>
+          <div class="modal-actions">
+            <button type="button" class="btn-primary" data-action="chargen-close" data-i18n="btnClose">閉じる</button>
           </div>
         </div>
       </div>

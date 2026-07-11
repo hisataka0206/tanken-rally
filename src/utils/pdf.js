@@ -68,13 +68,15 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
     progress(t('pdfStageImages', '画像を読込中…'));
     await waitForImagesWithFallback(container);
 
-    // ★スマホ対策: Google の地図/ストリートビュー画像（別ドメイン）を、描画前に
-    //   データURL（同一オリジン扱い）へ焼き込む。html2canvas が別ドメイン画像の
-    //   取り扱いでスマホ上で固まる問題を回避する（1スポットでも「描画中」で止まる症状）。
-    //   PC は元々問題ないので触らない。失敗時は元のまま html2canvas に任せる。
-    if (_pdfConstrained) {
-      await bakeCrossOriginImages(container);
-    }
+    // ★全端末対策: Google の地図/ストリートビュー画像（別ドメイン）を、描画前に
+    //   データURL（同一オリジン扱い）へ焼き込む。html2canvas は clone DOM 内で
+    //   別ドメイン画像を "もう一度" 取得しに行くため、キャッシュが冷たい1回目は
+    //   この再取得が CORS/キャッシュのハンドシェイクで解決せず待ち続け、描画タイム
+    //   アウトに到達して失敗する（＝「1回目は失敗、2回目はキャッシュ済みで一瞬」の正体）。
+    //   先に data URL 化しておけば html2canvas は外部再取得をせず、1回目から成功する。
+    //   以前はスマホ限定にしていたが、この落とし穴は PC でも起きるため全端末で実行する。
+    //   失敗した画像は元の src のまま残す（安全側）。
+    await bakeCrossOriginImages(container);
 
     // 2) html2canvas でラスタライズ
     // ★モバイル対策: スマホブラウザには canvas の上限（iOS Safari は約1,677万画素、
@@ -105,6 +107,9 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
         allowTaint: false,
         backgroundColor: '#ffffff',
         scale: SCALE,
+        // 保険: 画像は事前に data URL 化済みなので即読めるはずだが、万一外部URLが
+        //   残っても html2canvas が長時間ハングしないよう明示的に短めの上限を置く。
+        imageTimeout: 15000,
       }),
       new Promise((_, reject) => setTimeout(
         () => reject(new Error(t('pdfErrRenderTimeout',
@@ -615,8 +620,8 @@ async function bakeCrossOriginImages(root) {
   });
   // 長辺の上限。これより大きい画像（特に 1280px の Static Map）は縮小してから焼く。
   // フル解像度で toDataURL するとエンコード/再デコード/メモリが重く、体感フリーズの主因になる。
-  // PDF はモバイルで低scale描画のため、この程度で見た目の劣化はほぼ無い。
-  const MAX_SIDE = 1024;
+  // モバイルは軽さ優先で 1024px、PC は画質優先で 1600px（PC はエンコード負荷に余裕がある）。
+  const MAX_SIDE = _pdfConstrained ? 1024 : 1600;
   for (const img of imgs) {
     try {
       let w = img.naturalWidth, h = img.naturalHeight;

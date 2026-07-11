@@ -73,6 +73,7 @@
       <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
       <button id="history-btn" class="zukan-btn" type="button" data-i18n-title="btnHistory" title="ぼうけんの履歴">📜</button>
       <button id="zukan-btn" class="zukan-btn" type="button" data-i18n-title="btnZukan" title="キャラずかん">📖</button>
+      <button id="admin-btn" class="zukan-btn hidden" type="button" title="マスターモード（admin）">🛠</button>
     </header>
 
     <!-- 冒険の進捗トレイル（すごろく型・shell.js が構築/更新） -->
@@ -582,6 +583,35 @@
         <div id="history-list" class="history-list"></div>
         <div class="modal-actions">
           <button class="btn-secondary" data-action="close" data-i18n="btnArClose">✖ とじる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- マスターモード（admin専用）: 確率要素を固定してテストする -->
+    <div id="admin-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="admin-title">
+      <div class="modal-backdrop" data-action="close"></div>
+      <div class="modal-content modal-content-wide">
+        <h3 id="admin-title">🛠 マスターモード（admin）</h3>
+        <p class="modal-desc">確率で決まる要素を固定してチェックできます。設定はこの端末に保存され、adminアカウントでのみ有効です。</p>
+        <label class="admin-row">
+          <span>出すキャラ</span>
+          <select id="admin-char"><option value="">（ステージ通常）</option></select>
+        </label>
+        <label class="admin-row">
+          <span>すがた（バリエ）</span>
+          <select id="admin-variant"><option value="">（ランダム）</option></select>
+        </label>
+        <label class="admin-row admin-check">
+          <input type="checkbox" id="admin-force" />
+          <span>GPS・向きを無視して必ず出す（その場でテスト用）</span>
+        </label>
+        <label class="admin-row admin-check">
+          <input type="checkbox" id="admin-zukan-all" />
+          <span>図鑑を全部プレビュー表示（保存はしない）</span>
+        </label>
+        <p class="admin-note">※「出すキャラ／すがた」を指定すると、次にARで探すとき必ずそれが出ます。「（ステージ通常）／（ランダム）」で通常に戻ります。</p>
+        <div class="modal-actions">
+          <button class="btn-secondary" data-action="close">閉じる</button>
         </div>
       </div>
     </div>

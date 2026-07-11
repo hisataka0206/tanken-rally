@@ -1180,6 +1180,32 @@ body {
   padding: 24px 8px;
 }
 
+/* ===== マスターモード（admin） ===== */
+.admin-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green-dark);
+}
+.admin-row > span { min-width: 128px; }
+.admin-row select {
+  flex: 1;
+  padding: 9px 12px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+}
+.admin-row select:focus { border-color: var(--green-dark); }
+.admin-check { font-weight: 500; align-items: flex-start; }
+.admin-check > span { min-width: 0; line-height: 1.5; }
+.admin-check input { margin-top: 2px; width: 18px; height: 18px; }
+.admin-note { font-size: 11px; color: #999; line-height: 1.6; margin: 4px 0 0; }
+
 .score-name-label {
   display: flex;
   flex-direction: column;

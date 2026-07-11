@@ -215,6 +215,48 @@ function variantNamePrefix(v) {
   return l ? l + ' ' : '';
 }
 
+// ===== マスターモード（admin） =====
+// 「hisatakaadmin」でログインした時だけ有効。確率要素（どのキャラ/すがたが出るか・出現条件）を
+// 固定してテストできる。設定は端末に保存。非adminでは一切効かない（各適用箇所で isAdmin() ガード）。
+const ADMIN_NAMES = ['hisatakaadmin'];
+function isAdmin() {
+  const a = getStoredAuth();
+  return !!(a && ADMIN_NAMES.includes(String(a.name || '').trim().toLowerCase()));
+}
+let adminOverride = (() => {
+  try { return JSON.parse(localStorage.getItem('tanken_admin_override') || '{}') || {}; }
+  catch (_) { return {}; }
+})();
+function saveAdminOverride() {
+  try { localStorage.setItem('tanken_admin_override', JSON.stringify(adminOverride)); } catch (_) { /* no-op */ }
+}
+function updateAdminButton() {
+  const btn = $('admin-btn');
+  if (btn) btn.classList.toggle('hidden', !isAdmin());
+}
+function openAdminPanel() {
+  const charSel = $('admin-char');
+  charSel.innerHTML = '<option value="">（ステージ通常）</option>' +
+    CHARACTERS.map(c => `<option value="${c.id}">${escapeHtml(charDisplayName(c))}</option>`).join('');
+  charSel.value = adminOverride.charId || '';
+  const varSel = $('admin-variant');
+  varSel.innerHTML = '<option value="">（ランダム）</option>' +
+    VARIANTS.map(v => `<option value="${v.id}">${escapeHtml(variantLabel(v) || t('variant_normal', 'ノーマル'))}</option>`).join('');
+  varSel.value = adminOverride.variantId || '';
+  $('admin-force').checked = !!adminOverride.forceAppear;
+  $('admin-zukan-all').checked = !!adminOverride.zukanAll;
+  $('admin-modal').classList.remove('hidden');
+}
+// 「図鑑を全部プレビュー」用: 全キャラ×全すがたを取得済み扱いにした表示専用コレクション（保存しない）
+function effectiveCollection(collection) {
+  if (isAdmin() && adminOverride.zukanAll) {
+    const all = {};
+    CHARACTERS.forEach(ch => VARIANTS.forEach(v => { all[collectionKey(ch.id, v.id)] = { count: 1 }; }));
+    return all;
+  }
+  return collection || {};
+}
+
 // 現在のウィザードステージに対する AR コンテキストを返す（対象外ステージは null）
 function arStageContext(info) {
   if (!FEATURES.arCaptureEnabled || !supportsArCamera()) return null;
@@ -263,6 +305,8 @@ async function openArHunt() {
   const info = getWizardStageInfo(state.photoWizardStage);
   const ctx = arStageContext(info);
   if (!ctx) return;
+  // admin: 出すキャラを固定（指定があれば上書き）
+  if (isAdmin() && adminOverride.charId) ctx.char = characterById(adminOverride.charId);
   arCurrent = ctx;
 
   // オーバーレイ表示・初期化
@@ -277,8 +321,10 @@ async function openArHunt() {
   const charEl = $('ar-character');
   charEl.classList.add('hidden');
   charEl.classList.remove('ar-appear');
-  // 遭遇ごとにバリエーション（レア度）を抽選。プレビューにも反映して「おっ光ってる！」を演出。
-  ctx.variant = ctx.char ? rollVariant() : null;
+  // 遭遇ごとにバリエーション（レア度）を抽選。admin指定があればそれを固定。
+  ctx.variant = ctx.char
+    ? ((isAdmin() && adminOverride.variantId) ? variantById(adminOverride.variantId) : rollVariant())
+    : null;
   if (ctx.char) {
     const v = ctx.variant;
     const imgEl = $('ar-character-img');
@@ -299,6 +345,8 @@ async function openArHunt() {
   });
   try {
     await arSession.start($('ar-video'));
+    // admin: GPS・向きを無視して必ず出す（その場テスト用）
+    if (isAdmin() && adminOverride.forceAppear && ctx.char) arSession.forceAppear();
   } catch (e) {
     console.warn('[ar] camera start failed:', e);
     alert(t('arCameraError'));
@@ -504,7 +552,7 @@ function revealHintText(baseCount) {
 function renderZukanGrid(collection) {
   const grid = $('zukan-grid');
   if (!grid) return;
-  _zukanCollection = collection || {};
+  _zukanCollection = effectiveCollection(collection);  // adminの「全部プレビュー」対応
 
   const { owned, total } = zukanTotals(_zukanCollection);
   const compEl = $('zukan-comp');
@@ -3465,6 +3513,21 @@ $('history-btn').addEventListener('click', openHistory);
 $('history-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'close') $('history-modal').classList.add('hidden');
 });
+
+// マスターモード（admin）
+$('admin-btn').addEventListener('click', openAdminPanel);
+$('admin-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'close') $('admin-modal').classList.add('hidden');
+});
+$('admin-char').addEventListener('change', e => { adminOverride.charId = e.target.value || null; saveAdminOverride(); });
+$('admin-variant').addEventListener('change', e => { adminOverride.variantId = e.target.value || null; saveAdminOverride(); });
+$('admin-force').addEventListener('change', e => { adminOverride.forceAppear = e.target.checked; saveAdminOverride(); });
+$('admin-zukan-all').addEventListener('change', e => {
+  adminOverride.zukanAll = e.target.checked;
+  saveAdminOverride();
+  // 図鑑を開いている最中なら即再描画
+  if (!$('zukan-modal').classList.contains('hidden')) renderZukanGrid(loadCollection());
+});
 $('zukan-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'close') $('zukan-modal').classList.add('hidden');
 });
@@ -3726,6 +3789,7 @@ function onLogout() {
 function enterApp() {
   hideLoginGate();
   updateZukanAccount();
+  updateAdminButton();   // admin アカウントなら 🛠 ボタンを表示
   if (!_appEntered) {
     _appEntered = true;
     if (!FEATURES.scoringEnabled) {

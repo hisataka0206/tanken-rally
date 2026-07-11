@@ -72,11 +72,12 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
     progress(t('pdfStageRender', '描画中…（少し時間がかかります）'));
     const contentW = container.scrollWidth || 794;
     const contentH = container.scrollHeight || 1;
-    // スマホ/低メモリ端末は、巨大キャンバスでタブが固まるため予算を大きく下げる。
-    const MAX_PIXELS    = _pdfConstrained ?  5000000 : 14000000;
-    const MAX_DIMENSION = _pdfConstrained ?     8000 :    14000;
-    const SCALE_FLOOR   = _pdfConstrained ?      0.6 :      0.9;
-    let SCALE = _pdfConstrained ? 1.5 : 2;
+    // スマホ/低メモリ端末は、巨大キャンバスで html2canvas（描画）が固まるため予算を大きく下げる。
+    // ※「描画中…」でフリーズする＝ここが効くポイント。総ピクセル数を絞るほど固まりにくい。
+    const MAX_PIXELS    = _pdfConstrained ?  3000000 : 14000000;
+    const MAX_DIMENSION = _pdfConstrained ?     6500 :    14000;
+    const SCALE_FLOOR   = _pdfConstrained ?      0.5 :      0.9;
+    let SCALE = _pdfConstrained ? 1.25 : 2;
     if (contentW * contentH * SCALE * SCALE > MAX_PIXELS) {
       SCALE = Math.max(SCALE_FLOOR, Math.sqrt(MAX_PIXELS / (contentW * contentH)));
     }
@@ -84,12 +85,22 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
       SCALE = Math.min(SCALE, MAX_DIMENSION / contentH);
     }
     console.info(`[pdf] content=${contentW}x${contentH}px scale=${SCALE.toFixed(2)} constrained=${_pdfConstrained}`);
-    const canvas = await html2canvas(container, {
-      useCORS: true,
-      allowTaint: false,
-      backgroundColor: '#ffffff',
-      scale: SCALE,
-    });
+    // html2canvas が固まったまま返ってこないケースの保険。一定時間で諦めてエラーにし、
+    // 無限フリーズではなくメッセージを出す（呼び出し側でボタンを復帰させる）。
+    const RENDER_TIMEOUT_MS = _pdfConstrained ? 90000 : 180000;
+    const canvas = await Promise.race([
+      html2canvas(container, {
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        scale: SCALE,
+      }),
+      new Promise((_, reject) => setTimeout(
+        () => reject(new Error(t('pdfErrRenderTimeout',
+          'PDFの描画に時間がかかりすぎたため中断しました。ルートを短くするか、PCでお試しください。'))),
+        RENDER_TIMEOUT_MS
+      )),
+    ]);
     if (!canvas.width || !canvas.height) {
       throw new Error('canvas rendering failed (size 0)');
     }
@@ -164,6 +175,11 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
         doc.addImage(sliceData, 'JPEG', MARGIN_MM, MARGIN_MM, imgWidthMm, sliceMm);
         offsetPx += sliceHeight;
         pageNum++;
+        // スライスした一時キャンバスを即解放（モバイルのメモリ圧を下げる）
+        slice.width = slice.height = 0;
+        // ページごとに主スレッドを一瞬手放して UI を固まらせない（＋進捗を更新）
+        progress(`${t('pdfStageWrite', 'PDF書き出し中…')} (${pageNum})`);
+        await new Promise(r => setTimeout(r, 0));
       }
     }
 

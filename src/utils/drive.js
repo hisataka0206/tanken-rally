@@ -143,6 +143,18 @@ export class DriveClient {
     return data.collection || {};
   }
 
+  /** なまえ＋あいことば(ハッシュ)で新規ユーザー登録。
+   *  戻り値: { ok, userId, name } / 失敗時は { ok:false, error } をそのまま返す（呼び出し側でエラーコード分岐） */
+  async registerUser({ name, pinHash }) {
+    return this._post({ action: 'registerUser', name, pinHash });
+  }
+
+  /** なまえ＋あいことば(ハッシュ)でログイン。
+   *  戻り値: { ok, userId, name } / 失敗時は { ok:false, error } */
+  async loginUser({ name, pinHash }) {
+    return this._post({ action: 'loginUser', name, pinHash });
+  }
+
   /** ランキングを保存 */
   async saveRanking(payload) {
     const data = await this._post({ action: 'saveRanking', ...payload });

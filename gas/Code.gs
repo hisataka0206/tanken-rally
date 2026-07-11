@@ -90,6 +90,12 @@ function doPost(e) {
     if (action === 'getCaptures') {
       return respond(headers, getCaptures(body));
     }
+    if (action === 'registerUser') {
+      return respond(headers, registerUser(body));
+    }
+    if (action === 'loginUser') {
+      return respond(headers, loginUser(body));
+    }
     if (action === 'getSpotsCache') {
       return respond(headers, getSpotsCache(body));
     }
@@ -702,6 +708,80 @@ function getCaptures(body) {
       };
     }
     return { ok: true, collection };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+// ===== ユーザーアカウント（なまえ＋あいことば ログイン・Sheets） =====
+//
+// 「users」タブ: 1ユーザー1行。
+//   userId / name / nameLower / pinHash / createdAt / lastLoginAt
+// - userId は図鑑(captures)のキー explorerId として使う（ログイン後の捕獲は userId に紐づく）。
+// - なまえ(name)は一意（重複登録は拒否）。ログインは name(小文字) で引き、pinHash を照合。
+// - pinHash はクライアント側で SHA-256 済みの文字列（あいことば平文はサーバーに送らない）。
+//   ※ 子ども向けPoCの簡易ログインであり、本格的な認証強度は持たない。
+const SHEET_TAB_USERS = 'users';
+const SHEET_HEADERS_USERS = ['userId', 'name', 'nameLower', 'pinHash', 'createdAt', 'lastLoginAt'];
+
+function normalizeName_(name) {
+  return String(name || '').trim();
+}
+
+/** なまえ＋あいことば(ハッシュ)で新規登録。body: { name, pinHash } */
+function registerUser(body) {
+  try {
+    const name = normalizeName_(body.name);
+    const pinHash = String(body.pinHash || '');
+    if (!name)     return { ok: false, error: 'name-required' };
+    if (!pinHash)  return { ok: false, error: 'pin-required' };
+
+    const nameLower = name.toLowerCase();
+    const sheet = getLogSheet(SHEET_TAB_USERS, SHEET_HEADERS_USERS);
+    const rows = sheet.getDataRange().getValues();
+    const headers = rows[0];
+    const col = n => headers.indexOf(n);
+
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][col('nameLower')]) === nameLower) {
+        return { ok: false, error: 'name-taken' };
+      }
+    }
+
+    const now = new Date().toISOString();
+    const userId = 'u_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    sheet.appendRow([userId, name, nameLower, pinHash, now, now]);
+    return { ok: true, userId, name };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** なまえ＋あいことば(ハッシュ)でログイン。body: { name, pinHash } */
+function loginUser(body) {
+  try {
+    const name = normalizeName_(body.name);
+    const pinHash = String(body.pinHash || '');
+    if (!name)     return { ok: false, error: 'name-required' };
+    if (!pinHash)  return { ok: false, error: 'pin-required' };
+
+    const nameLower = name.toLowerCase();
+    const sheet = getLogSheet(SHEET_TAB_USERS, SHEET_HEADERS_USERS);
+    const rows = sheet.getDataRange().getValues();
+    const headers = rows[0];
+    const col = n => headers.indexOf(n);
+
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][col('nameLower')]) === nameLower) {
+        if (String(rows[i][col('pinHash')]) !== pinHash) {
+          return { ok: false, error: 'bad-credentials' };
+        }
+        // lastLoginAt を更新
+        sheet.getRange(i + 1, col('lastLoginAt') + 1).setValue(new Date().toISOString());
+        return { ok: true, userId: String(rows[i][col('userId')]), name: String(rows[i][col('name')]) };
+      }
+    }
+    return { ok: false, error: 'not-found' };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
   }

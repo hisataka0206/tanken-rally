@@ -10,9 +10,24 @@
 
 const EXPLORER_ID_KEY = 'tanken_explorer_id';
 const COLLECTION_KEY  = 'tanken_collection_v1';
+const AUTH_KEY        = 'tanken_auth';   // auth.js が {userId, name} を保存
 
-/** 端末ローカルの探検者ID（初回アクセス時に発行して永続化） */
+/** ログイン中アカウントの userId（未ログインなら null） */
+function loggedInUserId() {
+  try {
+    const raw = localStorage.getItem(AUTH_KEY);
+    if (!raw) return null;
+    const a = JSON.parse(raw);
+    return (a && a.userId) ? a.userId : null;
+  } catch (_) { return null; }
+}
+
+/** 図鑑のキー（explorerId）。
+ *  ログイン中はアカウントの userId を使う（どの端末でも同じ図鑑）。
+ *  未ログイン時のみ端末ローカルIDにフォールバックする。 */
 export function getExplorerId() {
+  const uid = loggedInUserId();
+  if (uid) return uid;
   try {
     let id = localStorage.getItem(EXPLORER_ID_KEY);
     if (!id) {
@@ -25,10 +40,15 @@ export function getExplorerId() {
   }
 }
 
-/** ローカルの図鑑コレクションを読み込む */
+/** 所有者(explorerId)ごとに分けたローカル保存キー。アカウント切替で図鑑が混ざらないようにする。 */
+function ownerScopedKey() {
+  return COLLECTION_KEY + '__' + getExplorerId();
+}
+
+/** ローカルの図鑑コレクションを読み込む（所有者ごと） */
 export function loadCollection() {
   try {
-    return JSON.parse(localStorage.getItem(COLLECTION_KEY) || '{}') || {};
+    return JSON.parse(localStorage.getItem(ownerScopedKey()) || '{}') || {};
   } catch (_) {
     return {};
   }
@@ -36,8 +56,17 @@ export function loadCollection() {
 
 function saveCollection(collection) {
   try {
-    localStorage.setItem(COLLECTION_KEY, JSON.stringify(collection));
+    localStorage.setItem(ownerScopedKey(), JSON.stringify(collection));
   } catch (_) { /* 保存できなくてもアプリは続行 */ }
+}
+
+/** 旧・無記名（端末匿名）の図鑑を読む。初回ログイン時の引き継ぎ用。 */
+export function loadLegacyAnonymousCollection() {
+  try {
+    return JSON.parse(localStorage.getItem(COLLECTION_KEY) || '{}') || {};
+  } catch (_) {
+    return {};
+  }
 }
 
 /** 捕獲1件をローカル図鑑に記録して、更新後のコレクションを返す */

@@ -13,7 +13,8 @@ import { APP_VERSION, RELEASE_LABEL } from './version.js?v=106';
 import { FEATURES } from './config-features.js?v=106';
 import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=106';
 import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=106';
-import { getExplorerId, loadCollection, recordCapture, mergeServerCollection } from './utils/collection.js?v=106';
+import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, loadLegacyAnonymousCollection } from './utils/collection.js?v=106';
+import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout } from './utils/auth.js?v=106';
 import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
 import { initShell, updateShell } from './utils/shell.js?v=106';
 
@@ -473,6 +474,7 @@ async function openZukan() {
   // 前回開いていた詳細をリセット
   const detail = $('zukan-detail');
   if (detail) { detail.classList.add('hidden'); detail.innerHTML = ''; }
+  updateZukanAccount();
   renderZukanGrid(loadCollection());
   $('zukan-modal').classList.remove('hidden');
   // サーバー側のコレクションをマージして再描画（失敗してもローカル表示のまま）
@@ -3248,6 +3250,7 @@ $('photo-camera-input').addEventListener('change', onPhotoInputChange);
 
 // キャラずかん
 $('zukan-btn').addEventListener('click', openZukan);
+$('logout-btn').addEventListener('click', onLogout);
 $('zukan-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'close') $('zukan-modal').classList.add('hidden');
 });
@@ -3378,20 +3381,158 @@ $('issue-submit-btn').addEventListener('click', async () => {
   }
 });
 
+// ===== 起動時ログインゲート（なまえ＋あいことば） =====
+let _appEntered = false;
+let _loginMode = 'register'; // 'register' | 'login'
+
+function applyLoginMode() {
+  const reg = _loginMode === 'register';
+  $('login-title').textContent      = t(reg ? 'loginTitleRegister' : 'loginTitleLogin');
+  $('login-lead').textContent       = t(reg ? 'loginLead' : 'loginLeadLogin');
+  $('login-submit-btn').textContent = t(reg ? 'loginSubmitRegister' : 'loginSubmitLogin');
+  $('login-switch-text').textContent= t(reg ? 'loginSwitchToLogin' : 'loginSwitchToRegister');
+  $('login-switch-btn').textContent = t(reg ? 'loginSwitchToLoginBtn' : 'loginSwitchToRegisterBtn');
+  hideLoginError();
+}
+
+function showLoginError(code) {
+  const map = {
+    'name-required':  'loginErrNameRequired',
+    'name-too-long':  'loginErrNameTooLong',
+    'pin-too-short':  'loginErrPinTooShort',
+    'pin-required':   'loginErrPinTooShort',
+    'name-taken':     'loginErrNameTaken',
+    'bad-credentials':'loginErrBadCredentials',
+    'not-found':      'loginErrNotFound',
+    'network':        'loginErrNetwork',
+  };
+  const el = $('login-error');
+  el.textContent = t(map[code] || 'loginErrNetwork');
+  el.classList.remove('hidden');
+}
+function hideLoginError() { $('login-error').classList.add('hidden'); }
+
+function showLoginGate() {
+  const btn = $('login-submit-btn');
+  if (btn) btn.disabled = false;
+  $('login-name').value = '';
+  $('login-pin').value = '';
+  $('login-pin').type = 'password';
+  $('login-pin-toggle').textContent = t('loginPinShow');
+  $('login-gate').classList.remove('hidden');
+  applyLoginMode();
+  setTimeout(() => { const n = $('login-name'); if (n) n.focus(); }, 60);
+}
+function hideLoginGate() { $('login-gate').classList.add('hidden'); }
+
+function initLoginGate() {
+  applyLoginMode();
+  $('login-submit-btn').addEventListener('click', onLoginSubmit);
+  $('login-switch-btn').addEventListener('click', () => {
+    _loginMode = (_loginMode === 'register') ? 'login' : 'register';
+    applyLoginMode();
+  });
+  $('login-pin-toggle').addEventListener('click', () => {
+    const pin = $('login-pin');
+    const wasHidden = pin.type === 'password';
+    pin.type = wasHidden ? 'text' : 'password';
+    $('login-pin-toggle').textContent = t(wasHidden ? 'loginPinHide' : 'loginPinShow');
+  });
+  ['login-name', 'login-pin'].forEach(id => {
+    $(id).addEventListener('keydown', e => { if (e.key === 'Enter') onLoginSubmit(); });
+  });
+}
+
+async function onLoginSubmit() {
+  const name = $('login-name').value;
+  const pin  = $('login-pin').value;
+  const btn = $('login-submit-btn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = t('loginWorking');
+  hideLoginError();
+  try {
+    const fn = (_loginMode === 'register') ? registerAccount : loginAccount;
+    const res = await fn(name, pin, drive);
+    if (!res.ok) {
+      showLoginError(res.error);
+      btn.disabled = false;
+      btn.textContent = original;
+      return;
+    }
+    // 初回ログイン時、端末に残っている無記名の図鑑をアカウントへ引き継ぐ
+    await migrateAnonymousCollection();
+    enterApp();
+  } catch (e) {
+    console.warn('[login] error:', e);
+    showLoginError('network');
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+// 端末の旧・無記名図鑑を、ログインしたアカウントへ1回だけ引き継ぐ
+async function migrateAnonymousCollection() {
+  try {
+    const legacy = loadLegacyAnonymousCollection();
+    const ids = Object.keys(legacy);
+    if (!ids.length) return;
+    mergeServerCollection(legacy); // ログイン後の getExplorerId()=userId のローカル図鑑へマージ
+    if (drive) {
+      const records = ids.map(characterId => ({
+        characterId,
+        capturedAt: legacy[characterId].firstAt || new Date().toISOString(),
+      }));
+      try { await drive.saveCaptures({ explorerId: getExplorerId(), records }); } catch (_) { /* 後で同期される */ }
+    }
+    try { localStorage.removeItem('tanken_collection_v1'); } catch (_) { /* no-op */ }
+    console.info('[auth] 無記名の図鑑をアカウントへ引き継ぎました:', ids.length, '種');
+  } catch (e) {
+    console.warn('[auth] 図鑑の引き継ぎに失敗（続行）:', e);
+  }
+}
+
+// 図鑑モーダルにログイン中アカウント名を表示
+function updateZukanAccount() {
+  const el = $('zukan-account-name');
+  if (!el) return;
+  const a = getStoredAuth();
+  el.textContent = a ? t('zukanAccountFmt').replace('{name}', a.name || '') : '';
+}
+
+function onLogout() {
+  if (!confirm(t('logoutConfirm'))) return;
+  logout();
+  $('zukan-modal').classList.add('hidden');
+  resetSearchState();  // 前のアカウントの探検データをクリア
+  showLoginGate();
+}
+
+// ログイン成功後にアプリ本体へ入る
+function enterApp() {
+  hideLoginGate();
+  updateZukanAccount();
+  if (!_appEntered) {
+    _appEntered = true;
+    if (!FEATURES.scoringEnabled) {
+      const scoreBtn = $('submit-score-btn');
+      if (scoreBtn) scoreBtn.classList.add('hidden');
+    }
+    initShell();       // 進捗トレイル構築（showStep 前に必要）
+    initCityTabs();
+    // デフォルト: 名古屋タブ + 桜通線を選択（プロジェクトの主要利用エリア）
+    selectCity('nagoya', { defaultLineName: '名古屋市営地下鉄 桜通線' });
+    bindReportInputs();
+  }
+  showStep('step-station');
+}
+
 // ===== 初期表示 =====
 // バージョン表示・言語切替を最初に適用
 applyI18n();
 
 // body.lang-XX クラスを付けて CSS から言語別スタイルを切り替えられるようにする
 document.body.classList.add(`lang-${LANG}`);
-
-// 機能フラグに基づいて DOM 要素を初期非表示にする（ボタン・モーダル等）
-//   - スコア / ランキング機能が無効な言語では関連ボタンを非表示
-//   - 他の機能フラグは個別の処理側で参照
-if (!FEATURES.scoringEnabled) {
-  const scoreBtn = $('submit-score-btn');
-  if (scoreBtn) scoreBtn.classList.add('hidden');
-}
 
 const versionEl = $('header-version');
 if (versionEl) {
@@ -3400,9 +3541,10 @@ if (versionEl) {
 }
 console.info(`[tanken-rally] v${APP_VERSION} (${RELEASE_LABEL}) — lang=${LANG}`);
 
-initShell(); // 進捗トレイル構築（showStep 前に必要）
-initCityTabs();
-// デフォルト: 名古屋タブ + 桜通線を選択（プロジェクトの主要利用エリア）
-selectCity('nagoya', { defaultLineName: '名古屋市営地下鉄 桜通線' });
-bindReportInputs();
-showStep('step-station');
+// ログインゲートを準備し、未ログインならゲート表示・ログイン済みならそのまま入場
+initLoginGate();
+if (isLoggedIn()) {
+  enterApp();
+} else {
+  showLoginGate();
+}

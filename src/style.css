@@ -989,6 +989,124 @@ body {
 }
 #voice-memo-text:focus { border-color: var(--green-dark); }
 
+/* ===== 起動時ログインゲート ===== */
+.login-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 500;                 /* ヘッダー・モーダル・不具合ボタンより前面 */
+  display: flex;
+  align-items: center;
+  align-items: safe center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  background: linear-gradient(160deg, #eaf6ea 0%, #f5efe2 100%);
+}
+.login-gate.hidden { display: none; }
+.login-card {
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: 20px;
+  border: 2.5px solid #EDE6D6;
+  box-shadow: 0 10px 34px rgba(0,0,0,.18);
+  padding: 26px 22px;
+  text-align: center;
+}
+.login-logo {
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 22px;
+  color: var(--green-dark);
+  margin-bottom: 10px;
+}
+.login-title { font-size: 18px; color: var(--green-dark); margin: 4px 0 6px; }
+.login-lead { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0 0 16px; }
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--green-dark);
+  margin-bottom: 12px;
+  position: relative;
+}
+.login-field input {
+  padding: 12px 14px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px;              /* iOS で 16px 未満だと自動ズームするため 16px 以上 */
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+.login-field input:focus { border-color: var(--green-dark); }
+.login-field-pin input { padding-right: 64px; }
+.login-pin-toggle {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  border: none;
+  background: #eef5ee;
+  color: var(--green-dark);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.login-error {
+  color: #c0392b;
+  background: #fdecea;
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+.login-error.hidden { display: none; }
+.login-submit { width: 100%; padding: 14px; font-size: 16px; }
+.login-submit:disabled { opacity: .6; cursor: default; }
+.login-switch { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
+.login-switch-btn {
+  border: none;
+  background: none;
+  color: var(--green-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 2px 4px;
+}
+.login-note { font-size: 11px; color: #999; line-height: 1.6; margin: 14px 0 0; }
+
+/* 図鑑モーダル: ログイン中アカウント表示＋ログアウト */
+.zukan-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  background: #f1f8e9;
+  border-radius: 10px;
+}
+.zukan-account-name { font-size: 13px; font-weight: 600; color: var(--green-dark); }
+.logout-btn {
+  border: 2px solid var(--border);
+  background: #fff;
+  color: var(--green-dark);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.logout-btn:hover { border-color: var(--green-dark); }
+
 .score-name-label {
   display: flex;
   flex-direction: column;

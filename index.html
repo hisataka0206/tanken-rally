@@ -33,6 +33,38 @@
 
   <div id="app">
 
+    <!-- 起動時ログインゲート（なまえ＋あいことば）。未ログイン時のみ表示してアプリを覆う -->
+    <div id="login-gate" class="login-gate hidden" role="dialog" aria-modal="true" aria-labelledby="login-title">
+      <div class="login-card">
+        <div class="login-logo">🗺️ <span data-i18n="appTitle">たんけんラリー</span></div>
+        <h2 id="login-title" class="login-title" data-i18n="loginTitleRegister">はじめまして！なまえを つくろう</h2>
+        <p id="login-lead" class="login-lead" data-i18n="loginLead">なまえと あいことばを きめると、じぶんだけの図鑑ができるよ。</p>
+
+        <label class="login-field">
+          <span data-i18n="loginNameLabel">なまえ（ニックネームでもOK）</span>
+          <input id="login-name" type="text" autocomplete="off" maxlength="20"
+            data-i18n-placeholder="loginNamePh" placeholder="（あなたのなまえ）" />
+        </label>
+        <label class="login-field login-field-pin">
+          <span data-i18n="loginPinLabel">あいことば（4もじ以上）</span>
+          <input id="login-pin" type="password" autocomplete="off" maxlength="32"
+            data-i18n-placeholder="loginPinPh" placeholder="（ひみつのことば）" />
+          <button type="button" id="login-pin-toggle" class="login-pin-toggle" data-i18n="loginPinShow">見る</button>
+        </label>
+
+        <p id="login-error" class="login-error hidden"></p>
+
+        <button id="login-submit-btn" class="btn-primary login-submit" data-i18n="loginSubmitRegister">これで はじめる →</button>
+
+        <p class="login-switch">
+          <span id="login-switch-text" data-i18n="loginSwitchToLogin">もう なまえを つくった人は</span>
+          <button type="button" id="login-switch-btn" class="login-switch-btn" data-i18n="loginSwitchToLoginBtn">ログイン</button>
+        </p>
+
+        <p class="login-note" data-i18n="loginNote">※あいことばは、じぶんの図鑑をまもる ひみつのことば。わすれないでね。</p>
+      </div>
+    </div>
+
     <!-- ヘッダー -->
     <header class="header">
       <span class="header-icon">🗺️</span>
@@ -523,6 +555,10 @@
       <div class="modal-content modal-content-wide">
         <h3 id="zukan-title" data-i18n="zukanTitle">📖 キャラずかん</h3>
         <p class="modal-desc" data-i18n="zukanDesc">たんけん中にARカメラでつかまえたキャラのコレクションだよ。つかまえたキャラをタップすると、ひみつのストーリーが読めるよ！</p>
+        <div class="zukan-account">
+          <span id="zukan-account-name" class="zukan-account-name"></span>
+          <button type="button" id="logout-btn" class="logout-btn" data-i18n="btnLogout">ログアウト</button>
+        </div>
         <div id="zukan-detail" class="zukan-detail hidden"></div>
         <div id="zukan-grid" class="zukan-grid"></div>
         <div class="modal-actions">

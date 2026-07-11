@@ -205,6 +205,44 @@ function refreshPhotosView() {
 let arSession = null;
 let arCurrent = null;   // { char, tag, targetName, target, latestStatus }
 
+// ===== キャラ出現の仕組み =====
+// GPS有り（通常プレイ）: 今セッションで“いる”ステージ数を
+//   最低 = max(1, round(スポット数 × FIND_MIN_RATIO))、最大 = 最低 + 確率で増加、で決め、
+//   どのステージが当たり（いる）かをランダムに割り当てる。外れステージは行っても「いない」。
+// GPS無し（救済）: 1セッション1回だけ「さがす」でき、図鑑で未取得の組合せを優先して1体出す。
+const FIND_MIN_RATIO  = 0.5;  // 最低出現ステージ数の割合（スポット数に対して）
+const FIND_EXTRA_PROB = 0.4;  // 最低を超えて当たりを1ステージずつ増やす確率
+let _hitStages  = null;       // 当たり（キャラがいる）ステージのキー集合。null=未計算・セッション毎に確定
+let _searchUsed = false;      // GPS無し救済「さがす」を今セッションで使ったか（1回だけ）
+
+// 当たりステージを確定する（start + spot群 から 最低〜最大 個をランダム選出）。
+function ensureHitStages() {
+  if (_hitStages) return;
+  const n = (state.orderedSpots || []).length;
+  const keys = ['start'];
+  for (let i = 0; i < n; i++) keys.push('spot' + i);
+  let target = Math.max(1, Math.round(n * FIND_MIN_RATIO));            // 最低（1が下限）
+  target = Math.min(target, keys.length);
+  while (target < keys.length && Math.random() < FIND_EXTRA_PROB) target++; // 確率で最大まで増加
+  const shuffled = keys.slice().sort(() => Math.random() - 0.5);
+  _hitStages = new Set(shuffled.slice(0, target));
+}
+
+// GPS無し救済: 図鑑で未取得の組合せ（キャラ×すがた）を優先して1体返す。
+function pickUncaughtEncounter() {
+  const collection = loadCollection();
+  const uncaught = [];
+  CHARACTERS.forEach(ch => VARIANTS.forEach(v => {
+    const key = collectionKey(ch.id, v.id);
+    if (!(collection[key] && collection[key].count > 0)) uncaught.push({ ch, v });
+  }));
+  if (uncaught.length) {
+    const p = uncaught[Math.floor(Math.random() * uncaught.length)];
+    return { char: p.ch, variant: p.v };
+  }
+  return { char: CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)], variant: rollVariant() };
+}
+
 // バリエーションの表示名（ノーマルは空）。名前に前置して「きんいろ タフィー」等にする。
 function variantLabel(v) {
   if (!v || v.id === 'normal') return '';
@@ -260,12 +298,13 @@ function effectiveCollection(collection) {
 // 現在のウィザードステージに対する AR コンテキストを返す（対象外ステージは null）
 function arStageContext(info) {
   if (!FEATURES.arCaptureEnabled || !supportsArCamera()) return null;
+  ensureHitStages(); // どのステージにキャラが「いる/いない」かを、ルート確定時に一度だけ決定
   if (info.type === 'start') {
-    // スタート駅: lookie / colorey からセッションごとにランダムで1体
+    // スタート駅: lookie / colorey からセッションごとにランダムで1体（当たりステージのみ出現）
     if (!state.startCharacterId) state.startCharacterId = pickStartCharacter().id;
     const ll = toLL(state.stationLocation);
     return {
-      char: characterById(state.startCharacterId),
+      char: _hitStages.has('start') ? characterById(state.startCharacterId) : null, // 外れは「いない」
       tag: info.tag,
       targetName: localizeStationName(state.stationName, LANG),
       target: ll,
@@ -274,8 +313,9 @@ function arStageContext(info) {
   if (info.type === 'spot') {
     const spot = state.orderedSpots[state.photoWizardStage - 1];
     if (!spot || spot.lat == null) return null;
+    const isHit = _hitStages.has('spot' + (state.photoWizardStage - 1));
     return {
-      char: characterForSpot(spot),
+      char: isHit ? characterForSpot(spot) : null,  // 外れステージは行ってもいない
       tag: info.tag,
       targetName: spot.name,
       target: { lat: spot.lat, lng: spot.lng },
@@ -369,6 +409,10 @@ function updateArUi(status) {
     distEl.textContent = status.gpsAvailable ? '' : t('arNoGps');
   }
 
+  // GPS が取れない時の救済「🔍 さがす」。1セッション1回だけ（使ったら以降は非表示）。
+  // キャラなしステージでも押せるよう、no-char の早期returnより前で表示制御する。
+  $('ar-call-btn').classList.toggle('hidden', status.gpsAvailable || status.forced || _searchUsed);
+
   // キャラなし（ゴールで抽選ハズレ）：通常カメラとしてのみ動作
   if (!arCurrent.char) {
     statusEl.textContent = t('arNoCharToday');
@@ -376,9 +420,6 @@ function updateArUi(status) {
     guideEl.classList.add('hidden');
     return;
   }
-
-  // GPS が取れない場合は「キャラをよぶ」フォールバックを出す
-  $('ar-call-btn').classList.toggle('hidden', status.gpsAvailable || status.forced);
 
   if (status.visible) {
     // キャラ出現
@@ -1654,6 +1695,7 @@ async function onStartExplore() {
   const btn = $('start-explore-btn');
   btn.textContent = t('statusReady');
   btn.disabled = true;
+  _hitStages = null; _searchUsed = false;  // 新しい探検＝当たりステージ再抽選＋GPS無し救済リセット
 
   try {
     state.sessionId = generateSessionId();
@@ -3536,7 +3578,23 @@ $('zukan-modal').addEventListener('click', e => {
 $('ar-hunt-btn').addEventListener('click', openArHunt);
 $('ar-close-btn').addEventListener('click', closeArOverlay);
 $('ar-shutter-btn').addEventListener('click', onArShutter);
-$('ar-call-btn').addEventListener('click', () => { if (arSession) arSession.forceAppear(); });
+// GPS無しの救済「🔍 さがす」: 1セッションに1回だけ。図鑑で未取得の組合せを優先して1体出す。
+// 一度使ったら、押し直しても再出現しない（_searchUsed で打ち止め）。
+$('ar-call-btn').addEventListener('click', () => {
+  if (!arSession || !arCurrent || _searchUsed) return;
+  _searchUsed = true;
+  $('ar-call-btn').classList.add('hidden');
+  const { char: rc, variant: v } = pickUncaughtEncounter();
+  arCurrent.char = rc;
+  arCurrent.variant = v;
+  const imgEl = $('ar-character-img');
+  imgEl.src = characterImageUrl(rc, 'normal');
+  imgEl.style.filter = (v.filter !== 'none') ? v.filter : '';
+  imgEl.style.transform = (v.size !== 1) ? `scale(${v.size})` : '';
+  $('ar-character-name').textContent = variantNamePrefix(v) + charDisplayName(rc);
+  arCurrent.imagesPromise = preloadCharacterImages(rc);
+  arSession.forceAppear();
+});
 $('ar-captured-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'close') closeArCapturedModal();
 });

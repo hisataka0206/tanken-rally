@@ -82,7 +82,7 @@ const TRANSLATIONS = {
 
     // ARキャラ捕獲（STEP 4）
     btnArHunt: '👀 キャラをさがす',
-    btnArCall: '🔔 キャラをよぶ',
+    btnArCall: '🔍 さがす',
     btnArClose: '✖ とじる',
     btnArCapturedClose: 'やったー！',
     arCaution: '⚠️ まわりに ちゅうい！',
@@ -481,7 +481,7 @@ const TRANSLATIONS = {
 
     // AR character capture (STEP 4)
     btnArHunt: '👀 Find the character',
-    btnArCall: '🔔 Call the character',
+    btnArCall: '🔍 Search',
     btnArClose: '✖ Close',
     btnArCapturedClose: 'Yay!',
     arCaution: '⚠️ Watch your surroundings!',
@@ -863,7 +863,7 @@ const TRANSLATIONS = {
 
     // ARキャラ捕獲（STEP 4）
     btnArHunt: '👀 キャラをさがす',
-    btnArCall: '🔔 キャラをよぶ',
+    btnArCall: '🔍 さがす',
     btnArClose: '✖ とじる',
     btnArCapturedClose: 'やったー！',
     arCaution: '⚠️ まわりに ちゅうい！',

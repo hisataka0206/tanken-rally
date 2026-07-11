@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="src/style.css?v=34" />
+  <link rel="stylesheet" href="src/style.css?v=49" />
 
   <!-- jsPDF (PDF生成) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -33,13 +33,49 @@
 
   <div id="app">
 
+    <!-- 起動時ログインゲート（なまえ＋あいことば）。未ログイン時のみ表示してアプリを覆う -->
+    <div id="login-gate" class="login-gate hidden" role="dialog" aria-modal="true" aria-labelledby="login-title">
+      <div class="login-card">
+        <div class="login-logo">🗺️ <span data-i18n="appTitle">たんけんラリー</span></div>
+        <h2 id="login-title" class="login-title" data-i18n="loginTitleRegister">はじめまして！なまえを つくろう</h2>
+        <p id="login-lead" class="login-lead" data-i18n="loginLead">なまえと あいことばを きめると、じぶんだけの図鑑ができるよ。</p>
+
+        <label class="login-field">
+          <span data-i18n="loginNameLabel">なまえ（ニックネームでもOK）</span>
+          <input id="login-name" type="text" autocomplete="off" maxlength="20"
+            data-i18n-placeholder="loginNamePh" placeholder="（あなたのなまえ）" />
+        </label>
+        <label class="login-field login-field-pin">
+          <span data-i18n="loginPinLabel">あいことば（4もじ以上）</span>
+          <input id="login-pin" type="password" autocomplete="off" maxlength="32"
+            data-i18n-placeholder="loginPinPh" placeholder="（ひみつのことば）" />
+          <button type="button" id="login-pin-toggle" class="login-pin-toggle" data-i18n="loginPinShow">見る</button>
+        </label>
+
+        <p id="login-error" class="login-error hidden"></p>
+
+        <button id="login-submit-btn" class="btn-primary login-submit" data-i18n="loginSubmitRegister">これで はじめる →</button>
+
+        <p class="login-switch">
+          <span id="login-switch-text" data-i18n="loginSwitchToLogin">もう なまえを つくった人は</span>
+          <button type="button" id="login-switch-btn" class="login-switch-btn" data-i18n="loginSwitchToLoginBtn">ログイン</button>
+        </p>
+
+        <p class="login-note" data-i18n="loginNote">※あいことばは、じぶんの図鑑をまもる ひみつのことば。わすれないでね。</p>
+      </div>
+    </div>
+
     <!-- ヘッダー -->
     <header class="header">
       <span class="header-icon">🗺️</span>
       <h1 data-i18n="appTitle">たんけんラリー</h1>
       <span class="header-version" id="header-version">v1.0.0</span>
       <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
+      <button id="zukan-btn" class="zukan-btn" type="button" data-i18n-title="btnZukan" title="キャラずかん">📖</button>
     </header>
+
+    <!-- 冒険の進捗トレイル（すごろく型・shell.js が構築/更新） -->
+    <nav id="trail" class="trail" aria-label="progress"></nav>
 
     <!-- STEP 1: 駅名入力 -->
     <section id="step-station" class="step active">
@@ -71,18 +107,30 @@
 
         <!-- 都市選択 → 路線/駅セレクタ -->
         <div id="city-selector" class="city-selector hidden">
-          <div class="selector-row">
+          <!-- 旧selectはチップUIの状態保持用として温存（非表示・ロジック互換のため） -->
+          <div class="selector-row selector-row-hidden">
             <label data-i18n="labelLine">路線</label>
             <select id="line-select">
               <option value="" data-i18n="optLineEmpty">── 路線をえらんでね ──</option>
             </select>
           </div>
-          <div class="selector-row">
+          <div class="selector-row selector-row-hidden">
             <label data-i18n="labelStation">駅</label>
             <select id="station-select" disabled>
               <option value="" data-i18n="optStationEmpty">── 先に路線をえらんでね ──</option>
             </select>
           </div>
+
+          <!-- 段階タップ式ピッカー（Phase B: selectの代替UI） -->
+          <div class="picker-stage">
+            <div class="picker-label" data-i18n="pickerLine">🚃 ろせんをえらぶ</div>
+            <div id="line-chips" class="chip-grid"></div>
+          </div>
+          <div class="picker-stage">
+            <div class="picker-label" data-i18n="pickerStation">🚉 えきをえらぶ</div>
+            <div id="station-chips" class="chip-grid chip-grid-scroll"></div>
+          </div>
+
           <div class="step-actions">
             <button id="search-by-select-btn" class="btn-primary" disabled data-i18n="btnSearchSelect">この駅でさがす →</button>
           </div>
@@ -136,11 +184,14 @@
         <div class="spots-layout">
           <div id="spots-list" class="spots-list"></div>
           <div id="map" class="map-container"></div>
+          <!-- 距離プレビューはカードの直下（選択の結果がすぐ見える位置） -->
+          <div class="route-preview-row">
+            <span id="route-btn-hint" class="route-btn-hint"></span>
+            <span id="route-preview" class="route-preview"></span>
+          </div>
         </div>
         <div class="step-actions">
           <button id="back-to-station" class="btn-secondary" data-i18n="btnBackStation">← 駅を変える</button>
-          <span id="route-btn-hint" class="route-btn-hint"></span>
-          <span id="route-preview" class="route-preview"></span>
           <button id="make-route-btn" class="btn-primary" disabled data-i18n="btnMakeRoute">ルートをつくる →</button>
         </div>
       </div>
@@ -161,6 +212,8 @@
             <div class="photo-wizard-stage-icon" id="photo-wizard-icon">📍</div>
             <h3 class="photo-wizard-title" id="photo-wizard-title"></h3>
             <p class="photo-wizard-hint" id="photo-wizard-hint"></p>
+            <!-- ガイドキャラ（画面4: カテゴリ連動。main.js の updateWizardGuide が src を設定） -->
+            <img id="wizard-guide" class="wizard-guide" alt="" aria-hidden="true" onerror="this.style.display='none'" />
             <div class="photo-upload-row">
               <label for="photo-camera-input" class="photo-upload-btn photo-upload-camera photo-upload-btn-large">
                 <span data-i18n="photoCameraLabel">📷 写真を撮る</span>
@@ -169,6 +222,10 @@
                 <span data-i18n="photoGalleryLabel">🖼️ 写真を選ぶ</span>
               </label>
             </div>
+            <!-- ARキャラ捕獲（スポット/ゴールのステージでのみ表示。main.js が制御） -->
+            <button id="ar-hunt-btn" class="ar-hunt-btn hidden" type="button">
+              <span data-i18n="btnArHunt">👀 キャラをさがす</span>
+            </button>
             <div id="photo-wizard-thumbs" class="photo-wizard-thumbs"></div>
           </div>
           <div class="photo-wizard-nav">
@@ -220,6 +277,8 @@
         <div id="report-editor" class="report-editor">
           <div class="report-page">
             <header class="report-page-header">
+              <!-- 画面6装飾: NUTTY がタイトル帯からぶら下がる（素材未着時は自動非表示） -->
+              <img class="report-guide rg-nutty" src="src/assets/characters/guide/oakchap_g6.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
               <h1 class="report-title" data-i18n="reportTitleH1">🗺 たんけんノート</h1>
               <div class="report-meta-row">
                 <div class="report-meta">
@@ -238,6 +297,8 @@
             </header>
 
             <section class="report-section">
+              <!-- 画面6装飾: ZOOMY が見出し横でレンズ拡大 -->
+              <img class="report-guide rg-zoomy" src="src/assets/characters/guide/loupe_g6.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
               <h3 data-i18n="reportSecOverview">🌟 たんけんを終えて思ったこと</h3>
               <textarea id="report-overview" rows="5"
                 data-i18n-placeholder="reportOverviewPh"
@@ -253,6 +314,12 @@
               <div id="report-photos" class="report-photos"></div>
             </section>
 
+            <!-- ARキャラ捕獲: 今回であったキャラたち（捕獲0体なら hidden のまま） -->
+            <section class="report-section hidden" id="report-characters-section" data-pdf-block>
+              <h3 data-i18n="reportSecCharacters">🎁 今回であったキャラたち</h3>
+              <div id="report-characters" class="report-characters"></div>
+            </section>
+
             <section class="report-section">
               <h3 data-i18n="reportSecAfterword">✏️ ノートを書いてみて</h3>
               <textarea id="report-afterword" rows="4"
@@ -265,6 +332,7 @@
         <div class="step-actions step-actions-report">
           <button id="back-to-photos" class="btn-secondary" data-i18n="btnBackPhotos">← 写真にもどる</button>
           <div class="report-action-group">
+            <button id="tidy-memos-btn" class="btn-secondary" data-i18n="btnTidyMemos" data-i18n-title="tidyMemosTitle" title="写真のひと言メモを整える">✨ メモをすっきり</button>
             <button id="save-report-btn" class="btn-secondary" data-i18n="btnSaveReport">💾 保存</button>
             <button id="submit-score-btn" class="btn-secondary" data-i18n="btnSubmitScore">🏆 スコア</button>
             <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf">📄 PDF出力</button>
@@ -278,11 +346,31 @@
       <div class="modal-backdrop" data-action="close"></div>
       <div class="modal-content modal-content-wide">
         <h3 id="score-modal-title" data-i18n="scoreModalTitle">🏆 たんけんスコア</h3>
+        <!-- 画面7ガイド: ZOOMY がタイトル左で祝福（素材未着時は自動非表示） -->
+        <img class="guide-char g-score-zoomy" src="src/assets/characters/guide/loupe_g7.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
 
         <!-- フェーズ1: スコア表示 + 名前入力（内訳・係数は秘匿） -->
         <div id="score-phase-input">
-          <div id="score-total" class="score-total">0 点</div>
+          <div class="score-total-wrap">
+            <!-- 画面7ガイド: NUTTY が点数の上でドヤ顔 / TAFFY が右横でスピン -->
+            <img class="guide-char g-score-nutty" src="src/assets/characters/guide/oakchap_g7.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+            <img class="guide-char g-score-taffy" src="src/assets/characters/guide/taffy_g7.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+            <div id="score-total" class="score-total">0 点</div>
+          </div>
           <p id="score-rank-label" class="score-rank-label"></p>
+
+          <!-- 計画点 / 実行点 の2分割表示 -->
+          <div id="score-split" class="score-split">
+            <div class="score-split-item score-split-plan">
+              <span class="score-split-label" data-i18n="scorePlanLabel">🗺 計画点</span>
+              <span id="score-plan" class="score-split-val">0</span>
+            </div>
+            <div class="score-split-item score-split-exec">
+              <span class="score-split-label" data-i18n="scoreExecLabel">🚶 実行点</span>
+              <span id="score-exec" class="score-split-val">0</span>
+            </div>
+          </div>
+          <p class="score-split-note" data-i18n="scoreSplitNote">🗺 計画点＝どんな探検を計画したか（スポット数・距離） / 🚶 実行点＝実際にどれだけ楽しめたか（写真・コメント・ペース・キャラ捕獲など）</p>
 
           <!-- スコアの仕組み（簡単な説明・係数は非公開） -->
           <details class="score-howto">
@@ -377,6 +465,47 @@
       </div>
     </div>
 
+    <!-- 音声メモモーダル（撮影直後に自動で開く） -->
+    <div id="voice-memo-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="voice-memo-title">
+      <div class="modal-backdrop" data-action="close"></div>
+      <div class="modal-content">
+        <h3 id="voice-memo-title" data-i18n="voiceMemoTitle">📝 この写真にひと言メモ</h3>
+        <p class="modal-desc" data-i18n="voiceMemoDesc">マイクボタンを押して、気づいたことを声で話してみよう。あとから書き直してもOK。</p>
+
+        <div class="voice-memo-photo">
+          <img id="voice-memo-thumb" src="" alt="" />
+        </div>
+
+        <!-- 音声認識の方式切り替え（デフォルト: 標準 = Web Speech API） -->
+        <div class="voice-method-toggle" role="radiogroup" aria-label="音声認識の方式">
+          <span class="voice-method-label" data-i18n="voiceMethodLabel">音声にんしきのほうしき：</span>
+          <label class="voice-method-opt">
+            <input type="radio" name="voice-method" value="webspeech" checked />
+            <span data-i18n="voiceMethodWebspeech">標準（すぐ・無料）</span>
+          </label>
+          <label class="voice-method-opt">
+            <input type="radio" name="voice-method" value="whisper" />
+            <span data-i18n="voiceMethodWhisper">高精度（Whisper）</span>
+          </label>
+        </div>
+        <p id="voice-method-note" class="voice-method-note hidden"></p>
+
+        <button id="voice-mic-btn" class="voice-mic-btn" type="button">
+          <span id="voice-mic-label" data-i18n="voiceMicStart">🎤 おして話す</span>
+        </button>
+        <p id="voice-status" class="voice-status" aria-live="polite"></p>
+
+        <textarea id="voice-memo-text" rows="3"
+          data-i18n-placeholder="voiceMemoPh"
+          placeholder="声のメモがここに入るよ（手で書いてもOK）"></textarea>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" data-action="close" data-i18n="voiceMemoSkip">スキップ</button>
+          <button id="voice-memo-save" class="btn-primary" data-i18n="voiceMemoSave">保存</button>
+        </div>
+      </div>
+    </div>
+
     <!-- STEP 3: ルート確認 + PDF出力 -->
     <section id="step-route" class="step hidden">
       <div class="card">
@@ -395,9 +524,64 @@
       </div>
     </section>
 
+    <!-- ARキャラ捕獲：全画面カメラオーバーレイ -->
+    <div id="ar-overlay" class="ar-overlay hidden" role="dialog" aria-modal="true">
+      <video id="ar-video" autoplay playsinline muted></video>
+      <div class="ar-topbar">
+        <div id="ar-target-name" class="ar-target-name"></div>
+        <div id="ar-distance" class="ar-distance"></div>
+      </div>
+      <div class="ar-caution" data-i18n="arCaution">⚠️ まわりに ちゅうい！</div>
+      <!-- スポット方向ガイド（コンパスと方位角から回転） -->
+      <div id="ar-guide" class="ar-guide hidden">
+        <span id="ar-guide-arrow" class="ar-guide-arrow">➤</span>
+      </div>
+      <!-- キャラクター本体（透過PNG） -->
+      <div id="ar-character" class="ar-character hidden">
+        <img id="ar-character-img" class="ar-character-img" alt="" />
+        <div id="ar-character-name" class="ar-character-name"></div>
+      </div>
+      <div id="ar-status" class="ar-status"></div>
+      <div class="ar-actions">
+        <button id="ar-call-btn" class="btn-secondary ar-call-btn hidden" type="button" data-i18n="btnArCall">🔔 キャラをよぶ</button>
+        <button id="ar-shutter-btn" class="ar-shutter" type="button" aria-label="シャッター"></button>
+        <button id="ar-close-btn" class="btn-secondary ar-close-btn" type="button" data-i18n="btnArClose">✖ とじる</button>
+      </div>
+    </div>
+
+    <!-- キャラずかん（コレクション）モーダル -->
+    <div id="zukan-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="zukan-title">
+      <div class="modal-backdrop" data-action="close"></div>
+      <div class="modal-content modal-content-wide">
+        <h3 id="zukan-title" data-i18n="zukanTitle">📖 キャラずかん</h3>
+        <p class="modal-desc" data-i18n="zukanDesc">たんけん中にARカメラでつかまえたキャラのコレクションだよ。つかまえたキャラをタップすると、ひみつのストーリーが読めるよ！</p>
+        <div class="zukan-account">
+          <span id="zukan-account-name" class="zukan-account-name"></span>
+          <button type="button" id="logout-btn" class="logout-btn" data-i18n="btnLogout">ログアウト</button>
+        </div>
+        <div id="zukan-detail" class="zukan-detail hidden"></div>
+        <div id="zukan-grid" class="zukan-grid"></div>
+        <div class="modal-actions">
+          <button class="btn-secondary" data-action="close" data-i18n="btnArClose">✖ とじる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARキャラ捕獲：捕獲成功モーダル -->
+    <div id="ar-captured-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="ar-captured-title">
+      <div class="modal-backdrop" data-action="close"></div>
+      <div class="modal-content ar-captured-content">
+        <h3 id="ar-captured-title"></h3>
+        <img id="ar-captured-img" class="ar-captured-img" alt="" />
+        <div class="modal-actions">
+          <button class="btn-primary" data-action="close" data-i18n="btnArCapturedClose">やったー！</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Google Maps API（動的ロード） -->
-  <script type="module" src="src/main.js?v=94"></script>
+  <script type="module" src="src/main.js?v=106"></script>
 </body>
 </html>

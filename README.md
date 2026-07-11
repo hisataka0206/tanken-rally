@@ -95,6 +95,10 @@ GAS が提供する API（POST `action`）：
 | `listPhotos`    | フォルダ内の写真一覧 |
 | `saveRanking`   | スコアを Sheets に追記 |
 | `getRanking`    | スコアを Sheets から取得 |
+| `saveCaptures`  | ARキャラ捕獲記録を Sheets「captures」タブにマージ保存（図鑑用） |
+| `getCaptures`   | 端末ローカルID（explorerId）の図鑑コレクションを取得 |
+| `getSpotsCache` | 駅単位のスポット検索キャッシュを取得（Sheets「spots_cache」タブ、TTL 1年。Places API 課金削減） |
+| `saveSpotsCache`| スポット検索結果をキャッシュに upsert 保存 |
 
 ## PoC の対象機能
 
@@ -135,6 +139,13 @@ git push origin main
 ```
 
 数分後に `https://<ユーザー名>.github.io/tanken-rally/` で公開されます（プロジェクト名がリポジトリ名）。
+
+### [[キャッシュバスター]]は自動（手動で `?v=` を上げる必要なし）
+
+各モジュール/CSSは `?v=...` 付きで読み込んでキャッシュを制御していますが、この番号は**デプロイ時に GitHub Actions が自動でコミットSHAへ書き換えます**（`.github/workflows/deploy.yml` の「Stamp cache-busting version」ステップ）。そのため、コードを変えるたびに手で `?v=105 → 106` のように上げる必要はありません。ソース内の `?v=` は固定のプレースホルダのままで構いません（デプロイ時に上書きされます）。
+
+- 効果: push するたびに全アセットの `?v=` がその時のSHAに揃い、ブラウザキャッシュが確実に更新される（ユーザーはハードリロード不要）。
+- ローカル確認（`python3 -m http.server`）でキャッシュが気になる場合のみ、ブラウザの「スーパーリロード（Cmd+Shift+R）」か DevTools の "Disable cache" を使ってください。
 
 ### 🔒 API キー漏洩対策（必読）
 

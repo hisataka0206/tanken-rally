@@ -72,10 +72,17 @@ export class DriveClient {
   /** 写真をアップロード
    *   - takenAt: EXIF DateTimeOriginal（取れない場合は null）
    *   - uploadedAt: アップロード時のクライアント時刻（常に記録）
-   *   - lat/lng: EXIF GPS（取れない場合は null） */
-  async uploadPhoto({ folderId, file, spotName }) {
+   *   - lat/lng: EXIF GPS（取れない場合は null）
+   *   - metaOverride: EXIF の代わりに使うメタ（AR捕獲写真は canvas 合成で EXIF が無いため、
+   *                   撮影時の Geolocation / 現在時刻を { takenAt, lat, lng } で渡す） */
+  async uploadPhoto({ folderId, file, spotName, metaOverride = null }) {
     const { base64, mimeType, fileName } = await fileToBase64(file);
-    const meta = await extractPhotoMeta(file);
+    const exifMeta = await extractPhotoMeta(file);
+    const meta = {
+      takenAt: metaOverride?.takenAt ?? exifMeta.takenAt,
+      lat: metaOverride?.lat ?? exifMeta.lat,
+      lng: metaOverride?.lng ?? exifMeta.lng,
+    };
     const uploadedAt = new Date().toISOString();
     const data = await this._post({
       action: 'uploadPhoto',
@@ -122,6 +129,32 @@ export class DriveClient {
     return data; // { fileId, mimeType, base64, size }
   }
 
+  /** 捕獲記録を図鑑（Sheets「captures」タブ）にマージ保存 */
+  async saveCaptures({ explorerId, records }) {
+    const data = await this._post({ action: 'saveCaptures', explorerId, records });
+    if (!data.ok) throw new Error(data.error);
+    return data;
+  }
+
+  /** 図鑑コレクションを取得。戻り値: { characterId: { count, firstAt, lastAt } } */
+  async getCaptures({ explorerId }) {
+    const data = await this._post({ action: 'getCaptures', explorerId });
+    if (!data.ok) throw new Error(data.error);
+    return data.collection || {};
+  }
+
+  /** なまえ＋あいことば(ハッシュ)で新規ユーザー登録。
+   *  戻り値: { ok, userId, name } / 失敗時は { ok:false, error } をそのまま返す（呼び出し側でエラーコード分岐） */
+  async registerUser({ name, pinHash }) {
+    return this._post({ action: 'registerUser', name, pinHash });
+  }
+
+  /** なまえ＋あいことば(ハッシュ)でログイン。
+   *  戻り値: { ok, userId, name } / 失敗時は { ok:false, error } */
+  async loginUser({ name, pinHash }) {
+    return this._post({ action: 'loginUser', name, pinHash });
+  }
+
   /** ランキングを保存 */
   async saveRanking(payload) {
     const data = await this._post({ action: 'saveRanking', ...payload });
@@ -134,6 +167,21 @@ export class DriveClient {
     const data = await this._post({ action: 'getRanking', stationName, cityId, limit });
     if (!data.ok) throw new Error(data.error);
     return data.ranking;
+  }
+
+  /** スポット検索キャッシュを取得。戻り値: { hit, spots?, updatedAt?, ageDays? }
+   *  （Places API 課金削減のため、駅ごとの検索結果を Sheets に保存して再利用する） */
+  async getSpotsCache(key) {
+    const data = await this._post({ action: 'getSpotsCache', key });
+    if (!data.ok) throw new Error(data.error);
+    return data;
+  }
+
+  /** スポット検索キャッシュを保存（fire-and-forget 推奨） */
+  async saveSpotsCache({ key, stationName, lang, spots }) {
+    const data = await this._post({ action: 'saveSpotsCache', key, stationName, lang, spots });
+    if (!data.ok) throw new Error(data.error);
+    return data;
   }
 }
 

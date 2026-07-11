@@ -4,9 +4,13 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=94';
-import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=94';
-import { localizeStationName } from '../data/cities.js?v=94';
+import { toLatLngLiteral } from './maps.js?v=106';
+import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=106';
+import { localizeStationName } from '../data/cities.js?v=106';
+import { randomFunCharacterImage } from './characters.js?v=106';
+
+// お楽しみ要素: ストリートビューカードにランダムでキャラを紛れ込ませる確率
+const EASTER_EGG_PROBABILITY = 0.3;
 
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
@@ -24,8 +28,10 @@ const spotLetter = i => SPOT_LETTERS[i] || String(i + 1);
  * @param {Object} opts.origin       駅の座標（LatLng or { lat, lng }）
  * @param {Object} opts.directions   Directions API の結果（routes[0].overview_polyline を使う）
  * @param {string} opts.apiKey       Maps Static API キー
+ * @param {Function} [opts.onProgress] 進捗コールバック（ステージ文字列を受け取る）
  */
-export async function generateMapPdf({ stationName, orderedSpots, stats, origin, directions, apiKey }) {
+export async function generateMapPdf({ stationName, orderedSpots, stats, origin, directions, apiKey, onProgress }) {
+  const progress = msg => { try { if (onProgress) onProgress(msg); } catch (_) {} };
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -36,16 +42,36 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
   try {
     // Static Map / Street View 画像のロード完了を待つ。
     // SV取得失敗（パノラマなし等）の画像は Static Map にフォールバック差し替え。
+    progress(t('pdfStageImages', '画像を読込中…'));
     await waitForImagesWithFallback(container);
 
     // 2) html2canvas でラスタライズ
-    const SCALE = 2;
+    // ★モバイル対策: スマホブラウザには canvas の上限（iOS Safari は約1,677万画素、
+    //   1辺は概ね 16,384px まで）があり、超えると描画が固まる・空になる。
+    //   コンテンツが長い場合は scale を自動で下げて上限内に収める。
+    progress(t('pdfStageRender', '描画中…（少し時間がかかります）'));
+    const contentW = container.scrollWidth || 794;
+    const contentH = container.scrollHeight || 1;
+    const MAX_PIXELS = 14000000;   // 上限より少し安全側
+    const MAX_DIMENSION = 14000;
+    let SCALE = 2;
+    if (contentW * contentH * SCALE * SCALE > MAX_PIXELS) {
+      SCALE = Math.max(0.9, Math.sqrt(MAX_PIXELS / (contentW * contentH)));
+    }
+    if (contentH * SCALE > MAX_DIMENSION) {
+      SCALE = Math.min(SCALE, MAX_DIMENSION / contentH);
+    }
+    console.info(`[pdf] content=${contentW}x${contentH}px scale=${SCALE.toFixed(2)}`);
     const canvas = await html2canvas(container, {
       useCORS: true,
       allowTaint: false,
       backgroundColor: '#ffffff',
       scale: SCALE,
     });
+    if (!canvas.width || !canvas.height) {
+      throw new Error('canvas rendering failed (size 0)');
+    }
+    progress(t('pdfStageWrite', 'PDF書き出し中…'));
 
     // 2.5) ページ分割時に「割らない方が良い」ブロックの Y 範囲を取得
     //      （getBoundingClientRect は CSS pixel 単位なので scale 倍してキャンバス座標へ）
@@ -390,11 +416,22 @@ function buildTurnCard({ label, labelColor, title, subtitle, icon, lat, lng, hea
   const sv = `https://maps.googleapis.com/maps/api/streetview?size=480x320&location=${lat},${lng}&heading=${Math.round(heading)}&fov=90&pitch=0&radius=100&source=outdoor&key=${apiKey}`;
   // フォールバック：SV取得失敗時に表示する Static Map（地点中心、ズーム18、マーカー付き）
   const fallback = `https://maps.googleapis.com/maps/api/staticmap?size=480x320&scale=2&center=${lat},${lng}&zoom=18&markers=color:red%7Csize:mid%7C${lat},${lng}&maptype=roadmap&language=${apiLang()}&key=${apiKey}`;
+  // お楽しみ要素: たまにキャラクターが写真の隅に紛れ込む（get以外のポーズ）
+  let eggHtml = '';
+  if (Math.random() < EASTER_EGG_PROBABILITY) {
+    const { url } = randomFunCharacterImage();
+    const side = Math.random() < 0.5 ? 'left:8px;' : 'right:8px;';
+    const rot = (Math.random() * 16 - 8).toFixed(1);
+    eggHtml = `<img src="${url}" alt="" style="position:absolute;bottom:6px;${side}height:64px;transform:rotate(${rot}deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));" />`;
+  }
   // data-pdf-block を付けることで generateMapPdf の安全分割ロジックが
   // このカードを「割らない」対象として認識する
   return `
     <div data-pdf-block style="border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;page-break-inside:avoid;background:#fff;display:flex;flex-direction:column;">
-      <img src="${sv}" alt="streetview" data-fallback="${escapeHtml(fallback)}" crossorigin="anonymous" referrerpolicy="no-referrer-when-downgrade" style="display:block;width:100%;aspect-ratio:3/2;object-fit:cover;background:#eee;border-bottom:1px solid #ddd;" />
+      <div style="position:relative;">
+        <img src="${sv}" alt="streetview" data-fallback="${escapeHtml(fallback)}" crossorigin="anonymous" referrerpolicy="no-referrer-when-downgrade" style="display:block;width:100%;aspect-ratio:3/2;object-fit:cover;background:#eee;border-bottom:1px solid #ddd;" />
+        ${eggHtml}
+      </div>
       <div style="padding:8px 10px;font-size:12px;line-height:1.5;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
           <div style="flex-shrink:0;width:24px;height:24px;background:${labelColor};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;border:2px solid white;box-shadow:0 1px 2px rgba(0,0,0,.2);">${escapeHtml(label)}</div>
@@ -514,25 +551,40 @@ function escapeHtml(s) {
 function waitForImages(root) {
   const imgs = Array.from(root.querySelectorAll('img'));
   return Promise.all(imgs.map(img => {
-    if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+    // ★重要: complete は「成功」だけでなく「失敗確定」でも true になる。
+    // 以前は `complete && naturalWidth > 0` で成功のみ既決扱いにしていたため、
+    // 既に失敗が確定した画像（load/error イベントは二度と発火しない）を
+    // 永遠に待ち続けるデッドロックがあった（2回目の waitForImages 呼び出し時）。
+    if (img.complete) return Promise.resolve();
     return new Promise(resolve => {
       img.addEventListener('load', resolve, { once: true });
       img.addEventListener('error', resolve, { once: true }); // 失敗してもPDF生成は続行
+      setTimeout(resolve, 20000); // 保険: ネットワーク停滞時も20秒で諦めて続行
     });
   }));
 }
 
 // 1次ロード後、失敗した画像があれば data-fallback URL に差し替えて再ロードを待つ
 async function waitForImagesWithFallback(root) {
+  console.time('[pdf] waitForImages');
   await waitForImages(root);
   const broken = Array.from(root.querySelectorAll('img'))
     .filter(img => (!img.complete || img.naturalWidth === 0) && img.dataset.fallback);
-  if (broken.length === 0) return;
-  console.warn(`[pdf] ${broken.length} streetview画像が失敗 → Static Map にフォールバック`);
-  broken.forEach(img => {
-    img.src = img.dataset.fallback;
-    delete img.dataset.fallback; // 二度目の失敗時は無限ループしないように
+  if (broken.length > 0) {
+    console.warn(`[pdf] ${broken.length} streetview画像が失敗 → Static Map にフォールバック`);
+    broken.forEach(img => {
+      img.src = img.dataset.fallback;
+      delete img.dataset.fallback; // 二度目の失敗時は無限ループしないように
+    });
+    // 差し替え後の画像が読み込まれるのを待つ
+    await waitForImages(root);
+  }
+  // 最終的に読めなかった画像は非表示にする（壊れた画像アイコンがPDFに出ないように）
+  Array.from(root.querySelectorAll('img')).forEach(img => {
+    if (img.complete && img.naturalWidth === 0) {
+      console.warn('[pdf] 読込失敗のため非表示:', (img.src || '').slice(0, 80));
+      img.style.display = 'none';
+    }
   });
-  // 差し替え後の画像が読み込まれるのを待つ
-  await waitForImages(root);
+  console.timeEnd('[pdf] waitForImages');
 }

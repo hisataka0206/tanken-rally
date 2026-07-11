@@ -1,15 +1,22 @@
-import { CONFIG } from '../config.js?v=94';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=94';
-import { fetchOriginStory } from './utils/ai.js?v=94';
-import { generateMapPdf } from './utils/pdf.js?v=94';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=94';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=94';
-import { CITIES, localizeStationName } from './data/cities.js?v=94';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=94';
-import { addReport as addIssueReport } from './utils/issues.js?v=94';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint } from './utils/i18n.js?v=94';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=94';
-import { FEATURES } from './config-features.js?v=94';
+import { CONFIG } from '../config.js?v=106';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=106';
+import { fetchOriginStory, tidyMemo, transcribeAudio } from './utils/ai.js?v=106';
+import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=106';
+import { generateMapPdf } from './utils/pdf.js?v=106';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=106';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=106';
+import { CITIES, localizeStationName } from './data/cities.js?v=106';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=106';
+import { addReport as addIssueReport } from './utils/issues.js?v=106';
+import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=106';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=106';
+import { FEATURES } from './config-features.js?v=106';
+import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=106';
+import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=106';
+import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, loadLegacyAnonymousCollection } from './utils/collection.js?v=106';
+import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout } from './utils/auth.js?v=106';
+import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
+import { initShell, updateShell } from './utils/shell.js?v=106';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -123,6 +130,35 @@ function renderWizardStage() {
     // ナビゲーションボタンの活性化
     $('wizard-prev').disabled = (state.photoWizardStage === 0);
     renderWizardThumbs(info.tag);
+    // ARキャラ捕獲ボタン（スポット/ゴールステージのみ表示）
+    updateArHuntButton(info);
+    // ガイドキャラ（画面4: スポットカテゴリ連動・既存アセット流用）
+    updateWizardGuide(info);
+  }
+}
+
+// 撮影ウィザードのガイドキャラ（1体のみ・カテゴリ連動）
+//   科学館 → ZOOMY(loupe_get) / スイーツ・駄菓子 → TAFFY(taffy_get) / それ以外 → NUTTY(oakchap_discovery)
+//   駅ステージはステージ番号で3体ローテーション
+function updateWizardGuide(info) {
+  const img = $('wizard-guide');
+  if (!img) return;
+  let file;
+  if (info.type === 'spot') {
+    const spot = state.orderedSpots[state.photoWizardStage - 1];
+    const cat = spot?.category;
+    file = cat === 'science' ? 'loupe_get.png'
+      : (cat === 'sweets' || cat === 'dagashi') ? 'taffy_get.png'
+      : 'oakchap_discovery.png';
+  } else {
+    file = ['loupe_get.png', 'taffy_get.png', 'oakchap_discovery.png'][(state.photoWizardStage ?? 0) % 3];
+  }
+  if (!img.src || !img.src.endsWith(file)) {
+    img.style.display = '';
+    img.classList.remove('wizard-guide-fade');
+    void img.offsetWidth; // アニメ再トリガ
+    img.src = 'src/assets/characters/' + file;
+    img.classList.add('wizard-guide-fade');
   }
 }
 function renderWizardThumbs(currentTag) {
@@ -160,6 +196,373 @@ function refreshPhotosView() {
   } else {
     renderWizardThumbs(info.tag);
   }
+}
+
+// ===== STEP 4: ARキャラ捕獲 =====
+// スポットステージ: カテゴリ対応キャラが出現（GPS 50m以内 + コンパス ±30°）
+// ゴールステージ:   レア（タンケンハカセ）がセッション1回の抽選（25%）で出現
+// docs/ar-character-capture-spec.md 参照
+let arSession = null;
+let arCurrent = null;   // { char, tag, targetName, target, latestStatus }
+
+// 現在のウィザードステージに対する AR コンテキストを返す（対象外ステージは null）
+function arStageContext(info) {
+  if (!FEATURES.arCaptureEnabled || !supportsArCamera()) return null;
+  if (info.type === 'start') {
+    // スタート駅: lookie / colorey からセッションごとにランダムで1体
+    if (!state.startCharacterId) state.startCharacterId = pickStartCharacter().id;
+    const ll = toLL(state.stationLocation);
+    return {
+      char: characterById(state.startCharacterId),
+      tag: info.tag,
+      targetName: localizeStationName(state.stationName, LANG),
+      target: ll,
+    };
+  }
+  if (info.type === 'spot') {
+    const spot = state.orderedSpots[state.photoWizardStage - 1];
+    if (!spot || spot.lat == null) return null;
+    return {
+      char: characterForSpot(spot),
+      tag: info.tag,
+      targetName: spot.name,
+      target: { lat: spot.lat, lng: spot.lng },
+    };
+  }
+  if (info.type === 'goal') {
+    // レア出現はセッション中1回だけ抽選（ステージを行き来しても結果は変わらない）
+    if (state.rareGoalAppears == null) state.rareGoalAppears = Math.random() < RARE_APPEAR_PROBABILITY;
+    const ll = toLL(state.stationLocation);
+    return {
+      char: state.rareGoalAppears ? rareCharacter() : null,  // null = 今回はいない
+      tag: info.tag,
+      targetName: localizeStationName(state.stationName, LANG),
+      target: ll,
+    };
+  }
+  return null;
+}
+
+function updateArHuntButton(info) {
+  const btn = $('ar-hunt-btn');
+  if (!btn) return;
+  btn.classList.toggle('hidden', !arStageContext(info));
+}
+
+async function openArHunt() {
+  const info = getWizardStageInfo(state.photoWizardStage);
+  const ctx = arStageContext(info);
+  if (!ctx) return;
+  arCurrent = ctx;
+
+  // オーバーレイ表示・初期化
+  const overlay = $('ar-overlay');
+  overlay.classList.remove('hidden');
+  document.body.classList.add('ar-open');
+  $('ar-target-name').textContent = ctx.targetName || '';
+  $('ar-distance').textContent = '';
+  $('ar-status').textContent = ctx.char ? t('arSearching') : t('arNoCharToday');
+  $('ar-guide').classList.add('hidden');
+  $('ar-call-btn').classList.add('hidden');
+  const charEl = $('ar-character');
+  charEl.classList.add('hidden');
+  charEl.classList.remove('ar-appear');
+  if (ctx.char) {
+    $('ar-character-img').src = characterImageUrl(ctx.char, 'normal');
+    $('ar-character-name').textContent = charDisplayName(ctx.char);
+    // 合成用のポーズ画像を先読みしておく（シャッター時に await）
+    ctx.imagesPromise = preloadCharacterImages(ctx.char);
+  }
+
+  // iOS のコンパス許可はユーザー操作起点でしか取れないため、ボタンクリックのこの場で要求する
+  await requestOrientationPermission();
+
+  arSession = new ArSession({
+    target: ctx.target,
+    onUpdate: status => updateArUi(status),
+  });
+  try {
+    await arSession.start($('ar-video'));
+  } catch (e) {
+    console.warn('[ar] camera start failed:', e);
+    alert(t('arCameraError'));
+    closeArOverlay();
+  }
+}
+
+function updateArUi(status) {
+  if (!arCurrent) return;
+  arCurrent.latestStatus = status;
+  const charEl = $('ar-character');
+  const guideEl = $('ar-guide');
+  const statusEl = $('ar-status');
+  const distEl = $('ar-distance');
+
+  // 距離表示
+  if (status.distanceM != null) {
+    distEl.textContent = t('arDistanceFmt').replace('{m}', String(Math.max(0, Math.round(status.distanceM))));
+  } else {
+    distEl.textContent = status.gpsAvailable ? '' : t('arNoGps');
+  }
+
+  // キャラなし（ゴールで抽選ハズレ）：通常カメラとしてのみ動作
+  if (!arCurrent.char) {
+    statusEl.textContent = t('arNoCharToday');
+    charEl.classList.add('hidden');
+    guideEl.classList.add('hidden');
+    return;
+  }
+
+  // GPS が取れない場合は「キャラをよぶ」フォールバックを出す
+  $('ar-call-btn').classList.toggle('hidden', status.gpsAvailable || status.forced);
+
+  if (status.visible) {
+    // キャラ出現
+    if (charEl.classList.contains('hidden')) {
+      charEl.classList.remove('hidden');
+      charEl.classList.add('ar-appear');
+    }
+    guideEl.classList.add('hidden');
+    statusEl.textContent = t('arFoundFmt').replace('{name}', charDisplayName(arCurrent.char));
+    return;
+  }
+
+  charEl.classList.add('hidden');
+  charEl.classList.remove('ar-appear');
+
+  // 方向ガイド（コンパスと方位角の両方が取れている時のみ回転表示）
+  if (status.bearingDeg != null && status.headingDeg != null && status.headingAvailable) {
+    guideEl.classList.remove('hidden');
+    const rot = (status.bearingDeg - status.headingDeg + 360) % 360;
+    $('ar-guide-arrow').style.transform = `rotate(${rot - 90}deg)`; // ➤ は右向き基準
+  } else {
+    guideEl.classList.add('hidden');
+  }
+
+  if (status.withinRadius) {
+    statusEl.textContent = status.headingAvailable ? t('arNear') : t('arNoSensor');
+  } else if (status.distanceM != null) {
+    statusEl.textContent = t('arFarFmt').replace('{m}', String(Math.max(0, Math.round(status.distanceM))));
+  } else {
+    statusEl.textContent = t('arSearching');
+  }
+}
+
+async function onArShutter() {
+  if (!arSession || !arCurrent) return;
+  const video = $('ar-video');
+  const status = arCurrent.latestStatus || {};
+  const charVisible = !!(arCurrent.char && status.visible);
+  const char = arCurrent.char;
+  const tag = arCurrent.tag;
+
+  // 合成用のキャラ画像（プリロード済み）。found（ゲット！ポーズ）優先。
+  let charImg = null;
+  if (charVisible && arCurrent.imagesPromise) {
+    try {
+      const images = await arCurrent.imagesPromise;
+      charImg = images.found || images.normal || null;
+    } catch (_) { /* 画像なしでもフォールバック描画で続行 */ }
+  }
+
+  let file;
+  try {
+    file = await arSession.captureComposite(video, charVisible
+      ? (ctx, w, h) => {
+          const size = Math.min(w, h) * 0.5;
+          drawCharacterOnCanvas(ctx, char, charImg, w / 2, h / 2, size);
+        }
+      : null);
+  } catch (e) {
+    console.warn('[ar] capture failed:', e);
+    alert(t('arCameraError'));
+    return;
+  }
+
+  // 撮影時の位置・時刻（合成JPEGにEXIFが無いためメタとして別送する）
+  const metaOverride = {
+    takenAt: new Date().toISOString(),
+    lat: status.position?.lat ?? null,
+    lng: status.position?.lng ?? null,
+  };
+
+  closeArOverlay();
+
+  // 捕獲成功モーダル（キャラが写っている時だけ）
+  if (charVisible) {
+    const url = URL.createObjectURL(file);
+    $('ar-captured-title').textContent = t('arCapturedFmt').replace('{name}', charDisplayName(char));
+    const img = $('ar-captured-img');
+    img.src = url;
+    $('ar-captured-modal').classList.remove('hidden');
+  }
+
+  // 既存の写真パイプラインへ（プレビュー先行表示 → Drive アップロード）
+  const fileId = await addPhotoAndUpload(file, tag, metaOverride);
+
+  // 捕獲記録（report.json 経由でセッション再開時にも復元される）
+  if (charVisible) {
+    state.captures.push({
+      characterId: char.id,
+      spotName: tag,
+      photoFileId: fileId,
+      capturedAt: metaOverride.takenAt,
+      lat: metaOverride.lat,
+      lng: metaOverride.lng,
+    });
+    // 図鑑（セッション横断）: ローカル即時記録 + Sheets へ fire-and-forget 同期
+    recordCapture(char.id, metaOverride.takenAt);
+    if (drive) {
+      drive.saveCaptures({
+        explorerId: getExplorerId(),
+        records: [{ characterId: char.id, capturedAt: metaOverride.takenAt }],
+      }).catch(e => console.warn('[zukan] Sheets同期失敗（ローカルには保存済）:', e));
+    }
+  }
+}
+
+// ===== キャラずかん（コレクション） =====
+// ローカル（localStorage）を一次ストアとして即表示し、GAS が使えれば
+// Sheets のコレクションをマージして再描画する（セッション・端末をまたぐ収集）。
+function renderZukanGrid(collection) {
+  const grid = $('zukan-grid');
+  if (!grid) return;
+  grid.innerHTML = CHARACTERS.map(ch => {
+    const rec = collection[ch.id];
+    const caught = !!(rec && rec.count > 0);
+    const name = caught ? charDisplayName(ch) : t('zukanUnknown');
+    const countHtml = caught
+      ? `<div class="zukan-count">${escapeHtml(t('zukanCaughtFmt').replace('{n}', String(rec.count)))}</div>`
+      : '';
+    // 捕獲済みキャラはタップでストーリー（詳細）を開ける
+    return `
+      <div class="zukan-item${caught ? ' zukan-clickable' : ' zukan-silhouette'}"${caught ? ` data-char-id="${ch.id}"` : ''} role="${caught ? 'button' : 'presentation'}">
+        <img src="${characterImageUrl(ch, 'normal')}" alt="" />
+        <div class="zukan-name">${escapeHtml(name)}</div>
+        ${countHtml}
+      </div>`;
+  }).join('');
+  // 捕獲済みアイテムのクリック → 詳細（ストーリー）表示
+  grid.querySelectorAll('.zukan-clickable').forEach(el => {
+    el.addEventListener('click', () => showZukanDetail(el.dataset.charId));
+  });
+}
+
+// 捕獲済みキャラの詳細（性格・ストーリー）を表示。図鑑登録のごほうびコンテンツ。
+function showZukanDetail(charId) {
+  const ch = characterById(charId);
+  const detail = $('zukan-detail');
+  if (!ch || !detail) return;
+  detail.innerHTML = `
+    <button class="zukan-detail-close" type="button" aria-label="close">✕</button>
+    <div class="zukan-detail-body">
+      <img src="${characterImageUrl(ch, 'captured')}" alt="" />
+      <div class="zukan-detail-text">
+        <div class="zukan-detail-name">${escapeHtml(charDisplayName(ch))}</div>
+        <div class="zukan-detail-personality">${escapeHtml(charPersonality(ch))}</div>
+        <p class="zukan-detail-story">${escapeHtml(charStory(ch))}</p>
+      </div>
+    </div>`;
+  detail.classList.remove('hidden');
+  detail.querySelector('.zukan-detail-close').addEventListener('click', () => {
+    detail.classList.add('hidden');
+    detail.innerHTML = '';
+  });
+}
+
+async function openZukan() {
+  // 前回開いていた詳細をリセット
+  const detail = $('zukan-detail');
+  if (detail) { detail.classList.add('hidden'); detail.innerHTML = ''; }
+  updateZukanAccount();
+  renderZukanGrid(loadCollection());
+  $('zukan-modal').classList.remove('hidden');
+  // サーバー側のコレクションをマージして再描画（失敗してもローカル表示のまま）
+  if (drive) {
+    try {
+      const server = await drive.getCaptures({ explorerId: getExplorerId() });
+      renderZukanGrid(mergeServerCollection(server));
+    } catch (e) {
+      console.warn('[zukan] Sheets読み込み失敗（ローカル表示を継続）:', e);
+    }
+  }
+}
+
+function closeArOverlay() {
+  if (arSession) {
+    arSession.stop();
+    arSession = null;
+  }
+  const video = $('ar-video');
+  if (video) video.srcObject = null;
+  $('ar-overlay').classList.add('hidden');
+  document.body.classList.remove('ar-open');
+}
+
+function closeArCapturedModal() {
+  const img = $('ar-captured-img');
+  if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+  img.src = '';
+  $('ar-captured-modal').classList.add('hidden');
+}
+
+// 1ファイルを写真グリッドに先行表示しつつ Drive にアップロードする。
+// onPhotoInputChange のループ本体と同じ流儀（temp entry → Drive 結果で置換）。
+// 戻り値: 最終的な fileId（Drive成功時は DriveのID、失敗/未設定時は temp ID）
+async function addPhotoAndUpload(file, spotName, metaOverride = null) {
+  const tempId = `temp_${Date.now()}_ar`;
+  const tempUrl = URL.createObjectURL(file);
+  state.uploadedPhotos.push({
+    fileId: tempId,
+    url: tempUrl,
+    thumbnailUrl: tempUrl,
+    fullBlobUrl: tempUrl,
+    spotName: spotName || '',
+    fileName: file.name,
+    takenAt: metaOverride?.takenAt || null,
+    uploadedAt: new Date().toISOString(),
+    lat: metaOverride?.lat ?? null,
+    lng: metaOverride?.lng ?? null,
+    uploading: true,
+  });
+  refreshPhotosView();
+
+  let finalId = tempId;
+  if (drive && state.driveSession) {
+    try {
+      const result = await drive.uploadPhoto({
+        folderId: state.driveSession.folderId,
+        file,
+        spotName: spotName || '',
+        metaOverride,
+      });
+      const idx = state.uploadedPhotos.findIndex(p => p.fileId === tempId);
+      if (idx >= 0) {
+        state.uploadedPhotos[idx] = {
+          ...state.uploadedPhotos[idx],
+          fileId: result.fileId,
+          driveUrl: result.url,
+          driveThumbnailUrl: result.thumbnailUrl,
+          takenAt: result.takenAt || state.uploadedPhotos[idx].takenAt,
+          uploadedAt: result.uploadedAt || state.uploadedPhotos[idx].uploadedAt,
+          lat: result.lat ?? state.uploadedPhotos[idx].lat,
+          lng: result.lng ?? state.uploadedPhotos[idx].lng,
+          uploading: false,
+        };
+        finalId = result.fileId;
+      }
+    } catch (err) {
+      console.warn('[ar] upload failed:', err);
+      const idx = state.uploadedPhotos.findIndex(p => p.fileId === tempId);
+      if (idx >= 0) state.uploadedPhotos[idx].uploading = false;
+    }
+  } else {
+    const idx = state.uploadedPhotos.findIndex(p => p.fileId === tempId);
+    if (idx >= 0) state.uploadedPhotos[idx].uploading = false;
+  }
+  refreshPhotosView();
+  updatePhotosCount();
+  return finalId;
 }
 
 // 内部マーカーから localized 表示ラベルへ変換（dropdown / overlay / report で共通使用）
@@ -277,6 +680,8 @@ function selectCity(cityId, opts = {}) {
     if (idx === '') {
       stationSel.disabled = true;
       $('search-by-select-btn').disabled = true;
+      renderStationChips(null);
+      syncChipActive('line-chips', '');
       return;
     }
     const line = city.lines[Number(idx)];
@@ -288,10 +693,17 @@ function selectCity(cityId, opts = {}) {
     });
     stationSel.disabled = false;
     $('search-by-select-btn').disabled = true;
+    // チップUIを路線選択済み状態に同期
+    syncChipActive('line-chips', idx);
+    renderStationChips(line);
   };
   stationSel.onchange = () => {
     $('search-by-select-btn').disabled = !stationSel.value;
+    syncChipActive('station-chips', stationSel.value);
   };
+
+  // チップUI（selectの代替。クリックで select を操作しロジック互換を保つ）
+  renderLineChips(city);
 
   // デフォルト路線を選択する（指定がある場合）
   if (opts.defaultLineName) {
@@ -301,6 +713,63 @@ function selectCity(cityId, opts = {}) {
       lineSel.dispatchEvent(new Event('change'));
     }
   }
+}
+
+// ===== STEP1: 段階タップ式ピッカー（Phase B） =====
+// select は状態保持用に温存し、チップのタップで select の値を書き換えて
+// change イベントを発火する。検索ロジック（onSearchBySelect）は無変更で動く。
+function renderLineChips(city) {
+  const wrap = $('line-chips');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  city.lines.forEach((line, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pick-chip';
+    b.dataset.value = String(i);
+    b.textContent = locName(line);
+    b.addEventListener('click', () => {
+      const lineSel = $('line-select');
+      lineSel.value = String(i);
+      lineSel.dispatchEvent(new Event('change'));
+    });
+    wrap.appendChild(b);
+  });
+  syncChipActive('line-chips', $('line-select').value);
+  // 駅チップは路線未選択のヒント表示に戻す
+  if ($('line-select').value === '') renderStationChips(null);
+}
+
+function renderStationChips(line) {
+  const wrap = $('station-chips');
+  if (!wrap) return;
+  if (!line) {
+    wrap.innerHTML = `<p class="chip-hint">${escapeHtml(t('optStationEmpty'))}</p>`;
+    return;
+  }
+  wrap.innerHTML = '';
+  line.stations.forEach(name => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pick-chip pick-chip-station';
+    b.dataset.value = name;
+    b.textContent = localizeStationName(name, LANG);
+    b.addEventListener('click', () => {
+      const sSel = $('station-select');
+      sSel.value = name;
+      sSel.dispatchEvent(new Event('change'));
+      // 選んだ駅が見えるように少しスクロール（次のCTAへ視線誘導）
+      b.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+    wrap.appendChild(b);
+  });
+  syncChipActive('station-chips', $('station-select').value);
+}
+
+function syncChipActive(wrapId, value) {
+  document.querySelectorAll(`#${wrapId} .pick-chip`).forEach(c => {
+    c.classList.toggle('active', c.dataset.value === String(value));
+  });
 }
 
 // 詳細絞り込みフォームから営業時間フィルタの値を取得
@@ -358,6 +827,11 @@ function showStep(stepId) {
       el.classList.remove('active');
     }
     el.style.display = ''; // 過去のインラインstyle残骸をクリア
+    // ガイドキャラの受け皿をマウント（素材が無い間は自動非表示）
+    if (id === stepId) {
+      mountGuides(stepId);
+      updateShell(stepId); // 進捗トレイル + キャラ吹き出し
+    }
   });
 }
 
@@ -408,7 +882,37 @@ async function onSearchStation(context) {
     // （map 要素を innerHTML で書き換えるため、Places の検索が終わるまで地図描画は待つ）
     const placesScratch = document.createElement('div');
     const placesService = new google.maps.places.PlacesService(placesScratch);
-    const spots = await searchNearbySpotsWith(placesService, state.stationLocation);
+
+    // ===== スポット検索キャッシュ（GAS/Sheets DB） =====
+    // Places API（Nearby ×14 + Text ×1 ≒ ¥70/検索）がコストの支配項のため、
+    // 既知の駅は Sheets 上のキャッシュ（TTL 1年・GAS側で判定）を再利用する。
+    // キー: スキーマ版 | APIレスポンス言語 | 駅座標（小数4桁 ≒ 11m 粒度）
+    // maps.js の検索キーワード構成を変えたら SPOTS_CACHE_SCHEMA を上げること。
+    const SPOTS_CACHE_SCHEMA = 'v1';
+    const sll = toLL(state.stationLocation);
+    const spotsCacheKey = `${SPOTS_CACHE_SCHEMA}|${apiLang()}|${sll.lat.toFixed(4)},${sll.lng.toFixed(4)}`;
+
+    let spots = null;
+    if (drive) {
+      try {
+        const cached = await drive.getSpotsCache(spotsCacheKey);
+        if (cached.hit && Array.isArray(cached.spots) && cached.spots.length) {
+          spots = cached.spots;
+          console.info(`[spots-cache] HIT ${spotsCacheKey} (${cached.spots.length}件, ${cached.ageDays}日前) — Places API 呼び出しをスキップ`);
+        }
+      } catch (e) {
+        console.warn('[spots-cache] 読み込み失敗（通常検索にフォールバック）:', e);
+      }
+    }
+    if (!spots) {
+      spots = await searchNearbySpotsWith(placesService, state.stationLocation);
+      // 検索成功時のみ保存（fire-and-forget。失敗してもゲーム進行に影響させない）
+      if (drive && spots.length) {
+        drive.saveSpotsCache({ key: spotsCacheKey, stationName: name, lang: apiLang(), spots })
+          .then(() => console.info(`[spots-cache] SAVED ${spotsCacheKey} (${spots.length}件)`))
+          .catch(e => console.warn('[spots-cache] 保存失敗:', e));
+      }
+    }
     // 不適切スポット（学習塾・予備校等のキーワード or ユーザーが過去削除した場所）を除外
     let resultSpots = filterBlocked(spots);
 
@@ -548,11 +1052,11 @@ function renderSpotsList(map) {
     card.addEventListener('click', () => toggleSpot(spot, card, _spotMarkers));
     list.appendChild(card);
 
-    // マーカークリックでカードをハイライト
+    // マーカータップ = そのスポットを選択/解除（Phase C: 地図主役化）
+    // 該当カードへ横スクロールして視覚フィードバックも添える
     marker.addListener('click', () => {
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      card.style.outline = '3px solid #004029';
-      setTimeout(() => { card.style.outline = ''; }, 1500);
+      toggleSpot(spot, card, _spotMarkers);
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     });
   });
 
@@ -1006,7 +1510,16 @@ async function onPhotoInputChange(e) {
     });
     refreshPhotosView();
 
-    // Drive にアップロード
+    // 撮影直後の自動メモ：アップロード完了を待たず、プレビュー表示の直後にすぐ開く。
+    // （1枚だけ追加したとき＝その場撮影/1枚選択のみ。複数枚選択時は煩わしいので出さない）
+    // この時点では fileId は temp_ のまま。アップロード完了時に photoComments のキーを
+    // 正式IDへ引き継ぐ（下の Object.assign → migratePhotoCommentKey）。
+    if (files.length === 1) {
+      const justAdded = state.uploadedPhotos[state.uploadedPhotos.length - 1];
+      if (justAdded) openVoiceMemoModal(justAdded);
+    }
+
+    // Drive にアップロード（ポップアップを出したあと、裏で進める）
     if (drive && state.driveSession) {
       try {
         const result = await drive.uploadPhoto({
@@ -1019,8 +1532,10 @@ async function onPhotoInputChange(e) {
         // Drive 側のメタ情報は driveUrl / driveThumbnailUrl として別途保存
         const idx = state.uploadedPhotos.findIndex(p => p.fileId === tempId);
         if (idx >= 0) {
-          state.uploadedPhotos[idx] = {
-            ...state.uploadedPhotos[idx],   // ローカル情報を保持（url, thumbnailUrl は blob:）
+          // オブジェクトは「置換」ではなく「上書き（mutate）」する。
+          // → 音声メモモーダルが保持している photo 参照を生かしたまま fileId を更新でき、
+          //   録音中にアップロードが完了しても保存先が迷子にならない。
+          Object.assign(state.uploadedPhotos[idx], {
             fileId: result.fileId,          // Drive のファイルID で置き換え
             driveUrl: result.url,
             driveThumbnailUrl: result.thumbnailUrl,
@@ -1029,7 +1544,9 @@ async function onPhotoInputChange(e) {
             lat: result.lat ?? null,
             lng: result.lng ?? null,
             uploading: false,
-          };
+          });
+          // temp_ ID で先に付いたメモ（音声メモ等）を正式IDへ引き継ぐ
+          migratePhotoCommentKey(tempId, result.fileId);
         }
       } catch (err) {
         console.warn('Upload failed:', err);
@@ -1051,6 +1568,21 @@ async function onPhotoInputChange(e) {
   const camInput = $('photo-camera-input');
   if (camInput) camInput.value = '';
   updatePhotosCount();
+}
+
+// temp_ ID で先に保存された写真メモ（音声メモ等）を、アップロード完了後の正式IDへ移す。
+// 撮影直後にアップロードを待たずメモを取れるようにしたため、キーの引き継ぎが必要になる。
+function migratePhotoCommentKey(oldId, newId) {
+  if (!oldId || !newId || oldId === newId) return;
+  const rd = state.reportData;
+  if (rd.photoComments && rd.photoComments[oldId] != null) {
+    rd.photoComments[newId] = rd.photoComments[oldId];
+    delete rd.photoComments[oldId];
+  }
+  if (rd.photoCommentsRaw && rd.photoCommentsRaw[oldId] != null) {
+    rd.photoCommentsRaw[newId] = rd.photoCommentsRaw[oldId];
+    delete rd.photoCommentsRaw[oldId];
+  }
 }
 
 function renderPhotosGrid() {
@@ -1183,6 +1715,221 @@ async function saveTagModal() {
       console.warn('[tag] Drive 永続化に失敗（ローカル状態は反映済）:', e);
     }
   }
+}
+
+// ===== STEP 4: 音声メモモーダル =====
+// 撮影直後に自動で開き、写真ごとの「ひと言メモ」を声で入力できる。
+// 方式は2つ：webspeech（標準・端末内・無料） / whisper（高精度・OpenAI）。
+// 既定は webspeech。選択は localStorage に保存して次回以降も維持する。
+const VOICE_METHOD_KEY = 'tankenVoiceMethod';
+let _voiceMemoTarget = null;   // メモ対象の photo オブジェクト
+let _voiceStopFn = null;       // Web Speech の停止関数
+let _voiceRecorder = null;     // Whisper 用 AudioRecorder
+let _voiceRecording = false;   // 録音/認識 中フラグ
+let _voiceBaseText = '';       // 認識開始時点のテキスト（interim を上書き表示するための土台）
+
+function getVoiceMethod() {
+  try {
+    const v = localStorage.getItem(VOICE_METHOD_KEY);
+    if (v === 'whisper' || v === 'webspeech') return v;
+  } catch (e) { /* localStorage 不可環境 */ }
+  return 'webspeech';   // 既定
+}
+function setVoiceMethod(method) {
+  try { localStorage.setItem(VOICE_METHOD_KEY, method); } catch (e) { /* no-op */ }
+}
+
+function openVoiceMemoModal(photo) {
+  _voiceMemoTarget = photo;
+
+  // サムネ表示
+  const thumb = $('voice-memo-thumb');
+  if (thumb) thumb.src = photo.thumbnailUrl || photo.url || '';
+
+  // 既存メモがあれば読み込む（撮り直し・再オープン時）
+  const ta = $('voice-memo-text');
+  ta.value = state.reportData.photoComments[photo.fileId] || '';
+
+  // 方式ラジオを保存値へ復元
+  let method = getVoiceMethod();
+  // 標準（Web Speech）が使えない端末なら高精度へ自動フォールバック
+  if (method === 'webspeech' && !supportsWebSpeech()) method = 'whisper';
+  document.querySelectorAll('input[name="voice-method"]').forEach(r => {
+    r.checked = (r.value === method);
+  });
+  updateVoiceMethodNote(method);
+
+  // ステータス/ボタンを初期化
+  _voiceRecording = false;
+  setMicButtonState(false);
+  $('voice-status').textContent = '';
+
+  $('voice-memo-modal').classList.remove('hidden');
+}
+
+function closeVoiceMemoModal() {
+  stopVoiceCapture();          // 認識/録音中なら止める
+  _voiceMemoTarget = null;
+  $('voice-memo-modal').classList.add('hidden');
+}
+
+// 現在の方式に応じた注意書き（非対応・キー無し等）を表示
+function updateVoiceMethodNote(method) {
+  const note = $('voice-method-note');
+  if (!note) return;
+  let msg = '';
+  if (method === 'webspeech' && !supportsWebSpeech()) {
+    msg = t('voiceNoteWebspeechUnsupported');
+  } else if (method === 'whisper') {
+    if (!supportsRecording()) msg = t('voiceNoteRecordingUnsupported');
+    else if (!hasOpenAiKey()) msg = t('voiceNoteNoKey');
+  }
+  note.textContent = msg;
+  note.classList.toggle('hidden', !msg);
+}
+
+function hasOpenAiKey() {
+  return !!(CONFIG.OPENAI_API_KEY && CONFIG.OPENAI_API_KEY !== 'YOUR_OPENAI_API_KEY');
+}
+
+function currentVoiceMethod() {
+  const checked = document.querySelector('input[name="voice-method"]:checked');
+  return checked ? checked.value : 'webspeech';
+}
+
+function setMicButtonState(recording) {
+  const btn = $('voice-mic-btn');
+  const label = $('voice-mic-label');
+  if (!btn || !label) return;
+  btn.classList.toggle('recording', recording);
+  label.textContent = recording ? t('voiceMicStop') : t('voiceMicStart');
+}
+
+// マイクボタン：押すたびに 開始 ⇄ 停止 をトグル
+async function onMicButton() {
+  if (_voiceRecording) {
+    stopVoiceCapture();
+    return;
+  }
+  const method = currentVoiceMethod();
+  if (method === 'whisper') {
+    await startWhisperCapture();
+  } else {
+    startWebSpeechCapture();
+  }
+}
+
+function startWebSpeechCapture() {
+  if (!supportsWebSpeech()) {
+    $('voice-status').textContent = t('voiceNoteWebspeechUnsupported');
+    return;
+  }
+  const ta = $('voice-memo-text');
+  _voiceBaseText = ta.value ? ta.value.replace(/\s*$/, '') + ' ' : '';
+  _voiceRecording = true;
+  setMicButtonState(true);
+  $('voice-status').textContent = t('voiceStatusListening');
+
+  _voiceStopFn = startWebSpeech({
+    lang: speechLang(),
+    interim: true,
+    onInterim: (interimText) => {
+      ta.value = _voiceBaseText + interimText;
+    },
+    onFinal: (finalText) => {
+      ta.value = _voiceBaseText + finalText;
+    },
+    onError: (err) => {
+      console.warn('[voice] web speech error:', err);
+      const code = (err && err.toString) ? err.toString() : '';
+      $('voice-status').textContent = (code.includes('not-allowed') || code.includes('denied'))
+        ? t('voiceStatusMicDenied')
+        : t('voiceStatusError');
+      _voiceRecording = false;
+      setMicButtonState(false);
+    },
+    onEnd: () => {
+      _voiceRecording = false;
+      setMicButtonState(false);
+      if ($('voice-status').textContent === t('voiceStatusListening')) {
+        $('voice-status').textContent = '';
+      }
+    },
+  });
+}
+
+async function startWhisperCapture() {
+  if (!supportsRecording()) {
+    $('voice-status').textContent = t('voiceNoteRecordingUnsupported');
+    return;
+  }
+  if (!hasOpenAiKey()) {
+    $('voice-status').textContent = t('voiceNoteNoKey');
+    return;
+  }
+  try {
+    _voiceRecorder = new AudioRecorder();
+    await _voiceRecorder.start();
+    _voiceRecording = true;
+    setMicButtonState(true);
+    $('voice-status').textContent = t('voiceStatusRecording');
+  } catch (err) {
+    console.warn('[voice] recorder start failed:', err);
+    $('voice-status').textContent = t('voiceStatusMicDenied');
+    _voiceRecording = false;
+    setMicButtonState(false);
+    _voiceRecorder = null;
+  }
+}
+
+// 認識/録音を停止。Whisper の場合は停止後に文字起こしを実行。
+async function stopVoiceCapture() {
+  if (!_voiceRecording && !_voiceStopFn && !_voiceRecorder) return;
+
+  // Web Speech
+  if (_voiceStopFn) {
+    const stop = _voiceStopFn;
+    _voiceStopFn = null;
+    _voiceRecording = false;
+    setMicButtonState(false);
+    stop();
+    return;
+  }
+
+  // Whisper（録音停止 → 文字起こし）
+  if (_voiceRecorder) {
+    const recorder = _voiceRecorder;
+    _voiceRecorder = null;
+    _voiceRecording = false;
+    setMicButtonState(false);
+    $('voice-status').textContent = t('voiceStatusTranscribing');
+    try {
+      const blob = await recorder.stop();
+      const text = await transcribeAudio(blob, CONFIG.OPENAI_API_KEY, apiLang());
+      if (text) {
+        const ta = $('voice-memo-text');
+        ta.value = ta.value ? (ta.value.replace(/\s*$/, '') + ' ' + text) : text;
+        $('voice-status').textContent = '';
+      } else {
+        $('voice-status').textContent = t('voiceStatusNoSpeech');
+      }
+    } catch (err) {
+      console.warn('[voice] whisper failed:', err);
+      $('voice-status').textContent = t('voiceStatusError');
+    }
+    return;
+  }
+
+  _voiceRecording = false;
+  setMicButtonState(false);
+}
+
+function saveVoiceMemo() {
+  if (_voiceMemoTarget) {
+    const text = $('voice-memo-text').value;
+    state.reportData.photoComments[_voiceMemoTarget.fileId] = text;
+  }
+  closeVoiceMemoModal();
 }
 
 // ===== セッション再開（パスワード入力） =====
@@ -1350,6 +2097,14 @@ async function onResumeSession() {
   }
 }
 
+// ===== 計画点の正規化パラメータ（あとで調整しやすいよう1か所に集約）=====
+// 計画点を 0〜100 に正規化するときの「満点の定義」に使う。
+//   満点スポット数 n* = 時間予算 ÷ ( そのルートの平均移動時間/スポット + 標準滞在 )
+//   → 平均移動時間/スポット が「スポットの近さ（＝選んだ方向の密集度）」を表すので、
+//     満点基準がルート・駅・方向ごとに自動で変わる。
+const PLAN_TIME_BUDGET_MIN = 60;    // 探検の時間予算（分）
+const PLAN_STAY_PER_SPOT_MIN = 10;  // 1スポットの標準滞在時間（分）
+
 // ===== スコア計算 & ランキング =====
 //
 // ⚠️ 配点ロジックは秘匿対象（ユーザーには合計点のみ表示）。
@@ -1435,6 +2190,12 @@ function calculateScore() {
     else                                      paceScore = 50;
   }
 
+  // ARキャラ捕獲（9要素目）: 捕獲数 + ユニーク種ボーナス + レア捕獲ボーナス
+  const captures = state.captures || [];
+  const captureCount = captures.length;
+  const uniqueCharCount = new Set(captures.map(c => c.characterId)).size;
+  const rareCaptured = captures.some(c => c.characterId === RARE_CHARACTER_ID);
+
   // 内部計算（外部には公開しない）
   const _internalBreakdown = {
     visit:    visitCount * 100,
@@ -1445,11 +2206,36 @@ function calculateScore() {
     within60: within60bonus,
     distance: Math.round(distanceKm * 30),
     pace:     paceScore,
+    capture:  captureCount * 40 + uniqueCharCount * 40 + (rareCaptured ? 150 : 0),
   };
   const total = Object.values(_internalBreakdown).reduce((a, b) => a + b, 0);
 
+  // 「計画点」と「実行点」の2分割（合計は total と一致する）。
+  //   計画点 = どんな探検を計画したか（訪問スポット数 + 移動距離）
+  //   実行点 = 実際にどれだけ楽しんで動けたか（写真・タグ・コメント・時間・ペース・キャラ捕獲）
+  const planScore = _internalBreakdown.visit + _internalBreakdown.distance;
+  const execScore = _internalBreakdown.photo + _internalBreakdown.tagged
+    + _internalBreakdown.cmtNum + _internalBreakdown.cmtChar
+    + _internalBreakdown.within60 + _internalBreakdown.pace + _internalBreakdown.capture;
+
+  // 計画点の 0〜100 正規化（満点基準は駅・ルートごとに動的）。
+  //   avgMovePerSpot = そのルートの1スポットあたり平均移動時間（＝スポットの近さ）。
+  //     スポットが密集した方向を選ぶほど小さく → n* が大きく（満点ハードルが上がる）。
+  //     疎な方向を選ぶほど大きく → n* が小さく（少ないスポットでも満点に届く）。
+  //   → どの方向を狙っても「その方向なりに回り切れば満点」に近づき、方向の有利/不利を緩和する。
+  const avgMovePerSpot = (visitCount > 0 && estimatedMin > 0) ? estimatedMin / visitCount : 0;
+  let planIdealSpots = PLAN_TIME_BUDGET_MIN / (avgMovePerSpot + PLAN_STAY_PER_SPOT_MIN);
+  if (!isFinite(planIdealSpots) || planIdealSpots < 1) planIdealSpots = 1;
+  const planScore100 = visitCount > 0
+    ? Math.round(100 * Math.min(1, visitCount / planIdealSpots))
+    : 0;
+
   return {
     total,
+    planScore,
+    planScore100,
+    planIdealSpots,
+    execScore,
     // breakdown は内部計算のみで、UIへは渡さない（秘匿）
     visitCount,
     photoCount,
@@ -1464,6 +2250,9 @@ function calculateScore() {
     userMoveMin,
     estimatedMin,
     reportWordCount: overviewLen + afterwordLen,
+    captureCount,
+    uniqueCharCount,
+    rareCaptured,
   };
 }
 
@@ -1506,6 +2295,12 @@ function buildScoreAdvice(result) {
       tips.push(t('advicePace'));
     }
   }
+  // ARキャラ捕獲
+  if (result.captureCount === 0) {
+    tips.push(t('adviceCatchChars'));
+  } else if (result.visitCount > 0 && result.captureCount < result.visitCount) {
+    tips.push(t('adviceCatchMoreChars').replace('{n}', result.captureCount));
+  }
   if (tips.length === 0) tips.push(t('advicePerfect'));
   return tips;
 }
@@ -1526,6 +2321,14 @@ function openScoreModal() {
   const result = calculateScore();
   $('score-total').textContent = `${result.total}${t('suffPoints')}`;
   $('score-rank-label').textContent = scoreMoodLabel(result.total);
+
+  // 計画点 / 実行点 の内訳表示
+  //   計画点は 0〜100 に正規化した独立指標（XX/100）で表示。
+  //   実行点は従来どおりの生スコア（合計点・ランキングは生スコアのまま）。
+  const planEl = $('score-plan');
+  const execEl = $('score-exec');
+  if (planEl) planEl.textContent = `${result.planScore100}/100`;
+  if (execEl) execEl.textContent = `${result.execScore}${t('suffPoints')}`;
 
   // 弱点アドバイス（FEATURES.showScoreAdvice が true のときだけ）
   const adviceEl = $('score-advice');
@@ -1655,16 +2458,22 @@ function serializeReportData(rd) {
     overview: rd.overview || '',
     afterword: rd.afterword || '',
     photoComments: rd.photoComments || {},
+    photoCommentsRaw: rd.photoCommentsRaw || {},
     excludedPhotoIds: Array.from(rd.excludedPhotoIds || []),
+    // ARキャラの捕獲記録も report.json に相乗りさせて永続化する（P1実装）
+    captures: (state.captures || []).map(c => ({ ...c })),
   };
 }
 function deserializeReportData(obj) {
+  // 捕獲記録は state 側に復元する（reportData ではなくセッションデータのため）
+  state.captures = Array.isArray(obj?.captures) ? obj.captures : [];
   return {
     date: obj?.date || '',
     author: obj?.author || '',
     overview: obj?.overview || '',
     afterword: obj?.afterword || '',
     photoComments: obj?.photoComments || {},
+    photoCommentsRaw: obj?.photoCommentsRaw || {},
     excludedPhotoIds: new Set(obj?.excludedPhotoIds || []),
   };
 }
@@ -1694,6 +2503,93 @@ async function onSaveReportToDrive() {
   }
 }
 
+// 「ひと言メモをすっきり整える」ボタン。
+// 写真ごとのひと言メモ（音声入力でつなぎ言葉が乗りやすい）を OpenAI で整形する。
+// 元テキストは photoCommentsRaw に退避し、いつでも「元に戻す」ができる。
+// 整形済み状態のときは、同じボタンが「元に戻す」として働く（トグル）。
+async function onTidyMemos() {
+  const btn = $('tidy-memos-btn');
+  if (!btn || btn.disabled) return;
+
+  const rd = state.reportData;
+  if (!rd.photoCommentsRaw) rd.photoCommentsRaw = {};
+
+  // すでに整形済み（退避テキストがある）→ 元に戻す
+  if (Object.keys(rd.photoCommentsRaw).length > 0) {
+    Object.entries(rd.photoCommentsRaw).forEach(([fileId, raw]) => {
+      rd.photoComments[fileId] = raw;
+    });
+    rd.photoCommentsRaw = {};
+    renderReportPhotos();
+    setTidyButtonState(false);
+    return;
+  }
+
+  // 整形対象＝表示中の写真のうち、中身のあるメモ
+  const visibleIds = new Set(
+    getPhotosInVisitOrder()
+      .filter(p => !rd.excludedPhotoIds.has(p.fileId))
+      .map(p => p.fileId)
+  );
+  const targets = Object.keys(rd.photoComments)
+    .filter(fileId => visibleIds.has(fileId))
+    .filter(fileId => (rd.photoComments[fileId] || '').trim().length > 0);
+
+  if (targets.length === 0) {
+    alert(t('tidyMemosNone'));
+    return;
+  }
+  if (!CONFIG.OPENAI_API_KEY || CONFIG.OPENAI_API_KEY === 'YOUR_OPENAI_API_KEY') {
+    alert(t('tidyMemosNoKey'));
+    return;
+  }
+  if (!confirm(t('tidyMemosConfirm'))) return;
+
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = t('tidyMemosRunning');
+
+  const raw = {};
+  let errorCount = 0;
+  // 並列で整形（写真は多くないので gpt-4o-mini の並列で十分速い）
+  await Promise.all(targets.map(async fileId => {
+    const before = rd.photoComments[fileId];
+    try {
+      const cleaned = await tidyMemo(before, CONFIG.OPENAI_API_KEY);
+      // 実際に変化があったメモだけ退避（元に戻す対象にする）
+      if (cleaned && cleaned !== before) {
+        raw[fileId] = before;
+        rd.photoComments[fileId] = cleaned;
+      }
+    } catch (e) {
+      console.warn('[tidy-memos] 整形失敗（元のメモを保持）:', fileId, e);
+      errorCount++;
+    }
+  }));
+
+  rd.photoCommentsRaw = raw;
+  renderReportPhotos();
+
+  const changed = Object.keys(raw).length;
+  if (changed > 0) {
+    setTidyButtonState(true);
+    alert(errorCount > 0 ? t('tidyMemosDonePartial') : t('tidyMemosDone'));
+  } else {
+    // 変化なし（すでにきれい / 全部失敗）
+    btn.disabled = false;
+    btn.textContent = original;
+    alert(errorCount > 0 ? t('tidyMemosError') : t('tidyMemosAlreadyClean'));
+  }
+}
+
+// 整形ボタンの見た目を「整形」⇄「元に戻す」で切り替える
+function setTidyButtonState(tidied) {
+  const btn = $('tidy-memos-btn');
+  if (!btn) return;
+  btn.disabled = false;
+  btn.textContent = tidied ? t('btnTidyMemosUndo') : t('btnTidyMemos');
+}
+
 // ===== STEP 5: レポート =====
 function onStartReport() {
   // メタ情報初期化（日付はシステム側で自動入力しない。ユーザーが date picker で入力）
@@ -1706,6 +2602,9 @@ function onStartReport() {
   $('report-afterword').value = state.reportData.afterword || '';
 
   renderReportPhotos();
+  renderReportCharacters();
+  // 整形ボタンの状態を復元（保存セッションで整形済みなら「元に戻す」表示）
+  setTidyButtonState(Object.keys(state.reportData.photoCommentsRaw || {}).length > 0);
   showStep('step-report');
 
   // ステップ表示後（display:none が外れた後）に textarea の高さを再計算する。
@@ -1735,6 +2634,35 @@ function getPhotosInVisitOrder() {
     // 同じスポット内では撮影順（fileId or createdの代用として配列順を維持）
     return state.uploadedPhotos.indexOf(a) - state.uploadedPhotos.indexOf(b);
   });
+}
+
+// fileId から捕獲キャラを返す（捕獲写真でなければ null）
+function captureCharForPhoto(fileId) {
+  const rec = (state.captures || []).find(c => c.photoFileId === fileId);
+  return rec ? characterById(rec.characterId) : null;
+}
+
+// 「今回であったキャラたち」欄（捕獲したユニーク種を bonus ポーズで一覧表示）
+function renderReportCharacters() {
+  const section = $('report-characters-section');
+  const wrap = $('report-characters');
+  if (!section || !wrap) return;
+  const ids = [...new Set((state.captures || []).map(c => c.characterId))];
+  if (ids.length === 0) {
+    section.classList.add('hidden');
+    wrap.innerHTML = '';
+    return;
+  }
+  section.classList.remove('hidden');
+  wrap.innerHTML = ids.map(id => {
+    const ch = characterById(id);
+    if (!ch) return '';
+    return `
+      <div class="report-character-item">
+        <img src="${characterImageUrl(ch, 'captured')}" alt="${escapeHtml(charDisplayName(ch))}" />
+        <div class="report-character-name">${escapeHtml(charDisplayName(ch))}</div>
+      </div>`;
+  }).join('');
 }
 
 function renderReportPhotos() {
@@ -1775,6 +2703,11 @@ function renderReportPhotos() {
     const tagHtml = photo.spotName
       ? `<span class="report-photo-tag">📍 ${escapeHtml(photoTagDisplayLabel(photo.spotName))}</span>`
       : `<span class="report-photo-tag report-photo-tag-empty">${escapeHtml(t('photoTagless'))}</span>`;
+    // 捕獲写真には「つかまえた！」バッジを付ける
+    const capChar = captureCharForPhoto(photo.fileId);
+    const capBadgeHtml = capChar
+      ? `<span class="report-capture-badge">${escapeHtml(t('reportCaptureBadgeFmt').replace('{name}', charDisplayName(capChar)))}</span>`
+      : '';
     // 画像ソース選択：blob URL（サムネ）→ Drive URL（フォールバック） の順で試す
     // 最初の src が読めない場合に備えて候補チェーンを保存し、img.onerror で順送りに
     const imgCandidates = [
@@ -1792,6 +2725,7 @@ function renderReportPhotos() {
         <div>
           <span class="report-photo-order">${i + 1}</span>
           ${tagHtml}
+          ${capBadgeHtml}
         </div>
         <textarea class="report-photo-comment" rows="1"
           placeholder="${escapeHtml(t('photoCommentPlaceholder'))}"
@@ -1849,6 +2783,17 @@ function renderReportPhotos() {
 
     currentPage.appendChild(item);
     inGroupCount++;
+  });
+
+  // 画面6（PDF装飾）: 各写真グループの右上角に TAFFY の額縁アクセント
+  // （素材未着時は onerror で自動除去。編集画面ではうっすら、PDF出力時に本表示）
+  wrap.querySelectorAll('.report-photo-page').forEach(page => {
+    const deco = document.createElement('img');
+    deco.className = 'report-guide rg-taffy';
+    deco.alt = '';
+    deco.addEventListener('error', () => deco.remove());
+    deco.src = GUIDE_BASE + 'taffy_g6.png';
+    page.appendChild(deco);
   });
 }
 
@@ -1980,11 +2925,14 @@ async function onReportPdf() {
 
     if (swappedImgs.length > 0) {
       // 差し替えた <img> がロード完了するまで待つ
+      // ※ complete は失敗確定でも true。成功のみ既決扱いにすると、失敗確定済みの
+      //   画像を永遠に待つデッドロックになる（地図PDFで実際に発生したバグと同型）
       await Promise.all(swappedImgs.map(({ img }) => {
-        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        if (img.complete) return Promise.resolve();
         return new Promise(res => {
           img.addEventListener('load', res, { once: true });
           img.addEventListener('error', res, { once: true });
+          setTimeout(res, 20000); // 保険
         });
       }));
     }
@@ -2018,7 +2966,23 @@ async function onReportPdf() {
     //   - ライブDOMはユーザーのウィンドウ幅に依存（max-width: 100% で縮められる）
     //   - クローンは windowWidth=1400 で再レイアウトされるので、canvas 座標と一致する
     // クローンが破棄される前（onclone 内）に rect を取得して外スコープに保存する。
-    const SCALE = 2; // html2canvas の scale と一致
+    // ★モバイル対策: スマホブラウザの canvas 上限（約1,600万画素・1辺約16,000px）を
+    // 超えると描画が固まる／空になるため、コンテンツ量に応じて scale を自動で下げる。
+    // scrollHeight は 1400px 幅換算より大きめに出る（＝安全側の見積もり）。
+    let SCALE = 2;
+    {
+      const estW = 1400;
+      const estH = Math.max(1, page.scrollHeight);
+      const MAX_PIXELS = 14000000;
+      const MAX_DIMENSION = 14000;
+      if (estW * estH * SCALE * SCALE > MAX_PIXELS) {
+        SCALE = Math.max(0.8, Math.sqrt(MAX_PIXELS / (estW * estH)));
+      }
+      if (estH * SCALE > MAX_DIMENSION) {
+        SCALE = Math.min(SCALE, MAX_DIMENSION / estH);
+      }
+      console.info(`[report-pdf] estH=${estH}px scale=${SCALE.toFixed(2)}`);
+    }
     let blockRanges = [];
     const canvas = await html2canvas(page, {
       scale: SCALE,
@@ -2246,6 +3210,8 @@ async function onDownloadPdf() {
       origin: state.stationLocation,
       directions: state.directionsResult,
       apiKey: CONFIG.GOOGLE_MAPS_API_KEY,
+      // どの段階で止まっているか分かるよう、ボタンに進捗を表示する
+      onProgress: msg => { btn.textContent = msg; },
     });
   } catch (e) {
     alert(t('errPdfFailedFmt').replace('{err}', e.message || e));
@@ -2282,6 +3248,22 @@ $('start-explore-btn').addEventListener('click', onStartExplore);
 $('photo-input').addEventListener('change', onPhotoInputChange);
 $('photo-camera-input').addEventListener('change', onPhotoInputChange);
 
+// キャラずかん
+$('zukan-btn').addEventListener('click', openZukan);
+$('logout-btn').addEventListener('click', onLogout);
+$('zukan-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'close') $('zukan-modal').classList.add('hidden');
+});
+
+// ARキャラ捕獲
+$('ar-hunt-btn').addEventListener('click', openArHunt);
+$('ar-close-btn').addEventListener('click', closeArOverlay);
+$('ar-shutter-btn').addEventListener('click', onArShutter);
+$('ar-call-btn').addEventListener('click', () => { if (arSession) arSession.forceAppear(); });
+$('ar-captured-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'close') closeArCapturedModal();
+});
+
 // 撮影ウィザードのナビゲーション
 $('wizard-prev').addEventListener('click', () => showWizardStage((state.photoWizardStage ?? 0) - 1));
 $('wizard-next').addEventListener('click', () => showWizardStage((state.photoWizardStage ?? 0) + 1));
@@ -2313,9 +3295,28 @@ $('tag-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'close') closeTagModal();
 });
 
+// 音声メモモーダル
+$('voice-mic-btn').addEventListener('click', onMicButton);
+$('voice-memo-save').addEventListener('click', saveVoiceMemo);
+$('voice-memo-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'close') closeVoiceMemoModal();
+});
+document.querySelectorAll('input[name="voice-method"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    stopVoiceCapture();          // 方式を変えたら進行中の認識は止める
+    const method = currentVoiceMethod();
+    setVoiceMethod(method);       // 選択を保存（次回以降も維持）
+    updateVoiceMethodNote(method);
+    $('voice-status').textContent = '';
+  });
+});
+
 // STEP 5（レポート）
 $('back-to-photos').addEventListener('click', () => showStep('step-photos'));
 $('report-pdf-btn').addEventListener('click', onReportPdf);
+
+// ひと言メモを OpenAI で整形（無意味語の除去）
+$('tidy-memos-btn').addEventListener('click', onTidyMemos);
 
 // ノートを Drive に保存
 $('save-report-btn').addEventListener('click', onSaveReportToDrive);
@@ -2380,20 +3381,158 @@ $('issue-submit-btn').addEventListener('click', async () => {
   }
 });
 
+// ===== 起動時ログインゲート（なまえ＋あいことば） =====
+let _appEntered = false;
+let _loginMode = 'register'; // 'register' | 'login'
+
+function applyLoginMode() {
+  const reg = _loginMode === 'register';
+  $('login-title').textContent      = t(reg ? 'loginTitleRegister' : 'loginTitleLogin');
+  $('login-lead').textContent       = t(reg ? 'loginLead' : 'loginLeadLogin');
+  $('login-submit-btn').textContent = t(reg ? 'loginSubmitRegister' : 'loginSubmitLogin');
+  $('login-switch-text').textContent= t(reg ? 'loginSwitchToLogin' : 'loginSwitchToRegister');
+  $('login-switch-btn').textContent = t(reg ? 'loginSwitchToLoginBtn' : 'loginSwitchToRegisterBtn');
+  hideLoginError();
+}
+
+function showLoginError(code) {
+  const map = {
+    'name-required':  'loginErrNameRequired',
+    'name-too-long':  'loginErrNameTooLong',
+    'pin-too-short':  'loginErrPinTooShort',
+    'pin-required':   'loginErrPinTooShort',
+    'name-taken':     'loginErrNameTaken',
+    'bad-credentials':'loginErrBadCredentials',
+    'not-found':      'loginErrNotFound',
+    'network':        'loginErrNetwork',
+  };
+  const el = $('login-error');
+  el.textContent = t(map[code] || 'loginErrNetwork');
+  el.classList.remove('hidden');
+}
+function hideLoginError() { $('login-error').classList.add('hidden'); }
+
+function showLoginGate() {
+  const btn = $('login-submit-btn');
+  if (btn) btn.disabled = false;
+  $('login-name').value = '';
+  $('login-pin').value = '';
+  $('login-pin').type = 'password';
+  $('login-pin-toggle').textContent = t('loginPinShow');
+  $('login-gate').classList.remove('hidden');
+  applyLoginMode();
+  setTimeout(() => { const n = $('login-name'); if (n) n.focus(); }, 60);
+}
+function hideLoginGate() { $('login-gate').classList.add('hidden'); }
+
+function initLoginGate() {
+  applyLoginMode();
+  $('login-submit-btn').addEventListener('click', onLoginSubmit);
+  $('login-switch-btn').addEventListener('click', () => {
+    _loginMode = (_loginMode === 'register') ? 'login' : 'register';
+    applyLoginMode();
+  });
+  $('login-pin-toggle').addEventListener('click', () => {
+    const pin = $('login-pin');
+    const wasHidden = pin.type === 'password';
+    pin.type = wasHidden ? 'text' : 'password';
+    $('login-pin-toggle').textContent = t(wasHidden ? 'loginPinHide' : 'loginPinShow');
+  });
+  ['login-name', 'login-pin'].forEach(id => {
+    $(id).addEventListener('keydown', e => { if (e.key === 'Enter') onLoginSubmit(); });
+  });
+}
+
+async function onLoginSubmit() {
+  const name = $('login-name').value;
+  const pin  = $('login-pin').value;
+  const btn = $('login-submit-btn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = t('loginWorking');
+  hideLoginError();
+  try {
+    const fn = (_loginMode === 'register') ? registerAccount : loginAccount;
+    const res = await fn(name, pin, drive);
+    if (!res.ok) {
+      showLoginError(res.error);
+      btn.disabled = false;
+      btn.textContent = original;
+      return;
+    }
+    // 初回ログイン時、端末に残っている無記名の図鑑をアカウントへ引き継ぐ
+    await migrateAnonymousCollection();
+    enterApp();
+  } catch (e) {
+    console.warn('[login] error:', e);
+    showLoginError('network');
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+// 端末の旧・無記名図鑑を、ログインしたアカウントへ1回だけ引き継ぐ
+async function migrateAnonymousCollection() {
+  try {
+    const legacy = loadLegacyAnonymousCollection();
+    const ids = Object.keys(legacy);
+    if (!ids.length) return;
+    mergeServerCollection(legacy); // ログイン後の getExplorerId()=userId のローカル図鑑へマージ
+    if (drive) {
+      const records = ids.map(characterId => ({
+        characterId,
+        capturedAt: legacy[characterId].firstAt || new Date().toISOString(),
+      }));
+      try { await drive.saveCaptures({ explorerId: getExplorerId(), records }); } catch (_) { /* 後で同期される */ }
+    }
+    try { localStorage.removeItem('tanken_collection_v1'); } catch (_) { /* no-op */ }
+    console.info('[auth] 無記名の図鑑をアカウントへ引き継ぎました:', ids.length, '種');
+  } catch (e) {
+    console.warn('[auth] 図鑑の引き継ぎに失敗（続行）:', e);
+  }
+}
+
+// 図鑑モーダルにログイン中アカウント名を表示
+function updateZukanAccount() {
+  const el = $('zukan-account-name');
+  if (!el) return;
+  const a = getStoredAuth();
+  el.textContent = a ? t('zukanAccountFmt').replace('{name}', a.name || '') : '';
+}
+
+function onLogout() {
+  if (!confirm(t('logoutConfirm'))) return;
+  logout();
+  $('zukan-modal').classList.add('hidden');
+  resetSearchState();  // 前のアカウントの探検データをクリア
+  showLoginGate();
+}
+
+// ログイン成功後にアプリ本体へ入る
+function enterApp() {
+  hideLoginGate();
+  updateZukanAccount();
+  if (!_appEntered) {
+    _appEntered = true;
+    if (!FEATURES.scoringEnabled) {
+      const scoreBtn = $('submit-score-btn');
+      if (scoreBtn) scoreBtn.classList.add('hidden');
+    }
+    initShell();       // 進捗トレイル構築（showStep 前に必要）
+    initCityTabs();
+    // デフォルト: 名古屋タブ + 桜通線を選択（プロジェクトの主要利用エリア）
+    selectCity('nagoya', { defaultLineName: '名古屋市営地下鉄 桜通線' });
+    bindReportInputs();
+  }
+  showStep('step-station');
+}
+
 // ===== 初期表示 =====
 // バージョン表示・言語切替を最初に適用
 applyI18n();
 
 // body.lang-XX クラスを付けて CSS から言語別スタイルを切り替えられるようにする
 document.body.classList.add(`lang-${LANG}`);
-
-// 機能フラグに基づいて DOM 要素を初期非表示にする（ボタン・モーダル等）
-//   - スコア / ランキング機能が無効な言語では関連ボタンを非表示
-//   - 他の機能フラグは個別の処理側で参照
-if (!FEATURES.scoringEnabled) {
-  const scoreBtn = $('submit-score-btn');
-  if (scoreBtn) scoreBtn.classList.add('hidden');
-}
 
 const versionEl = $('header-version');
 if (versionEl) {
@@ -2402,8 +3541,10 @@ if (versionEl) {
 }
 console.info(`[tanken-rally] v${APP_VERSION} (${RELEASE_LABEL}) — lang=${LANG}`);
 
-initCityTabs();
-// デフォルト: 名古屋タブ + 桜通線を選択（プロジェクトの主要利用エリア）
-selectCity('nagoya', { defaultLineName: '名古屋市営地下鉄 桜通線' });
-bindReportInputs();
-showStep('step-station');
+// ログインゲートを準備し、未ログインならゲート表示・ログイン済みならそのまま入場
+initLoginGate();
+if (isLoggedIn()) {
+  enterApp();
+} else {
+  showLoginGate();
+}

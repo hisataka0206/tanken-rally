@@ -1,51 +1,69 @@
 /* ===== リセット & 基本 ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ===== Popテーマ（キャラクターの世界観: 空色×パステル×手書き感） ===== */
 :root {
-  --green-dark: #004029;
-  --green-mid:  #2e7d32;
-  --green-light:#76BB76;
-  --cream:      #f5f0e8;
-  --brown:      #5d4037;
-  --text:       #1a1a1a;
-  --muted:      #666;
-  --border:     #ddd;
-  --radius:     12px;
+  --green-dark: #0F7A4D;        /* ブランド緑（明るく） */
+  --green-mid:  #22A366;
+  --green-light:#8FD6A3;
+  --cream:      #FDF6EC;
+  --brown:      #6B4A32;
+  --text:       #333;
+  --muted:      #7a746a;
+  --border:     #E5DCC8;
+  --radius:     16px;
+  /* キャラ由来のアクセント */
+  --sky:        #E5F4FF;        /* 空（背景） */
+  --sky-deep:   #56B6E8;        /* ZOOMYのレンズ色 */
+  --sun:        #FFD34D;        /* 星・ひまわり黄 */
+  --candy:      #F591B2;        /* TAFFYピンク */
+  --pop-shadow: 0 4px 16px rgba(86, 182, 232, 0.14);
 }
 
 body {
   font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
-  background: var(--cream);
+  /* 上空→地面のやわらかいグラデーション（キャラシートの空気感） */
+  background: linear-gradient(180deg, var(--sky) 0%, #F4FAF3 260px, var(--cream) 640px);
+  background-attachment: fixed;
   color: var(--text);
   min-height: 100vh;
+  overflow-x: hidden; /* 縁またぎキャラが右にはみ出しても横スクロールさせない */
 }
 
-/* ===== ヘッダー ===== */
+/* ===== ヘッダー（空×雲） ===== */
 .header {
-  background: var(--green-dark);
+  background: linear-gradient(135deg, #4FB0E4 0%, #7ECDF4 60%, #A5DCF7 100%);
   color: white;
   padding: 16px 24px;
   display: flex;
   align-items: center;
   gap: 12px;
+  border-bottom: 4px solid rgba(255,255,255,0.55);
 }
 .header-icon { font-size: 28px; }
-.header h1 { font-size: 22px; font-weight: 700; }
+.header h1 {
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 0 rgba(31, 110, 160, 0.35);
+}
 .header-version {
   display: inline-block;
   font-size: 11px;
-  background: var(--green-light);
-  color: var(--green-dark);
+  background: var(--sun);
+  color: #7a5c00;
   padding: 2px 8px;
   border-radius: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
   margin-left: 4px;
 }
-.header-sub { font-size: 13px; color: var(--green-light); margin-left: auto; }
+.header-sub { font-size: 13px; color: #EAF7FF; margin-left: auto; text-shadow: 0 1px 2px rgba(31,110,160,.3); }
 
-/* ===== レイアウト ===== */
-#app { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+/* ===== レイアウト =====
+ * Instagram型: PCでもスマホ幅の単一カラムを中央に置く（モバイル原寸設計） */
+#app { max-width: 520px; margin: 0 auto; padding: 16px 12px 40px; }
 
 .step { display: none; }
 .step.active { display: block; }
@@ -53,32 +71,42 @@ body {
 
 .card {
   background: white;
-  border-radius: var(--radius);
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.08);
-  margin-bottom: 16px;
+  border-radius: 20px;
+  border: 2px solid #EDE6D6;
+  padding: 20px 16px;
+  box-shadow: var(--pop-shadow);
+  margin-bottom: 18px;
+  /* overflow は visible にする（hidden だと縁またぎのガイドキャラが切れる）。
+     sticky バーの角丸はバー自身の border-radius で処理 */
+  overflow: visible;
 }
 
-/* ===== STEP タイトル ===== */
+/* ===== STEP タイトル（手書き風＋シールっぽい番号バッジ） ===== */
 .step-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 21px;
+  font-weight: 400;
   color: var(--green-dark);
   margin-bottom: 16px;
   display: flex;
   align-items: center;
   gap: 10px;
+  letter-spacing: 0.03em;
 }
 .step-num {
-  background: var(--green-dark);
-  color: white;
+  background: var(--sun);
+  color: #7a5c00;
   border-radius: 50%;
-  width: 28px; height: 28px;
+  width: 34px; height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 700;
   flex-shrink: 0;
+  border: 2.5px solid #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,.15);
+  transform: rotate(-6deg);
 }
 
 /* ===== 前回再開 ===== */
@@ -210,17 +238,18 @@ body {
   background: white;
   color: var(--green-dark);
   border: 2px solid var(--border);
-  border-radius: 24px;
+  border-radius: 999px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all .15s;
 }
-.city-tab:hover { border-color: var(--green-light); background: #f0f7f0; }
+.city-tab:hover { border-color: var(--sky-deep); background: var(--sky); }
 .city-tab.active {
-  background: var(--green-dark);
+  background: var(--sky-deep);
   color: white;
-  border-color: var(--green-dark);
+  border-color: var(--sky-deep);
+  box-shadow: 0 3px 0 #3391c4;
 }
 
 /* ===== 路線・駅セレクタ ===== */
@@ -248,11 +277,11 @@ body {
   padding: 10px 14px;
   font-size: 15px;
   border: 2px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: white;
   outline: none;
 }
-.selector-row select:focus { border-color: var(--green-light); }
+.selector-row select:focus { border-color: var(--sky-deep); }
 .selector-row select:disabled { background: #eee; color: #999; cursor: not-allowed; }
 .city-selector .step-actions {
   margin-top: 4px;
@@ -275,40 +304,44 @@ body {
   padding: 12px 16px;
   font-size: 16px;
   border: 2px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   outline: none;
   transition: border-color .2s;
 }
-.input-row input:focus { border-color: var(--green-light); }
+.input-row input:focus { border-color: var(--sky-deep); }
 
-/* ===== ボタン ===== */
+/* ===== ボタン（キャンディ風：まる角＋押し込みアニメ） ===== */
 .btn-primary {
-  padding: 12px 20px;
-  background: var(--green-dark);
+  padding: 12px 22px;
+  background: var(--green-mid);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: background .2s, opacity .2s;
+  transition: transform .08s, box-shadow .08s, background .2s, opacity .2s;
   white-space: nowrap;
+  box-shadow: 0 4px 0 #157a4a;
 }
-.btn-primary:hover { background: var(--green-mid); }
-.btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+.btn-primary:hover { background: #27b573; }
+.btn-primary:active { transform: translateY(3px); box-shadow: 0 1px 0 #157a4a; }
+.btn-primary:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
 
 .btn-secondary {
-  padding: 12px 20px;
+  padding: 12px 22px;
   background: white;
   color: var(--green-dark);
-  border: 2px solid var(--green-dark);
-  border-radius: 8px;
+  border: 2px solid var(--green-mid);
+  border-radius: 999px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: background .2s;
+  transition: transform .08s, background .2s;
+  box-shadow: 0 3px 0 rgba(34, 163, 102, 0.35);
 }
-.btn-secondary:hover { background: var(--cream); }
+.btn-secondary:hover { background: #F0FAF4; }
+.btn-secondary:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(34,163,102,.35); }
 
 .step-actions {
   margin-top: 20px;
@@ -351,28 +384,28 @@ body {
 .origin-story:empty { display: none; }
 
 /* ===== スポット一覧 ===== */
+/* 単一カラム化に伴い常に縦積み（Phase C で地図主役に再設計予定） */
 .spots-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 16px;
-}
-@media (max-width: 640px) {
-  .spots-layout { grid-template-columns: 1fr; }
 }
 
 .spots-list { overflow-y: auto; max-height: 400px; display: flex; flex-direction: column; gap: 8px; }
 
 .spot-card {
   border: 2px solid var(--border);
-  border-radius: 8px;
+  border-radius: 14px;
   padding: 12px;
   cursor: pointer;
-  transition: border-color .2s, background .2s;
+  transition: border-color .2s, background .2s, transform .1s;
   display: flex;
   gap: 10px;
   align-items: flex-start;
   position: relative;
+  background: white;
 }
+.spot-card:active { transform: scale(0.99); }
 
 /* 不適切スポットを削除するボタン（カード右上の小さいゴミ箱） */
 .spot-delete {
@@ -513,8 +546,8 @@ body {
 .map-container {
   width: 100%;
   height: 400px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  border-radius: 16px;
+  border: 2px solid #EDE6D6;
   background: #eee;
 }
 
@@ -621,12 +654,12 @@ body {
   letter-spacing: 0.05em;
 }
 .photo-wizard-card {
-  background: linear-gradient(180deg, #f9f8f0 0%, #ffffff 100%);
-  border: 2px solid var(--green-light);
-  border-radius: 14px;
+  background: linear-gradient(180deg, var(--sky) 0%, #ffffff 55%);
+  border: 2.5px solid var(--sky-deep);
+  border-radius: 18px;
   padding: 20px 18px 16px;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--pop-shadow);
 }
 .photo-wizard-stage-icon {
   font-size: 40px;
@@ -718,24 +751,27 @@ body {
   justify-content: center;
   gap: 8px;
   padding: 12px 20px;
-  background: var(--green-dark);
+  background: var(--green-mid);
   color: white;
-  border-radius: 8px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   transition: background .2s, transform .1s;
   flex: 1;
   min-width: 140px;
   text-align: center;
+  box-shadow: 0 4px 0 #157a4a;
 }
-.photo-upload-btn:hover { background: var(--green-mid); }
-.photo-upload-btn:active { transform: scale(0.98); }
-/* ギャラリー選択ボタンは2nd色（淡め）にして視覚区別 */
+.photo-upload-btn:hover { background: #27b573; }
+.photo-upload-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #157a4a; }
+/* ギャラリー選択ボタンは空色にして視覚区別 */
 .photo-upload-gallery {
-  background: var(--green-mid);
+  background: var(--sky-deep);
+  box-shadow: 0 4px 0 #3391c4;
 }
-.photo-upload-gallery:hover { background: var(--green-dark); }
+.photo-upload-gallery:hover { background: #6ac2ee; }
+.photo-upload-gallery:active { box-shadow: 0 1px 0 #3391c4; }
 
 .spot-select {
   padding: 10px 14px;
@@ -761,11 +797,16 @@ body {
   z-index: 100;
   display: flex;
   align-items: center;
+  align-items: safe center;      /* 対応ブラウザでは、縦に長い時に上寄せへ退避して先頭が切れないように */
   justify-content: center;
+  overflow-y: auto;              /* 画面より高いモーダルは縦スクロールできる */
+  -webkit-overflow-scrolling: touch;
+  padding: 20px 12px;            /* 上下に余白（末尾ボタンが画面端で隠れないように）*/
+  box-sizing: border-box;
 }
 .modal.hidden { display: none; }
 .modal-backdrop {
-  position: absolute;
+  position: fixed;              /* 縦長モーダルをスクロールしても背景が常に画面全体を覆う */
   inset: 0;
   background: rgba(0,0,0,.5);
   cursor: pointer;
@@ -773,7 +814,8 @@ body {
 .modal-content {
   position: relative;
   background: white;
-  border-radius: 12px;
+  border-radius: 20px;
+  border: 2.5px solid #EDE6D6;
   padding: 24px;
   width: min(420px, 92%);
   box-shadow: 0 8px 30px rgba(0,0,0,.25);
@@ -816,6 +858,255 @@ body {
   margin: 0 0 16px;
   letter-spacing: 0.04em;
 }
+/* 計画点 / 実行点 の2分割表示 */
+.score-split {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 0 0 10px;
+}
+.score-split-item {
+  flex: 1 1 0;
+  min-width: 0;            /* flex 子要素が縮めるように（文字はみ出し防止）*/
+  max-width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px;
+  border-radius: 12px;
+  background: #f1f8e9;
+  border: 2px solid var(--border);
+}
+.score-split-plan { background: #e8f2fb; border-color: #b6d8f2; }
+.score-split-exec { background: #eafbea; border-color: #b6e2b6; }
+.score-split-label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--green-dark);
+  letter-spacing: 0.01em;
+}
+.score-split-plan .score-split-label { color: #2f6ea5; }
+.score-split-val {
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 22px;
+  color: var(--green-dark);
+  letter-spacing: 0.02em;
+  white-space: nowrap;      /* 「54点」などが途中で改行しないように */
+}
+.score-split-plan .score-split-val { color: #2f6ea5; }
+.score-split-note {
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #777;
+  margin: 0 0 14px;
+  padding: 0 6px;
+}
+
+/* ===== 音声メモモーダル ===== */
+.voice-memo-photo {
+  display: flex;
+  justify-content: center;
+  margin: 6px 0 12px;
+}
+.voice-memo-photo img {
+  max-width: 160px;
+  max-height: 160px;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+.voice-method-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  font-size: 13px;
+  color: var(--green-dark);
+  margin: 4px 0 8px;
+}
+.voice-method-label { font-weight: 600; }
+.voice-method-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.voice-method-note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #c0392b;
+  background: #fdecea;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 0 0 10px;
+}
+.voice-mic-btn {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 14px;
+  background: var(--green-dark);
+  color: #fff;
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform .1s, background .2s, box-shadow .2s;
+  box-shadow: 0 3px 0 rgba(0,0,0,.12);
+}
+.voice-mic-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.12); }
+.voice-mic-btn.recording {
+  background: #e53935;
+  animation: voiceMicPulse 1.1s ease-in-out infinite;
+}
+@keyframes voiceMicPulse {
+  0%, 100% { box-shadow: 0 3px 0 rgba(0,0,0,.12), 0 0 0 0 rgba(229,57,53,.45); }
+  50%      { box-shadow: 0 3px 0 rgba(0,0,0,.12), 0 0 0 10px rgba(229,57,53,0); }
+}
+.voice-status {
+  text-align: center;
+  font-size: 13px;
+  color: var(--green-mid);
+  min-height: 20px;
+  margin: 8px 0;
+}
+#voice-memo-text {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+}
+#voice-memo-text:focus { border-color: var(--green-dark); }
+
+/* ===== 起動時ログインゲート ===== */
+.login-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 500;                 /* ヘッダー・モーダル・不具合ボタンより前面 */
+  display: flex;
+  align-items: center;
+  align-items: safe center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  background: linear-gradient(160deg, #eaf6ea 0%, #f5efe2 100%);
+}
+.login-gate.hidden { display: none; }
+.login-card {
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: 20px;
+  border: 2.5px solid #EDE6D6;
+  box-shadow: 0 10px 34px rgba(0,0,0,.18);
+  padding: 26px 22px;
+  text-align: center;
+}
+.login-logo {
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 22px;
+  color: var(--green-dark);
+  margin-bottom: 10px;
+}
+.login-title { font-size: 18px; color: var(--green-dark); margin: 4px 0 6px; }
+.login-lead { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0 0 16px; }
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--green-dark);
+  margin-bottom: 12px;
+  position: relative;
+}
+.login-field input {
+  padding: 12px 14px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px;              /* iOS で 16px 未満だと自動ズームするため 16px 以上 */
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+.login-field input:focus { border-color: var(--green-dark); }
+.login-field-pin input { padding-right: 64px; }
+.login-pin-toggle {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  border: none;
+  background: #eef5ee;
+  color: var(--green-dark);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.login-error {
+  color: #c0392b;
+  background: #fdecea;
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+.login-error.hidden { display: none; }
+.login-submit { width: 100%; padding: 14px; font-size: 16px; }
+.login-submit:disabled { opacity: .6; cursor: default; }
+.login-switch { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
+.login-switch-btn {
+  border: none;
+  background: none;
+  color: var(--green-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 2px 4px;
+}
+.login-note { font-size: 11px; color: #999; line-height: 1.6; margin: 14px 0 0; }
+
+/* 図鑑モーダル: ログイン中アカウント表示＋ログアウト */
+.zukan-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  background: #f1f8e9;
+  border-radius: 10px;
+}
+.zukan-account-name { font-size: 13px; font-weight: 600; color: var(--green-dark); }
+.logout-btn {
+  border: 2px solid var(--border);
+  background: #fff;
+  color: var(--green-dark);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.logout-btn:hover { border-color: var(--green-dark); }
+
 .score-name-label {
   display: flex;
   flex-direction: column;
@@ -1538,51 +1829,121 @@ body {
 
 /* ===== モバイル対応（編集画面のみ。PDF出力時は html2canvas に
         windowWidth: 1400 を渡しているのでこのメディアクエリは効かない）===== */
-@media (max-width: 768px) {
-  /* B3用紙の左右paddingを縮めて表示領域確保 */
+/* ============================================================
+ * スマホの「たんけんノート」編集UI（入力特化モード）
+ * B3紙面の再現はやめて、書きやすさに全振りする。
+ * PDF出力時は .pdf-rendering が付き :not() で全て無効化される
+ * （html2canvas は windowWidth:1400 でクローンを描画するため
+ *   このメディアクエリ自体もPDFには適用されない。二重に安全）。
+ * ============================================================ */
+/* ※単一カラム化（Instagram型）に伴い全幅で常時適用（旧: max-width 768px） */
+  /* 「机の上の紙」演出をやめてフラットな編集画面にする */
+  .report-editor {
+    background: transparent;
+    padding: 0;
+    overflow-x: visible;
+  }
   .report-page:not(.pdf-rendering) {
-    padding: 14px 14px;
+    width: auto;
+    padding: 12px 12px 20px;
+    box-shadow: none;
+    border-radius: 10px;
   }
   .report-page:not(.pdf-rendering) .report-title {
-    font-size: 26px;
+    font-size: 24px;
+    margin-bottom: 10px;
+    text-shadow: none;
   }
+  .report-page:not(.pdf-rendering) .report-page-header {
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  .report-page:not(.pdf-rendering) .report-section { margin-bottom: 18px; }
   .report-page:not(.pdf-rendering) .report-section h3 {
     font-size: 17px;
+    margin-bottom: 8px;
+    border-left-width: 5px;
+    padding-left: 10px;
   }
-  /* メタ情報（日付・記録者・駅）は縦に積む */
+  .report-page:not(.pdf-rendering) .report-hint { font-size: 12px; }
+
+  /* メタ情報（日付・記録者・駅）は縦に積む。16px以上でiOSの自動ズームを防ぐ */
   .report-page:not(.pdf-rendering) .report-meta-row {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+    font-size: 16px;
   }
-  .report-page:not(.pdf-rendering) .report-meta {
-    flex-wrap: wrap;
-  }
+  .report-page:not(.pdf-rendering) .report-meta { flex-wrap: wrap; }
   .report-page:not(.pdf-rendering) .report-meta input {
     flex: 1;
     min-width: 0;
+    font-size: 16px;
+    padding: 8px;
+    background: #fff;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
   }
-  /* 写真リストは1列に */
-  .report-page:not(.pdf-rendering) .report-photos {
-    grid-template-columns: 1fr;
-    gap: 12px;
+
+  /* 記入欄: 巨大フォント＋罫線背景をやめ、普通に書けるサイズへ */
+  .report-page:not(.pdf-rendering) #report-overview,
+  .report-page:not(.pdf-rendering) #report-afterword,
+  .report-page:not(.pdf-rendering) .report-photo-comment {
+    font-size: 16px;          /* 16px未満だとiOSがフォーカス時に拡大してしまう */
+    line-height: 1.6;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1.5px solid #ddd;
+    border-radius: 10px;
+    min-height: 64px;
   }
-  /* 写真envelope を画面幅にフィット */
+
+  /* 写真は1列・カードはフラット（回転・マステ・ポラロイド余白を無効化） */
+  .report-page:not(.pdf-rendering) .report-photo-page {
+    display: block;
+    padding: 0;
+    margin-bottom: 0;
+  }
+  .report-page:not(.pdf-rendering) .report-photo-item {
+    margin-bottom: 14px;
+    padding: 10px;
+    gap: 8px;
+    transform: none !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .report-page:not(.pdf-rendering) .report-photo-item::before { display: none; }
+
+  /* 写真枠: 正方形固定をやめ、写真の縦横比なりに表示（縦伸びの主犯を排除） */
   .report-page:not(.pdf-rendering) .report-photo-img-wrap {
     width: 100%;
     height: auto;
-    aspect-ratio: 1;
-    min-height: 220px;
-    max-height: 75vh;
+    aspect-ratio: auto;
+    min-height: 0;
+    max-height: 45vh;
+    box-shadow: none;
   }
   /* JS が設定した width/height (mm) を打ち消し、画像を画面幅にフィット */
   .report-page:not(.pdf-rendering) .report-photo-img-wrap img {
-    width: auto !important;
+    width: 100% !important;
     height: auto !important;
-    max-width: 100%;
-    max-height: 100%;
+    max-height: 45vh;
     object-fit: contain;
   }
+  .report-page:not(.pdf-rendering) .report-photo-tag { font-size: 13px; padding: 2px 10px; }
+  .report-page:not(.pdf-rendering) .report-photo-order {
+    width: 26px; height: 26px;
+    line-height: 21px;
+    font-size: 14px;
+    border-width: 2px;
+  }
+  .report-page:not(.pdf-rendering) .report-capture-badge { font-size: 11px; }
+
+  /* PDF装飾のうっすらプレビューはスマホ編集では邪魔なので消す（PDFには出る） */
+  .report-page:not(.pdf-rendering) .report-guide { display: none; }
+
+  /* 今回であったキャラたち: 小さめに */
+  .report-page:not(.pdf-rendering) .report-character-item { width: 84px; }
+  .report-page:not(.pdf-rendering) .report-character-item img { max-width: 76px; max-height: 68px; }
   /* STEP のアクションボタンを縦に積む（小さい画面では並びきらない） */
   .step-actions {
     flex-direction: column;
@@ -1639,7 +2000,6 @@ body {
   /* 都市タブを横スクロール風に */
   .city-tabs { gap: 4px; }
   .city-tab { padding: 8px 12px; font-size: 13px; }
-}
 
 /* ===== ローディング ===== */
 .loading {
@@ -1649,3 +2009,742 @@ body {
   font-size: 15px;
 }
 .loading::before { content: '⏳ '; }
+
+/* ===== ARキャラ捕獲 ===== */
+.ar-hunt-btn {
+  display: block;
+  margin: 12px auto 0;
+  padding: 12px 28px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: #fff;
+  background: linear-gradient(135deg, #7b1fa2, #512da8);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(81, 45, 168, 0.4);
+}
+.ar-hunt-btn:active { transform: scale(0.97); }
+
+.ar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: #000;
+  overflow: hidden;
+}
+.ar-overlay.hidden { display: none; }
+#ar-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ar-topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+  background: linear-gradient(rgba(0,0,0,0.6), transparent);
+  color: #fff;
+}
+.ar-target-name { font-weight: 700; font-size: 1rem; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.ar-distance { font-size: 0.9rem; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.ar-caution {
+  position: absolute;
+  top: calc(52px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.78rem;
+  color: #fff;
+  background: rgba(211, 47, 47, 0.85);
+  padding: 3px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.ar-guide {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.ar-guide-arrow {
+  display: block;
+  font-size: 64px;
+  color: #ffeb3b;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+  transition: transform 0.25s ease-out;
+}
+.ar-character {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -55%);
+  text-align: center;
+  pointer-events: none;
+}
+.ar-character.ar-appear { animation: ar-bounce-in 0.6s ease-out; }
+@keyframes ar-bounce-in {
+  0%   { transform: translate(-50%, -55%) scale(0); }
+  60%  { transform: translate(-50%, -55%) scale(1.15); }
+  100% { transform: translate(-50%, -55%) scale(1); }
+}
+.ar-character-img {
+  display: block;
+  max-width: min(62vw, 300px);
+  max-height: 38vh;
+  margin: 0 auto;
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.45));
+}
+.ar-character-name {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+}
+.ar-status {
+  position: absolute;
+  bottom: calc(120px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 86vw;
+  text-align: center;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: rgba(0,0,0,0.5);
+  padding: 6px 16px;
+  border-radius: 14px;
+  white-space: pre-line;
+}
+.ar-actions {
+  position: absolute;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+.ar-shutter {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 5px solid #fff;
+  background: rgba(255,255,255,0.35);
+  cursor: pointer;
+  box-shadow: 0 0 0 4px rgba(0,0,0,0.25);
+}
+.ar-shutter:active { background: rgba(255,255,255,0.7); }
+.ar-close-btn, .ar-call-btn {
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.5);
+}
+body.ar-open { overflow: hidden; }
+.ar-captured-content { text-align: center; }
+.ar-captured-img {
+  max-width: 100%;
+  max-height: 55vh;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+/* ===== レポート: ARキャラ捕獲の装飾 ===== */
+/* 捕獲写真の「つかまえた！」バッジ */
+.report-capture-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 10px;
+  background: #fff3d6;
+  border: 1.5px solid #c9a227;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #7a5c00;
+  white-space: nowrap;
+}
+/* 今回であったキャラたち */
+.report-characters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 6px 0;
+}
+.report-character-item {
+  width: 110px;
+  text-align: center;
+}
+.report-character-item img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100px;
+  max-height: 90px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.18));
+}
+.report-character-name {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5d4037;
+}
+
+/* ===== キャラずかん ===== */
+.zukan-btn {
+  margin-left: auto;
+  padding: 6px 10px;
+  font-size: 1.15rem;
+  background: rgba(255,255,255,0.18);
+  border: 1.5px solid rgba(255,255,255,0.5);
+  border-radius: 10px;
+  cursor: pointer;
+  line-height: 1;
+}
+.zukan-btn:active { transform: scale(0.95); }
+.zukan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+.zukan-item {
+  text-align: center;
+  padding: 8px 4px;
+  background: #faf6ec;
+  border: 1.5px solid #e8dfc8;
+  border-radius: 10px;
+}
+.zukan-item img {
+  display: block;
+  margin: 0 auto;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+.zukan-silhouette img {
+  filter: brightness(0);
+  opacity: 0.28;
+}
+.zukan-name {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5d4037;
+}
+.zukan-silhouette .zukan-name { color: #999; }
+.zukan-count {
+  margin-top: 2px;
+  font-size: 10px;
+  color: #7a5c00;
+  background: #fff3d6;
+  border-radius: 999px;
+  display: inline-block;
+  padding: 1px 8px;
+}
+.zukan-clickable { cursor: pointer; transition: transform 0.12s ease; }
+.zukan-clickable:hover, .zukan-clickable:active { transform: scale(1.05); border-color: #c9a227; }
+
+/* 図鑑: キャラ詳細（性格・ストーリー） */
+.zukan-detail {
+  position: relative;
+  margin-bottom: 12px;
+  padding: 14px;
+  background: #fffbe9;
+  border: 2px solid #c9a227;
+  border-radius: 12px;
+}
+.zukan-detail-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.08);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.zukan-detail-body {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.zukan-detail-body img {
+  flex-shrink: 0;
+  width: 110px;
+  max-height: 110px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.2));
+}
+.zukan-detail-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #5d4037;
+}
+.zukan-detail-personality {
+  display: inline-block;
+  margin: 4px 0 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7a5c00;
+  background: #fff3d6;
+  border: 1px solid #c9a227;
+  border-radius: 999px;
+}
+.zukan-detail-story {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #444;
+}
+@media (max-width: 480px) {
+  .zukan-detail-body { flex-direction: column; align-items: center; text-align: center; }
+}
+
+/* ===== UIガイドキャラ（受け皿。docs/ui-character-guide-spec.md） ===== */
+/* カードを配置基準にする */
+.step .card { position: relative; }
+
+.guide-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.guide-char {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.18));
+}
+/* 配置スロット（テキストと重ならないよう「タイトル帯の中」か「カードの縁またぎ」に限定） */
+.g-tr      { top: -16px; right: 10px;  height: 88px; }   /* タイトル横（メイン）。下端がタイトル帯に収まる高さ */
+.g-mr      { top: 40%;   right: -26px; height: 72px; }   /* 右辺またぎ（大半をカード外に出して本文と重ねない） */
+.g-bl      { bottom: -16px; left: 14px; height: 76px; }  /* 下辺またぎ（カードの縁に立たせる） */
+.g-br-peek { bottom: -14px; right: -10px; height: 90px; }/* 右下から覗き見 */
+
+/* メインガイド(g-tr)のぶん、タイトル行に専用の余白を確保して文字被りを防ぐ */
+.card:has(.guide-layer) .step-title { padding-right: 112px; }
+
+/* アニメーション */
+.g-anim-bounce    { animation: g-bounce 2s ease-in-out infinite; }
+.g-anim-sway      { animation: g-sway 2.6s ease-in-out infinite; }
+.g-anim-spin-slow { animation: g-spin 8s linear infinite; }
+.g-anim-breathe   { animation: g-breathe 4s ease-in-out infinite; }
+.g-anim-pop       { animation: g-pop 0.5s ease-out; }
+@keyframes g-bounce  { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes g-sway    { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes g-spin    { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+@keyframes g-breathe { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1.02); } }
+@keyframes g-pop     { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* 画面4: 撮影ウィザードのガイド（1体・カテゴリ連動） */
+.wizard-guide {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  height: 96px;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.18));
+}
+.photo-wizard-card { position: relative; }
+/* ガイドと重ならないよう、タイトルの右側だけ余白を確保。
+   ヒント文はガイドの下から全幅を使う（極端な折返しを防ぐ） */
+.photo-wizard-title { padding-right: 92px; text-align: left; font-size: 20px; }
+.photo-wizard-hint { text-align: left; }
+.wizard-guide-fade { animation: g-pop 0.4s ease-out; }
+
+/* 画面6: レポートPDF装飾（編集画面ではうっすら予告、PDF出力時に本表示） */
+.report-page-header, .report-section, .report-photo-page { position: relative; }
+.report-guide {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.55;
+  z-index: 1;
+}
+.report-page.pdf-rendering .report-guide { opacity: 1; }
+.rg-nutty { bottom: -28px; right: 28px; height: 58px; }   /* タイトル帯からぶら下がり */
+.rg-zoomy { top: -10px;  right: 0;    height: 58px; }     /* 見出し横でレンズ拡大 */
+.rg-taffy { top: -12px;  right: -8px; height: 50px; }     /* 写真グループの角に額縁ふう */
+
+/* 画面7: スコアモーダル
+   キャラはタイトル・点数の「上に被せない」配置に変更（文字被り/巨大化対策） */
+#score-modal .modal-content { position: relative; }
+#score-modal #score-modal-title { padding-right: 60px; } /* 右上のZOOMYぶん */
+.score-total-wrap { position: relative; display: inline-block; width: 100%; margin-top: 46px; } /* 上のNUTTY着地スペース */
+.g-score-zoomy { top: 8px; right: 10px; left: auto; height: 48px; }
+.g-score-nutty { top: -44px; left: 50%; transform: translateX(-50%); height: 44px; max-height: 44px; width: auto; animation: g-drop 0.5s ease-out; }
+.g-score-taffy { top: -10px; right: 0; height: 64px; max-height: 64px; animation: g-spin-in 0.7s ease-out; }
+@keyframes g-drop    { from { transform: translate(-50%, -24px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@keyframes g-spin-in { from { transform: rotate(-360deg) scale(0.3); opacity: 0; } to { transform: rotate(0) scale(1); opacity: 1; } }
+
+/* 合計点の大表示は出さない。
+   計画点(0-100の正規化値)と実行点(生点)が並ぶと「足し算が合わない」ように見えて
+   紛らわしいため、大きな合計数字は非表示にする。合計の生スコアはランキング送信用に
+   内部（calculateScore().total）でのみ保持する。 */
+#score-total { display: none; }
+.score-total-wrap { margin-top: 8px; }
+/* 数字に寄り添う演出キャラ（NUTTY=点数の上／TAFFY=横でスピン）は、数字が無いので隠す。
+   タイトル横の ZOOMY(g-score-zoomy) は残す。 */
+.g-score-nutty, .g-score-taffy { display: none; }
+/* 気分ラベルを見出し扱いにして、上部が寂しくならないようにする */
+.score-rank-label { font-size: 20px; margin-top: 2px; }
+
+/* レポート画面の「スヤスヤNUTTY」はカード内に全身を収める（切れて見えないように） */
+#step-report .g-bl { bottom: 10px; left: 10px; }
+
+/* モバイル: メインガイド(g-tr)のみ表示。脇役(g-sub)は画面が狭く、
+   カードの縁またぎ配置だと下辺・左下で見切れてしまうため隠す（設計意図どおり）。 */
+@media (max-width: 768px) {
+  .g-sub     { display: none; }
+  .g-tr      { height: 64px; top: -12px; right: 6px; }
+  .g-mr      { height: 52px; right: -10px; }
+  .g-bl      { height: 56px; bottom: -12px; left: 8px; }
+  #step-report .g-bl { bottom: 8px; left: 8px; }
+  .g-br-peek { height: 60px; bottom: -10px; right: -6px; }
+  .card:has(.guide-layer) .step-title { padding-right: 78px; }
+  .wizard-guide { height: 64px; }
+  .photo-wizard-title { padding-right: 70px; font-size: 18px; }
+  /* 撮る/えらぶボタンは縦積みで全幅に（2列だと文字が折れて不格好） */
+  .photo-wizard-card .photo-upload-row { flex-direction: column; }
+  .g-score-taffy { height: 56px; }
+}
+
+/* アニメーションを好まない設定を尊重 */
+@media (prefers-reduced-motion: reduce) {
+  .guide-char, .wizard-guide { animation: none !important; }
+}
+
+/* ============================================================
+ * 冒険型シェル（Phase A / docs/ui-redesign-concept.md）
+ * ============================================================ */
+
+/* --- 進捗トレイル（すごろく・上部固定） --- */
+.trail {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 8px 6px;
+  background: rgba(229, 244, 255, 0.93);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 2px solid rgba(86, 182, 232, 0.25);
+}
+.trail.hidden { display: none; }
+.trail-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 46px;
+}
+.trail-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #CFE8F7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  filter: grayscale(0.7);
+  opacity: 0.65;
+  transition: all 0.25s ease;
+}
+.trail-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: #5b7f95;
+  letter-spacing: 0.02em;
+}
+.trail-node.done .trail-dot {
+  background: #E2F5E9;
+  border-color: var(--green-mid);
+  filter: none;
+  opacity: 1;
+}
+.trail-node.current .trail-dot {
+  width: 42px;
+  height: 42px;
+  font-size: 21px;
+  background: #FFF6DC;
+  border: 3px solid var(--sun);
+  filter: none;
+  opacity: 1;
+  box-shadow: 0 2px 10px rgba(255, 190, 0, 0.4);
+  animation: g-pop 0.35s ease-out;
+}
+.trail-node.current .trail-label { color: #b07f00; }
+.trail-link {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  background: #CFE8F7;
+  margin-top: 16px;
+  flex-shrink: 0;
+}
+
+/* --- キャラ吹き出し（見出しと説明文の代替。画面ごとに進行役が交代） --- */
+.speech-bubble-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.speech-face {
+  width: 66px;
+  height: 66px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.18));
+}
+.speech-bubble {
+  position: relative;
+  flex: 1;
+  background: #fff;
+  border: 2.5px solid var(--sky-deep);
+  border-radius: 16px 16px 16px 4px;
+  padding: 10px 14px;
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  color: #1c5e7e;
+  letter-spacing: 0.03em;
+}
+.speech-pop { animation: g-pop 0.35s ease-out; }
+/* 吹き出しがある画面では旧タイトルとメインガイド（役割が重複）を隠す */
+.card.has-speech .step-title { display: none; }
+.card.has-speech .guide-layer .g-tr { display: none; }
+
+/* --- 段階タップ式ピッカー（Phase B: STEP1のselect代替） --- */
+.selector-row-hidden { display: none !important; }
+.picker-stage { margin-bottom: 14px; }
+.picker-label {
+  font-family: 'Yusei Magic', 'Klee One', sans-serif;
+  font-size: 15px;
+  color: var(--green-dark);
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+}
+.chip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+.chip-grid-scroll {
+  max-height: 264px;
+  overflow-y: auto;
+  padding: 2px;
+  border-radius: 12px;
+}
+.pick-chip {
+  padding: 12px 6px;
+  min-height: 46px;               /* タップしやすい高さ */
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: #4a5a55;
+  cursor: pointer;
+  transition: transform .08s, border-color .15s, background .15s;
+  line-height: 1.3;
+  word-break: keep-all;
+}
+.pick-chip:active { transform: scale(0.96); }
+.pick-chip.active {
+  background: var(--sky-deep);
+  border-color: var(--sky-deep);
+  color: #fff;
+  box-shadow: 0 3px 0 #3391c4;
+}
+.pick-chip-station { font-size: 13px; padding: 10px 4px; min-height: 44px; }
+.chip-hint {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--sky);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0;
+}
+
+/* --- Phase C: STEP2 地図主役レイアウト --- */
+/* カードを flex 化して「吹き出し → カテゴリ → 地図 → スポット横スワイプ → 由来 → CTA」の順に */
+#step-spots .card { display: flex; flex-direction: column; }
+#step-spots .speech-bubble-row { order: 0; }
+#step-spots #category-filter {
+  order: 1;
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 6px;
+  margin: 0 -16px 10px;
+  padding: 8px 16px;
+  background: transparent;
+  border-radius: 0;
+  scrollbar-width: none;
+}
+#step-spots #category-filter::-webkit-scrollbar { display: none; }
+#step-spots .category-filter-label { display: none; }  /* セリフが説明を担うので省く */
+#step-spots .cat-chip { flex: 0 0 auto; white-space: nowrap; }
+#step-spots .spots-layout { order: 2; display: flex; flex-direction: column; gap: 10px; }
+/* 地図が主役: 画面の約4割 + カード幅いっぱいにブリード */
+#step-spots #map {
+  order: 0;
+  height: 42vh;
+  min-height: 260px;
+  margin: 0 -8px;
+}
+/* スポットは下の横スワイプカード（スナップ付き） */
+#step-spots #spots-list {
+  order: 1;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-height: none;
+  margin: 0 -16px;
+  padding: 6px 16px 10px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+#step-spots #spots-list::-webkit-scrollbar { display: none; }
+#step-spots .spot-card {
+  flex: 0 0 auto;
+  width: min(76vw, 300px);
+  scroll-snap-align: center;
+  align-items: flex-start;
+}
+#step-spots .spot-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding-right: 28px; /* 右上のゴミ箱ボタンと重ならないように */
+}
+#step-spots .spot-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* 距離プレビュー: スポットカードの直下に密着させ、選択→結果の距離を最短に */
+#step-spots .route-preview-row {
+  order: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 10px;
+  min-height: 22px;
+  margin-top: -2px;
+  text-align: center;
+  max-width: 100%;
+}
+#step-spots .route-preview-row:empty { display: none; }
+/* 長文（子ども歩速の注釈つき）でも横にはみ出さないよう折返す */
+#step-spots .route-preview {
+  margin-right: 0;
+  white-space: normal;
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 100%;
+}
+/* 地名の由来は読み物としてページ最下部（CTAの手前）へ */
+#step-spots #origin-story { order: 3; margin-bottom: 0; margin-top: 6px; }
+#step-spots .step-actions { order: 4; }
+
+/* --- Phase C: STEP3 地図優先 + 統計ピル --- */
+#step-route .card { display: flex; flex-direction: column; }
+#step-route .speech-bubble-row { order: 0; }
+#step-route #route-map {
+  order: 1;
+  height: 46vh;
+  min-height: 280px;
+  margin: 0 -8px;
+}
+#step-route #route-info { order: 2; margin: 10px 0 4px; }
+#step-route .route-stats {
+  background: transparent;
+  padding: 0;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+#step-route .route-stats > div {
+  background: #fff;
+  border: 2px solid #EDE6D6;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  box-shadow: 0 2px 6px rgba(86, 182, 232, 0.12);
+  white-space: nowrap;
+}
+#step-route .route-stats strong { font-size: 15px; }
+#step-route #route-spots { order: 3; margin-top: 8px; }
+#step-route .step-actions { order: 4; }
+
+/* --- 下部固定CTA（sticky：スクロールしても親指ゾーンに常駐） --- */
+.step.active .step-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  margin: 16px -16px -20px;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  border-top: 2px solid #EDE6D6;
+  border-radius: 0 0 18px 18px; /* カードの角丸に合わせる（card は overflow visible のため自前で丸める） */
+}
+/* バー内のボタンは折返し許可（文字切れ・はみ出し防止） */
+.step.active .step-actions button { white-space: normal; line-height: 1.35; }
+.step.active .step-actions .btn-primary { flex: 1; }
+.step.active .step-actions .btn-secondary { flex: 0 0 auto; width: auto; }
+/* ボタンが3つ以上のグループ（STEP3など）: 副ボタンを1行に並べ、主ボタンは全幅の最下段へ */
+.step.active .step-actions > div {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.step.active .step-actions > div .btn-secondary { flex: 1 1 40%; }
+.step.active .step-actions > div .btn-primary { flex: 1 1 100%; order: 9; }
+/* レポート画面: 保存/スコアを上段2分割・PDFを全幅・戻るは最下段全幅 */
+.step.active .step-actions-report { flex-wrap: wrap; }
+.step.active .step-actions-report .report-action-group {
+  flex: 1 1 100%;
+  order: -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.step.active .step-actions-report .report-action-group #report-pdf-btn { grid-column: 1 / -1; width: 100%; }
+.step.active .step-actions-report > .btn-secondary { flex: 1 1 100%; }

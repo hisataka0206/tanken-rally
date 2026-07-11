@@ -84,6 +84,24 @@ function doPost(e) {
     if (action === 'getRanking') {
       return respond(headers, getRanking(body));
     }
+    if (action === 'saveCaptures') {
+      return respond(headers, saveCaptures(body));
+    }
+    if (action === 'getCaptures') {
+      return respond(headers, getCaptures(body));
+    }
+    if (action === 'registerUser') {
+      return respond(headers, registerUser(body));
+    }
+    if (action === 'loginUser') {
+      return respond(headers, loginUser(body));
+    }
+    if (action === 'getSpotsCache') {
+      return respond(headers, getSpotsCache(body));
+    }
+    if (action === 'saveSpotsCache') {
+      return respond(headers, saveSpotsCache(body));
+    }
 
     return respond(headers, { ok: false, error: 'unknown action' });
 
@@ -611,6 +629,164 @@ function saveRanking(body) {
   }
 }
 
+// ===== ARキャラ捕獲コレクション（図鑑・Sheets） =====
+//
+// 「captures」タブ: 端末ローカルID（explorerId）× キャラID ごとに1行。
+//   explorerId / characterId / count / firstCapturedAt / lastCapturedAt / updatedAt
+// ニックネームではなく端末ローカルIDをキーにすることで重複問題を回避する
+// （docs/ar-character-capture-spec.md §5-2）。
+
+const SHEET_TAB_CAPTURES = 'captures';
+const SHEET_HEADERS_CAPTURES = ['explorerId', 'characterId', 'count', 'firstCapturedAt', 'lastCapturedAt', 'updatedAt'];
+
+/** 捕獲記録を追記マージする。
+ *  body: { explorerId, records: [{ characterId, capturedAt }] } */
+function saveCaptures(body) {
+  try {
+    const { explorerId, records } = body;
+    if (!explorerId) return { ok: false, error: 'explorerId が必要です' };
+    if (!records || !records.length) return { ok: true, updated: 0 };
+
+    const sheet = getLogSheet(SHEET_TAB_CAPTURES, SHEET_HEADERS_CAPTURES);
+    const rows = sheet.getDataRange().getValues();
+    const headers = rows[0];
+    const col = name => headers.indexOf(name);
+    const now = new Date().toISOString();
+
+    // explorerId + characterId → 行番号（1-based。ヘッダ行は1）
+    const rowIndex = {};
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][col('explorerId')]) === String(explorerId)) {
+        rowIndex[String(rows[i][col('characterId')])] = i + 1;
+      }
+    }
+
+    let updated = 0;
+    records.forEach(rec => {
+      const charId = String(rec.characterId || '');
+      if (!charId) return;
+      const capturedAt = rec.capturedAt || now;
+      const rowNum = rowIndex[charId];
+      if (rowNum) {
+        const count = Number(sheet.getRange(rowNum, col('count') + 1).getValue()) || 0;
+        sheet.getRange(rowNum, col('count') + 1).setValue(count + 1);
+        sheet.getRange(rowNum, col('lastCapturedAt') + 1).setValue(capturedAt);
+        sheet.getRange(rowNum, col('updatedAt') + 1).setValue(now);
+        if (!sheet.getRange(rowNum, col('firstCapturedAt') + 1).getValue()) {
+          sheet.getRange(rowNum, col('firstCapturedAt') + 1).setValue(capturedAt);
+        }
+      } else {
+        sheet.appendRow([explorerId, charId, 1, capturedAt, capturedAt, now]);
+        rowIndex[charId] = sheet.getLastRow();
+      }
+      updated++;
+    });
+    return { ok: true, updated };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** explorerId のコレクションを返す。
+ *  戻り値: { ok, collection: { characterId: { count, firstAt, lastAt } } } */
+function getCaptures(body) {
+  try {
+    const { explorerId } = body;
+    if (!explorerId) return { ok: false, error: 'explorerId が必要です' };
+    const sheet = getLogSheet(SHEET_TAB_CAPTURES, SHEET_HEADERS_CAPTURES);
+    const rows = sheet.getDataRange().getValues();
+    if (rows.length < 2) return { ok: true, collection: {} };
+    const headers = rows[0];
+    const col = name => headers.indexOf(name);
+    const collection = {};
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][col('explorerId')]) !== String(explorerId)) continue;
+      collection[String(rows[i][col('characterId')])] = {
+        count: Number(rows[i][col('count')]) || 0,
+        firstAt: rows[i][col('firstCapturedAt')] ? String(rows[i][col('firstCapturedAt')]) : null,
+        lastAt: rows[i][col('lastCapturedAt')] ? String(rows[i][col('lastCapturedAt')]) : null,
+      };
+    }
+    return { ok: true, collection };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+// ===== ユーザーアカウント（なまえ＋あいことば ログイン・Sheets） =====
+//
+// 「users」タブ: 1ユーザー1行。
+//   userId / name / nameLower / pinHash / createdAt / lastLoginAt
+// - userId は図鑑(captures)のキー explorerId として使う（ログイン後の捕獲は userId に紐づく）。
+// - なまえ(name)は一意（重複登録は拒否）。ログインは name(小文字) で引き、pinHash を照合。
+// - pinHash はクライアント側で SHA-256 済みの文字列（あいことば平文はサーバーに送らない）。
+//   ※ 子ども向けPoCの簡易ログインであり、本格的な認証強度は持たない。
+const SHEET_TAB_USERS = 'users';
+const SHEET_HEADERS_USERS = ['userId', 'name', 'nameLower', 'pinHash', 'createdAt', 'lastLoginAt'];
+
+function normalizeName_(name) {
+  return String(name || '').trim();
+}
+
+/** なまえ＋あいことば(ハッシュ)で新規登録。body: { name, pinHash } */
+function registerUser(body) {
+  try {
+    const name = normalizeName_(body.name);
+    const pinHash = String(body.pinHash || '');
+    if (!name)     return { ok: false, error: 'name-required' };
+    if (!pinHash)  return { ok: false, error: 'pin-required' };
+
+    const nameLower = name.toLowerCase();
+    const sheet = getLogSheet(SHEET_TAB_USERS, SHEET_HEADERS_USERS);
+    const rows = sheet.getDataRange().getValues();
+    const headers = rows[0];
+    const col = n => headers.indexOf(n);
+
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][col('nameLower')]) === nameLower) {
+        return { ok: false, error: 'name-taken' };
+      }
+    }
+
+    const now = new Date().toISOString();
+    const userId = 'u_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    sheet.appendRow([userId, name, nameLower, pinHash, now, now]);
+    return { ok: true, userId, name };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** なまえ＋あいことば(ハッシュ)でログイン。body: { name, pinHash } */
+function loginUser(body) {
+  try {
+    const name = normalizeName_(body.name);
+    const pinHash = String(body.pinHash || '');
+    if (!name)     return { ok: false, error: 'name-required' };
+    if (!pinHash)  return { ok: false, error: 'pin-required' };
+
+    const nameLower = name.toLowerCase();
+    const sheet = getLogSheet(SHEET_TAB_USERS, SHEET_HEADERS_USERS);
+    const rows = sheet.getDataRange().getValues();
+    const headers = rows[0];
+    const col = n => headers.indexOf(n);
+
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][col('nameLower')]) === nameLower) {
+        if (String(rows[i][col('pinHash')]) !== pinHash) {
+          return { ok: false, error: 'bad-credentials' };
+        }
+        // lastLoginAt を更新
+        sheet.getRange(i + 1, col('lastLoginAt') + 1).setValue(new Date().toISOString());
+        return { ok: true, userId: String(rows[i][col('userId')]), name: String(rows[i][col('name')]) };
+      }
+    }
+    return { ok: false, error: 'not-found' };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
 function getRanking(body) {
   const { stationName, cityId, limit } = body;
   const sheet = getRankingSheet();
@@ -632,4 +808,92 @@ function getRanking(body) {
     .slice(0, limit || 50);
 
   return { ok: true, ranking: data };
+}
+
+// ===== スポット検索結果キャッシュ（Sheets DB） =====
+//
+// 目的: Places API（Nearby Search ×14 + Text Search ×1 ≒ $0.48/検索）が
+//       コストの支配項のため、駅ごとの検索結果を Sheets に保存して再利用する。
+// キー: フロントで生成（例: "v1|ja|35.1709,136.8815"）
+//       = スキーマ版 | 言語 | 駅座標（小数4桁 ≒ 11m 粒度）
+//       maps.js の検索キーワード構成を変えたらフロント側の SPOTS_CACHE_SCHEMA を上げること。
+// TTL: SPOTS_CACHE_TTL_DAYS（既定 365日）。期限切れは miss として返し、
+//      フロントが再検索 → saveSpotsCache で同じ行を上書きする。
+// 注意: Google Maps Platform 規約上、Places コンテンツのキャッシュは
+//       原則30日以内（place_id は無期限可）。1年キャッシュは規約リスクあり
+//       （docs/public-release-plan.md リスク#10 参照）。
+
+const SHEET_TAB_SPOTS_CACHE = 'spots_cache';
+const SHEET_HEADERS_SPOTS_CACHE = ['key', 'stationName', 'lang', 'updatedAt', 'spotCount', 'json'];
+const SPOTS_CACHE_TTL_DAYS = 365;
+const SPOTS_CACHE_MAX_JSON_CHARS = 45000; // Sheets セル上限 50,000 文字への安全マージン
+
+/** キャッシュ取得。body: { key }
+ *  戻り値: { ok, hit, updatedAt?, ageDays?, spots? } */
+function getSpotsCache(body) {
+  try {
+    const key = String(body.key || '');
+    if (!key) return { ok: false, error: 'key が必要です' };
+
+    const sheet = getLogSheet(SHEET_TAB_SPOTS_CACHE, SHEET_HEADERS_SPOTS_CACHE);
+    const rowNum = findSpotsCacheRow_(sheet, key);
+    if (!rowNum) return { ok: true, hit: false };
+
+    const row = sheet.getRange(rowNum, 1, 1, SHEET_HEADERS_SPOTS_CACHE.length).getValues()[0];
+    const updatedAt = String(row[3] || '');
+    const ageDays = (Date.now() - new Date(updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+    if (!updatedAt || isNaN(ageDays) || ageDays > SPOTS_CACHE_TTL_DAYS) {
+      return { ok: true, hit: false, stale: true, updatedAt };
+    }
+
+    let spots;
+    try {
+      spots = JSON.parse(String(row[5] || '[]'));
+    } catch (e) {
+      return { ok: true, hit: false, error: 'cache JSON 破損' };
+    }
+    if (!Array.isArray(spots) || !spots.length) return { ok: true, hit: false };
+
+    return { ok: true, hit: true, updatedAt, ageDays: Math.round(ageDays), spots };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** キャッシュ保存（upsert）。body: { key, stationName, lang, spots } */
+function saveSpotsCache(body) {
+  try {
+    const key = String(body.key || '');
+    const spots = body.spots;
+    if (!key) return { ok: false, error: 'key が必要です' };
+    if (!Array.isArray(spots) || !spots.length) return { ok: false, error: 'spots が空です' };
+
+    const json = JSON.stringify(spots);
+    if (json.length > SPOTS_CACHE_MAX_JSON_CHARS) {
+      return { ok: false, error: `spots JSON が大きすぎます (${json.length} chars)` };
+    }
+
+    const sheet = getLogSheet(SHEET_TAB_SPOTS_CACHE, SHEET_HEADERS_SPOTS_CACHE);
+    const now = new Date().toISOString();
+    const rowValues = [key, String(body.stationName || ''), String(body.lang || ''), now, spots.length, json];
+
+    const rowNum = findSpotsCacheRow_(sheet, key);
+    if (rowNum) {
+      sheet.getRange(rowNum, 1, 1, rowValues.length).setValues([rowValues]);
+    } else {
+      sheet.appendRow(rowValues);
+    }
+    return { ok: true, savedAt: now, spotCount: spots.length };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** key 列（A列）から行番号を返す。なければ null */
+function findSpotsCacheRow_(sheet, key) {
+  const finder = sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 1), 1)
+    .createTextFinder(key)
+    .matchEntireCell(true);
+  const cell = finder.findNext();
+  return cell ? cell.getRow() : null;
 }

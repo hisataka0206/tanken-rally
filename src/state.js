@@ -24,6 +24,11 @@ export const state = {
   uploadedPhotos: [],           // [{ fileId, url, thumbnailUrl, spotName, fileName, uploading }]
   selectedPhotoIds: new Set(),
 
+  // STEP 4 (ARキャラ捕獲)
+  captures: [],                 // [{ characterId, spotName, photoFileId, capturedAt, lat, lng }]
+  rareGoalAppears: null,        // ゴール駅でレアが出るか（セッション中1回だけ抽選。null=未抽選）
+  startCharacterId: null,       // スタート駅キャラ（lookie/colorey からセッション中1回だけ抽選）
+
   // STEP 5 (レポート)
   reportData: {
     date: '',
@@ -31,6 +36,7 @@ export const state = {
     overview: '',
     afterword: '',
     photoComments: {},          // { fileId: '感想' }
+    photoCommentsRaw: {},       // { fileId: '整形前の元メモ' } — 整形のやり直し用に保持
     excludedPhotoIds: new Set(),// レポートから除外する写真ID
   },
 };
@@ -50,9 +56,13 @@ export function resetSearchState() {
   state.selectedPhotoIds.clear();
   state.driveSession = null;
   state.sessionId = null;
+  state.captures = [];
+  state.rareGoalAppears = null;
+  state.startCharacterId = null;
   state.reportData = {
     date: '', author: '', overview: '', afterword: '',
     photoComments: {},
+    photoCommentsRaw: {},
     excludedPhotoIds: new Set(),
   };
 }

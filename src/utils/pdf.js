@@ -131,6 +131,28 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
         // 保険: 画像は事前に data URL 化済みなので即読めるはずだが、万一外部URLが
         //   残っても html2canvas が長時間ハングしないよう明示的に短めの上限を置く。
         imageTimeout: 15000,
+        // ★真因対策: html2canvas はクローンiframeにページの <link>（CSS/フォント）を
+        //   丸ごとコピーし、その読み込み完了を待つ。Google Fonts 等の別ドメイン資源は
+        //   キャッシュが冷たい1回目にクローン内でコールドfetch → 解決せずハングし、
+        //   描画タイムアウト(90秒)で失敗する（＝1回目失敗・2回目一瞬の正体）。
+        //   PDF本文はシステムフォント指定なので、クローンから別ドメインの link を
+        //   取り除いても見た目は変わらない。これでクローンの別ドメイン読込をゼロにする。
+        onclone: (clonedDoc) => {
+          try {
+            mark('onclone');
+            let removed = 0;
+            clonedDoc.querySelectorAll('link').forEach(el => {
+              const href = el.getAttribute('href') || '';
+              if (!href) return;
+              let cross = false;
+              try { cross = new URL(href, location.href).origin !== location.origin; }
+              catch (_) { cross = /^https?:/i.test(href); }
+              if (cross) { try { el.parentNode && el.parentNode.removeChild(el); removed++; } catch (_) {} }
+            });
+            // clone 側にフォント読み込みが残らないよう保険（存在すれば）
+            _bakeStats += ` linkRemoved=${removed}`;
+          } catch (_) { /* noop */ }
+        },
       }),
       new Promise((_, reject) => setTimeout(
         () => reject(new Error(t('pdfErrRenderTimeout',

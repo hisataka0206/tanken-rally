@@ -24,6 +24,51 @@ export const RARE_APPEAR_PROBABILITY = 0.25;
 // スタート駅に出現するキャラ（セッションごとにランダムで1体）
 export const START_CHARACTER_IDS = ['lookie', 'colorey'];
 
+// ===== バリエーション（レア度）=====
+// 新規イラストなしで「底知れなさ」を出すための収集要素。
+// 既存キャラの絵を、サイズ替え（ちび/でか）＋色替え（CSS/canvas filter）で変異させ、
+// 変異ごとに別の図鑑スロットとして集められるようにする。
+//   size   : 合成/プレビューのサイズ倍率
+//   filter : CSS / canvas 共通の filter 文字列（'none' はフィルタなし）
+//   stars  : レア度（★の数・表示用）
+//   weight : 抽選の重み（時間帯などの条件は使わない＝子供向けにいつでも遊べる）
+export const VARIANTS = [
+  { id: 'normal',  size: 1.0,  filter: 'none',                                                  stars: 1, weight: 55 },
+  { id: 'mini',    size: 0.62, filter: 'saturate(1.15)',                                        stars: 2, weight: 18 },
+  { id: 'jumbo',   size: 1.7,  filter: 'contrast(1.05)',                                        stars: 2, weight: 12 },
+  // ビンテージ（色あせ＋ピンぼけの古写真感）: 強めsepia＋退色＋わずかにblur
+  { id: 'shiny',   size: 1.0,  filter: 'sepia(0.85) saturate(1.2) contrast(0.9) brightness(1.07) blur(1.2px)', stars: 3, weight: 9 },
+  { id: 'gold',    size: 1.0,  filter: 'sepia(1) saturate(5) hue-rotate(-15deg) brightness(1.1)',                     stars: 4, weight: 4 },
+  // ホワイト（白虎・氷白）: グレースケール→白基調に、氷ブルーを強めに乗せてクリスタル感
+  { id: 'rainbow', size: 1.0,  filter: 'grayscale(1) brightness(1.3) contrast(1.2) sepia(0.4) hue-rotate(180deg) saturate(2.2)', stars: 5, weight: 1 },
+];
+
+const VARIANT_BY_ID = Object.fromEntries(VARIANTS.map(v => [v.id, v]));
+
+export function variantById(id) {
+  return VARIANT_BY_ID[id] || VARIANT_BY_ID.normal;
+}
+
+/** 遭遇ごとに変異を重み抽選する（時間帯などの条件は無し）。 */
+export function rollVariant() {
+  const total = VARIANTS.reduce((s, v) => s + v.weight, 0);
+  let r = Math.random() * total;
+  for (const v of VARIANTS) { if ((r -= v.weight) < 0) return v; }
+  return VARIANT_BY_ID.normal;
+}
+
+/** 図鑑・captures の保存キー。ノーマルは従来どおり charId のまま（既存データ互換）。 */
+export function collectionKey(charId, variantId) {
+  return (!variantId || variantId === 'normal') ? charId : `${charId}#${variantId}`;
+}
+
+/** 保存キーを { charId, variantId } に分解する。 */
+export function parseCollectionKey(key) {
+  const s = String(key || '');
+  const i = s.indexOf('#');
+  return i < 0 ? { charId: s, variantId: 'normal' } : { charId: s.slice(0, i), variantId: s.slice(i + 1) };
+}
+
 // 性格・ストーリーの設定資料: docs/characters-story.md（変更時は両方を更新すること）
 // ⚠️ 表示名は変更してよいが、id はアセットファイル名・図鑑の保存キーなので変更しない。
 export const CHARACTERS = [
@@ -248,8 +293,9 @@ export function preloadCharacterImages(char) {
 }
 
 /** canvas にキャラ画像＋名前リボンを描画する（捕獲写真の合成用）。
- *  cx/cy は画像の中心、sizePx は長辺サイズ。img が null の場合は色付き円で代替。 */
-export function drawCharacterOnCanvas(ctx, char, img, cx, cy, sizePx) {
+ *  cx/cy は画像の中心、sizePx は長辺サイズ。img が null の場合は色付き円で代替。
+ *  filter: バリエーションの色変化（'none' 以外なら ctx.filter を適用。名前リボンには効かせない）。 */
+export function drawCharacterOnCanvas(ctx, char, img, cx, cy, sizePx, filter = 'none') {
   ctx.save();
   let bottomY;
   if (img) {
@@ -259,7 +305,10 @@ export function drawCharacterOnCanvas(ctx, char, img, cx, cy, sizePx) {
     // 白フチ付きの軽いドロップシャドウで背景から浮かせる
     ctx.shadowColor = 'rgba(0,0,0,0.35)';
     ctx.shadowBlur = sizePx * 0.05;
+    // バリエーションの色変化（対応ブラウザのみ。名前リボン描画前に解除する）
+    if (filter && filter !== 'none') { try { ctx.filter = filter; } catch (_) {} }
     ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+    ctx.filter = 'none';
     ctx.shadowBlur = 0;
     bottomY = cy + h / 2;
   } else {

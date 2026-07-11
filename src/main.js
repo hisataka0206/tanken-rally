@@ -12,7 +12,7 @@ import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint, apiLang } fro
 import { APP_VERSION, RELEASE_LABEL } from './version.js?v=106';
 import { FEATURES } from './config-features.js?v=106';
 import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=106';
-import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID } from './utils/characters.js?v=106';
+import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID, VARIANTS, variantById, rollVariant, collectionKey, parseCollectionKey } from './utils/characters.js?v=106';
 import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, loadLegacyAnonymousCollection } from './utils/collection.js?v=106';
 import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout } from './utils/auth.js?v=106';
 import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
@@ -205,6 +205,16 @@ function refreshPhotosView() {
 let arSession = null;
 let arCurrent = null;   // { char, tag, targetName, target, latestStatus }
 
+// バリエーションの表示名（ノーマルは空）。名前に前置して「きんいろ タフィー」等にする。
+function variantLabel(v) {
+  if (!v || v.id === 'normal') return '';
+  return t('variant_' + v.id, v.id);
+}
+function variantNamePrefix(v) {
+  const l = variantLabel(v);
+  return l ? l + ' ' : '';
+}
+
 // 現在のウィザードステージに対する AR コンテキストを返す（対象外ステージは null）
 function arStageContext(info) {
   if (!FEATURES.arCaptureEnabled || !supportsArCamera()) return null;
@@ -267,9 +277,15 @@ async function openArHunt() {
   const charEl = $('ar-character');
   charEl.classList.add('hidden');
   charEl.classList.remove('ar-appear');
+  // 遭遇ごとにバリエーション（レア度）を抽選。プレビューにも反映して「おっ光ってる！」を演出。
+  ctx.variant = ctx.char ? rollVariant() : null;
   if (ctx.char) {
-    $('ar-character-img').src = characterImageUrl(ctx.char, 'normal');
-    $('ar-character-name').textContent = charDisplayName(ctx.char);
+    const v = ctx.variant;
+    const imgEl = $('ar-character-img');
+    imgEl.src = characterImageUrl(ctx.char, 'normal');
+    imgEl.style.filter = (v && v.filter !== 'none') ? v.filter : '';
+    imgEl.style.transform = (v && v.size !== 1) ? `scale(${v.size})` : '';
+    $('ar-character-name').textContent = variantNamePrefix(v) + charDisplayName(ctx.char);
     // 合成用のポーズ画像を先読みしておく（シャッター時に await）
     ctx.imagesPromise = preloadCharacterImages(ctx.char);
   }
@@ -355,6 +371,7 @@ async function onArShutter() {
   const charVisible = !!(arCurrent.char && status.visible);
   const char = arCurrent.char;
   const tag = arCurrent.tag;
+  const variant = arCurrent.variant || variantById('normal');
 
   // 合成用のキャラ画像（プリロード済み）。found（ゲット！ポーズ）優先。
   let charImg = null;
@@ -369,8 +386,8 @@ async function onArShutter() {
   try {
     file = await arSession.captureComposite(video, charVisible
       ? (ctx, w, h) => {
-          const size = Math.min(w, h) * 0.5;
-          drawCharacterOnCanvas(ctx, char, charImg, w / 2, h / 2, size);
+          const size = Math.min(w, h) * 0.5 * (variant.size || 1);
+          drawCharacterOnCanvas(ctx, char, charImg, w / 2, h / 2, size, variant.filter);
         }
       : null);
   } catch (e) {
@@ -391,7 +408,8 @@ async function onArShutter() {
   // 捕獲成功モーダル（キャラが写っている時だけ）
   if (charVisible) {
     const url = URL.createObjectURL(file);
-    $('ar-captured-title').textContent = t('arCapturedFmt').replace('{name}', charDisplayName(char));
+    const dispName = variantNamePrefix(variant) + charDisplayName(char);
+    $('ar-captured-title').textContent = t('arCapturedFmt').replace('{name}', dispName);
     const img = $('ar-captured-img');
     img.src = url;
     $('ar-captured-modal').classList.remove('hidden');
@@ -402,20 +420,25 @@ async function onArShutter() {
 
   // 捕獲記録（report.json 経由でセッション再開時にも復元される）
   if (charVisible) {
+    // 図鑑の保存キーは「charId#variant」（ノーマルは charId のまま＝既存データ互換）。
+    // ただし state.captures.characterId は従来どおり base id（スコア/レポート/レア判定で使うため）、
+    // 変異は variantId として別に持つ。
+    const key = collectionKey(char.id, variant.id);
     state.captures.push({
       characterId: char.id,
+      variantId: variant.id,
       spotName: tag,
       photoFileId: fileId,
       capturedAt: metaOverride.takenAt,
       lat: metaOverride.lat,
       lng: metaOverride.lng,
     });
-    // 図鑑（セッション横断）: ローカル即時記録 + Sheets へ fire-and-forget 同期
-    recordCapture(char.id, metaOverride.takenAt);
+    // 図鑑（セッション横断）: ローカル即時記録 + Sheets へ fire-and-forget 同期（キーは変異込み）
+    recordCapture(key, metaOverride.takenAt);
     if (drive) {
       drive.saveCaptures({
         explorerId: getExplorerId(),
-        records: [{ characterId: char.id, capturedAt: metaOverride.takenAt }],
+        records: [{ characterId: key, capturedAt: metaOverride.takenAt }],
       }).catch(e => console.warn('[zukan] Sheets同期失敗（ローカルには保存済）:', e));
     }
   }
@@ -424,35 +447,118 @@ async function onArShutter() {
 // ===== キャラずかん（コレクション） =====
 // ローカル（localStorage）を一次ストアとして即表示し、GAS が使えれば
 // Sheets のコレクションをマージして再描画する（セッション・端末をまたぐ収集）。
+let _zukanCollection = {};   // renderZukanGrid が保持し、詳細表示で参照する
+
+// あるキャラの累計捕獲回数（全バリエ合計）。説明文の段階解放に使う。
+function collectionBaseCount(collection, charId) {
+  let n = 0;
+  Object.keys(collection || {}).forEach(k => {
+    if (parseCollectionKey(k).charId === charId) n += (collection[k].count || 0);
+  });
+  return n;
+}
+// あるキャラで取得済みのバリエ id 集合。
+function ownedVariantIds(collection, charId) {
+  const owned = new Set();
+  Object.keys(collection || {}).forEach(k => {
+    const p = parseCollectionKey(k);
+    if (p.charId === charId && (collection[k].count || 0) > 0) owned.add(p.variantId);
+  });
+  return owned;
+}
+// コンプ総数（キャラ×バリエ）。
+function zukanTotals(collection) {
+  const total = CHARACTERS.length * VARIANTS.length;
+  let owned = 0;
+  CHARACTERS.forEach(ch => { owned += ownedVariantIds(collection, ch.id).size; });
+  return { owned, total };
+}
+
+// 決定論的ハッシュ（説明文の「どの文字が読めるか」を安定させる）
+function hash32(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h >>> 0;
+}
+// 説明文を ratio(0〜1) の割合だけ読めるようにする（残りは ● で伏せる）。
+// 位置ごとに固定しきい値を持たせ、ratio が増えるほど単調に読める文字が増える。
+function revealStoryText(text, ratio, seed) {
+  const KEEP = /[\s、。，．・…！？!?「」『』（）()〜~ー―—\-:：;；]/;
+  let pos = 0, out = '';
+  for (const ch of String(text || '')) {
+    if (KEEP.test(ch)) { out += escapeHtml(ch); continue; }
+    const thr = (hash32(seed + ':' + pos) % 1000) / 1000;
+    out += (ratio >= 1 || thr < ratio) ? escapeHtml(ch) : '<span class="zukan-mask">●</span>';
+    pos++;
+  }
+  return out;
+}
+function revealHintText(baseCount) {
+  if (baseCount >= 5) return t('zukanRevealFull', 'ぜんぶ読めた！✨');
+  const pct = Math.min(100, baseCount * 20);
+  const left = Math.max(0, 5 - baseCount);
+  return t('zukanRevealHintFmt', 'あと{left}回つかまえると もっと読めるよ（今 {pct}%）')
+    .replace('{left}', String(left)).replace('{pct}', String(pct));
+}
+
 function renderZukanGrid(collection) {
   const grid = $('zukan-grid');
   if (!grid) return;
+  _zukanCollection = collection || {};
+
+  const { owned, total } = zukanTotals(_zukanCollection);
+  const compEl = $('zukan-comp');
+  if (compEl) compEl.textContent = t('zukanCompFmt', 'コンプ {n}/{total}').replace('{n}', String(owned)).replace('{total}', String(total));
+
   grid.innerHTML = CHARACTERS.map(ch => {
-    const rec = collection[ch.id];
-    const caught = !!(rec && rec.count > 0);
+    const ownedSet = ownedVariantIds(_zukanCollection, ch.id);
+    const caught = ownedSet.size > 0;
     const name = caught ? charDisplayName(ch) : t('zukanUnknown');
-    const countHtml = caught
-      ? `<div class="zukan-count">${escapeHtml(t('zukanCaughtFmt').replace('{n}', String(rec.count)))}</div>`
-      : '';
-    // 捕獲済みキャラはタップでストーリー（詳細）を開ける
+    // 取得済みで最もレアな変異の色をサムネに反映（ごほうび感）
+    let filterStyle = '';
+    if (caught) {
+      let best = null;
+      VARIANTS.forEach(v => { if (ownedSet.has(v.id) && (!best || v.stars > best.stars)) best = v; });
+      if (best && best.filter !== 'none') filterStyle = ` style="filter:${best.filter}"`;
+    }
+    const badge = caught ? `<div class="zukan-count">${ownedSet.size}/${VARIANTS.length}</div>` : '';
     return `
       <div class="zukan-item${caught ? ' zukan-clickable' : ' zukan-silhouette'}"${caught ? ` data-char-id="${ch.id}"` : ''} role="${caught ? 'button' : 'presentation'}">
-        <img src="${characterImageUrl(ch, 'normal')}" alt="" />
+        <img src="${characterImageUrl(ch, 'normal')}" alt=""${filterStyle} />
         <div class="zukan-name">${escapeHtml(name)}</div>
-        ${countHtml}
+        ${badge}
       </div>`;
   }).join('');
-  // 捕獲済みアイテムのクリック → 詳細（ストーリー）表示
   grid.querySelectorAll('.zukan-clickable').forEach(el => {
     el.addEventListener('click', () => showZukanDetail(el.dataset.charId));
   });
 }
 
-// 捕獲済みキャラの詳細（性格・ストーリー）を表示。図鑑登録のごほうびコンテンツ。
+// 捕獲済みキャラの詳細：性格＋（捕獲回数で段階解放される）ストーリー＋バリエ収集枠。
 function showZukanDetail(charId) {
   const ch = characterById(charId);
   const detail = $('zukan-detail');
   if (!ch || !detail) return;
+  const collection = _zukanCollection;
+  const baseCount = collectionBaseCount(collection, charId);
+  const ownedSet = ownedVariantIds(collection, charId);
+  const ratio = Math.min(1, baseCount * 0.2);           // 1回=20% … 5回=100%
+  const storyHtml = revealStoryText(charStory(ch), ratio, 'story:' + charId);
+
+  const slots = VARIANTS.map(v => {
+    const own = ownedSet.has(v.id);
+    const imgStyle = own
+      ? `${v.filter !== 'none' ? `filter:${v.filter};` : ''}${v.size !== 1 ? `transform:scale(${Math.min(1.15, v.size)});` : ''}`
+      : '';
+    const label = own ? (variantLabel(v) || t('variant_normal', 'ノーマル')) : '？';
+    return `
+      <div class="zukan-variant-slot ${own ? 'owned' : 'missing'}">
+        <img src="${characterImageUrl(ch, 'normal')}" alt="" style="${imgStyle}" />
+        <span class="zukan-variant-stars">${'★'.repeat(v.stars)}</span>
+        <span class="zukan-variant-label">${escapeHtml(label)}</span>
+      </div>`;
+  }).join('');
+
   detail.innerHTML = `
     <button class="zukan-detail-close" type="button" aria-label="close">✕</button>
     <div class="zukan-detail-body">
@@ -460,8 +566,13 @@ function showZukanDetail(charId) {
       <div class="zukan-detail-text">
         <div class="zukan-detail-name">${escapeHtml(charDisplayName(ch))}</div>
         <div class="zukan-detail-personality">${escapeHtml(charPersonality(ch))}</div>
-        <p class="zukan-detail-story">${escapeHtml(charStory(ch))}</p>
+        <p class="zukan-detail-story">${storyHtml}</p>
+        <p class="zukan-detail-reveal">${escapeHtml(revealHintText(baseCount))}</p>
       </div>
+    </div>
+    <div class="zukan-variants">
+      <div class="zukan-variants-title">${escapeHtml(t('zukanVariantsTitle', 'すがた'))} ${ownedSet.size}/${VARIANTS.length}</div>
+      <div class="zukan-variants-grid">${slots}</div>
     </div>`;
   detail.classList.remove('hidden');
   detail.querySelector('.zukan-detail-close').addEventListener('click', () => {

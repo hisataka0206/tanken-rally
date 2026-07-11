@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>バリエーション プレビュー — たんけんラリー</title>
+  <style>
+    body { font-family: 'Yu Gothic', 'Meiryo', sans-serif; margin: 0; padding: 20px; background: #f5f0e8; color: #1a1a1a; }
+    h1 { font-size: 20px; color: #004029; margin: 0 0 4px; }
+    p.note { font-size: 13px; color: #666; margin: 0 0 18px; }
+    .controls { margin: 0 0 16px; font-size: 13px; }
+    .controls label { margin-right: 14px; }
+    .char-row { background: #fff; border: 1px solid #e0dccf; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+    .char-name { font-weight: 700; color: #004029; margin: 0 0 10px; font-size: 14px; }
+    .variants { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+    .variant { text-align: center; background: #faf6ec; border: 2px solid #ede6d6; border-radius: 10px; padding: 10px 6px; }
+    .variant .imgwrap { height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .variant img { max-width: 100%; max-height: 100px; object-fit: contain; }
+    .variant .label { font-weight: 700; font-size: 13px; margin-top: 6px; }
+    .variant .stars { color: #e0a800; font-size: 11px; }
+    .variant .filter { font-size: 9px; color: #999; word-break: break-all; margin-top: 3px; }
+    .bg-checker .imgwrap { background-image: linear-gradient(45deg,#ddd 25%,transparent 25%),linear-gradient(-45deg,#ddd 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ddd 75%),linear-gradient(-45deg,transparent 75%,#ddd 75%); background-size: 16px 16px; background-position:0 0,0 8px,8px -8px,-8px 0; }
+  </style>
+</head>
+<body>
+  <h1>🎨 バリエーション プレビュー</h1>
+  <p class="note">
+    ゲーム本体（<code>src/utils/characters.js</code> の <code>VARIANTS</code>）と同じ filter / サイズ倍率で表示しています。
+    絵は既存の <code>_get.png</code> を使用。数値を変えて見た目を試したい時はこのファイルの <code>VARIANTS</code> を編集してください。
+  </p>
+  <div class="controls">
+    <label><input type="checkbox" id="toggle-bg" /> 透過を市松模様で確認</label>
+    <label><input type="checkbox" id="toggle-size" checked /> サイズ倍率も反映</label>
+  </div>
+  <div id="root"></div>
+
+  <script>
+    // ★ ゲーム本体 characters.js の VARIANTS と一致させること
+    const VARIANTS = [
+      { id: 'normal',  label: 'ノーマル',    size: 1.0,  filter: 'none',                                                  stars: 1 },
+      { id: 'mini',    label: 'ちび',        size: 0.62, filter: 'saturate(1.15)',                                        stars: 2 },
+      { id: 'jumbo',   label: 'でか',        size: 1.7,  filter: 'contrast(1.05)',                                        stars: 2 },
+      { id: 'shiny',   label: 'ビンテージ',  size: 1.0,  filter: 'sepia(0.85) saturate(1.2) contrast(0.9) brightness(1.07) blur(1.2px)', stars: 3 },
+      { id: 'gold',    label: 'きんいろ',    size: 1.0,  filter: 'sepia(1) saturate(5) hue-rotate(-15deg) brightness(1.1)', stars: 4 },
+      { id: 'rainbow', label: 'ホワイト',    size: 1.0,  filter: 'grayscale(1) brightness(1.3) contrast(1.2) sepia(0.4) hue-rotate(180deg) saturate(2.2)', stars: 5 },
+    ];
+
+    // キャラ一覧（id → 表示名）。絵は src/assets/characters/<id>_get.png
+    const CHARACTERS = [
+      { id: 'lucky',   name: 'ラッキー（史跡）' },
+      { id: 'taffy',   name: 'タフィー（スイーツ）' },
+      { id: 'oakchap', name: 'ナッティ（自然）' },
+      { id: 'stacky',  name: 'スタッキー（玩具）' },
+      { id: 'arto',    name: 'アルト（美術館）' },
+      { id: 'loupe',   name: 'ルーペ（科学館）' },
+      { id: 'tixy',    name: 'ティクシー（駄菓子）' },
+      { id: 'memry',   name: 'メムリー（レア）' },
+      { id: 'lookie',  name: 'ルッキー（スタート駅）' },
+      { id: 'colorey', name: 'カラーレイ（スタート駅）' },
+    ];
+
+    const root = document.getElementById('root');
+    const applySize = () => document.getElementById('toggle-size').checked;
+
+    function render() {
+      root.innerHTML = CHARACTERS.map(ch => `
+        <div class="char-row">
+          <div class="char-name">${ch.name}</div>
+          <div class="variants">
+            ${VARIANTS.map(v => {
+              const scale = applySize() && v.size !== 1 ? `transform:scale(${v.size});` : '';
+              const filter = v.filter !== 'none' ? `filter:${v.filter};` : '';
+              return `
+                <div class="variant">
+                  <div class="imgwrap">
+                    <img src="src/assets/characters/${ch.id}_get.png" alt=""
+                         style="${filter}${scale}"
+                         onerror="this.src='src/assets/characters/${ch.id}_discovery.png'" />
+                  </div>
+                  <div class="label">${v.label}</div>
+                  <div class="stars">${'★'.repeat(v.stars)}</div>
+                  <div class="filter">${v.filter === 'none' ? '（フィルタなし）' : v.filter}</div>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`).join('');
+    }
+
+    document.getElementById('toggle-bg').addEventListener('change', e => {
+      document.body.classList.toggle('bg-checker', e.target.checked);
+    });
+    document.getElementById('toggle-size').addEventListener('change', render);
+    render();
+  </script>
+</body>
+</html>

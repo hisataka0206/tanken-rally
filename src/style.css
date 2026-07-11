@@ -2330,6 +2330,56 @@ body.ar-open { overflow: hidden; }
 .zukan-clickable { cursor: pointer; transition: transform 0.12s ease; }
 .zukan-clickable:hover, .zukan-clickable:active { transform: scale(1.05); border-color: #c9a227; }
 
+/* 図鑑: コンプ総数 */
+.zukan-comp {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green-dark);
+  margin: 0 0 10px;
+}
+
+/* 段階解放ストーリーの伏せ字 */
+.zukan-mask { color: #c9b48a; letter-spacing: -0.02em; }
+.zukan-detail-reveal {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #b26a00;
+  background: #fff6e5;
+  border-radius: 8px;
+  padding: 6px 9px;
+}
+
+/* 図鑑: バリエーション（すがた）収集枠 */
+.zukan-variants { margin-top: 14px; }
+.zukan-variants-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green-dark);
+  margin-bottom: 8px;
+}
+.zukan-variants-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 8px;
+}
+.zukan-variant-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px;
+  background: #faf6ec;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+}
+.zukan-variant-slot img { width: 40px; height: 40px; object-fit: contain; }
+.zukan-variant-slot.missing img { filter: brightness(0) opacity(0.18); } /* シルエット */
+.zukan-variant-slot.missing { background: #f0ede6; }
+.zukan-variant-stars { font-size: 9px; color: #e0a800; line-height: 1; }
+.zukan-variant-label { font-size: 10px; color: #666; }
+.zukan-variant-slot.missing .zukan-variant-label { color: #aaa; }
+
 /* 図鑑: キャラ詳細（性格・ストーリー） */
 .zukan-detail {
   position: relative;

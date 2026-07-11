@@ -16,6 +16,9 @@ const EASTER_EGG_PROBABILITY = 0.1;
 // true のときは html2canvas の解像度を下げ、キャラ画像も出さない（メモリ不足で固まる対策）。
 let _pdfConstrained = false;
 
+// bake の結果統計（診断用）。失敗時アラートに載せて落とし穴の位置を可視化する。
+let _bakeStats = '';
+
 function detectConstrainedDevice() {
   try {
     const ua = navigator.userAgent || '';
@@ -58,15 +61,29 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
   _pdfConstrained = detectConstrainedDevice();
   console.info(`[pdf] constrained device = ${_pdfConstrained}`);
 
+  // 診断トレース: 各段階の到達時刻を記録し、失敗時にアラートへ出す。
+  // スマホでコンソールが見えなくても「どの段階で何秒で止まったか」を掴めるようにする。
+  const _t0 = (performance && performance.now) ? performance.now() : Date.now();
+  const _trace = [];
+  const mark = (s) => {
+    const now = (performance && performance.now) ? performance.now() : Date.now();
+    _trace.push(`${s}@${Math.round(now - _t0)}ms`);
+    console.info(`[pdf] mark ${s} @${Math.round(now - _t0)}ms`);
+  };
+  _bakeStats = '';
+  mark(`start c=${_pdfConstrained}`);
+
   // 1) 隠し要素に PDF 用 HTML を構築
   const container = buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, apiKey });
   document.body.appendChild(container);
+  mark(`html imgs=${container.querySelectorAll('img').length}`);
 
   try {
     // Static Map / Street View 画像のロード完了を待つ。
     // SV取得失敗（パノラマなし等）の画像は Static Map にフォールバック差し替え。
     progress(t('pdfStageImages', '画像を読込中…'));
     await waitForImagesWithFallback(container);
+    mark('imagesWaited');
 
     // ★スマホ対策: Google の地図/ストリートビュー画像（別ドメイン）を、描画前に
     //   データURL（同一オリジン扱い）へ焼き込む。html2canvas は clone DOM 内で
@@ -79,6 +96,7 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
     if (_pdfConstrained) {
       await bakeCrossOriginImages(container);
     }
+    mark(`baked ${_bakeStats}`);
 
     // 2) html2canvas でラスタライズ
     // ★モバイル対策: スマホブラウザには canvas の上限（iOS Safari は約1,677万画素、
@@ -100,6 +118,7 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
       SCALE = Math.min(SCALE, MAX_DIMENSION / contentH);
     }
     console.info(`[pdf] content=${contentW}x${contentH}px scale=${SCALE.toFixed(2)} constrained=${_pdfConstrained}`);
+    mark(`renderStart ${contentW}x${contentH} s=${SCALE.toFixed(2)}`);
     // html2canvas が固まったまま返ってこないケースの保険。一定時間で諦めてエラーにし、
     // 無限フリーズではなくメッセージを出す（呼び出し側でボタンを復帰させる）。
     const RENDER_TIMEOUT_MS = _pdfConstrained ? 90000 : 180000;
@@ -119,6 +138,7 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
         RENDER_TIMEOUT_MS
       )),
     ]);
+    mark(`renderDone ${canvas.width}x${canvas.height}`);
     if (!canvas.width || !canvas.height) {
       throw new Error('canvas rendering failed (size 0)');
     }
@@ -201,7 +221,15 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
       }
     }
 
+    mark('saved');
     doc.save(`たんけんラリー_${stationName}.pdf`);
+  } catch (e) {
+    // ★診断: 失敗時に「どの段階で止まったか」のトレースをエラーに埋め込む。
+    //   スマホでコンソールが見えなくても、アラート文面から落とし穴の位置が分かる。
+    mark(`ERROR ${e && e.message ? e.message : e}`);
+    const diag = `\n\n[診断] ${_trace.join(' > ')}`;
+    if (e instanceof Error) { e.message = (e.message || '') + diag; throw e; }
+    throw new Error(String(e) + diag);
   } finally {
     container.remove();
   }
@@ -640,6 +668,7 @@ async function bakeCrossOriginImages(root) {
   // フル解像度で toDataURL するとエンコード/再デコード/メモリが重く、体感フリーズの主因になる。
   // モバイルのみ bake するため上限は 1024px（軽さ優先。見た目の劣化はほぼ無い）。
   const MAX_SIDE = 1024;
+  let nBaked = 0, nHidden = 0; // 診断用カウンタ
   for (const img of imgs) {
     // まず確実にロード完了を待つ（未ロードなら最大12秒）。
     const loaded = await ensureImageLoaded(img);
@@ -647,6 +676,7 @@ async function bakeCrossOriginImages(root) {
       // 読めなかった外部画像は隠す。残すと html2canvas が clone で再取得しハングする。
       console.warn('[pdf] bake: 読込不可の外部画像を非表示:', (img.src || '').slice(0, 60));
       img.style.display = 'none';
+      nHidden++;
       continue;
     }
     try {
@@ -666,17 +696,20 @@ async function bakeCrossOriginImages(root) {
       const dataUrl = c.toDataURL('image/jpeg', 0.85);
       c.width = c.height = 0; // 一時キャンバス解放
       img.src = dataUrl;
+      nBaked++;
     } catch (e) {
       // ★焼けなかった外部画像は元の src（外部URL）のまま残さず、必ず隠す。
       //   残すと html2canvas が clone 内で外部URLを再取得してハング→1回目失敗の原因になる。
       console.warn('[pdf] bake失敗→非表示:', (img.src || '').slice(0, 60), e && e.message);
       img.style.display = 'none';
+      nHidden++;
     }
   }
   // data URL 差し替え後のロードを待つ（data URL は基本即時）
   await waitForImages(root);
   // ★最終保険: ここまでで external(http) のままの img が1つでも残っていたら隠す。
   //   html2canvas に外部URLを一切渡さないことで、clone 内再取得によるハングを構造的に排除。
+  let nExtLeft = 0;
   Array.from(root.querySelectorAll('img')).forEach(img => {
     const src = img.currentSrc || img.src || '';
     if (/^https?:/i.test(src)) {
@@ -684,10 +717,12 @@ async function bakeCrossOriginImages(root) {
         if (new URL(src, location.href).origin !== location.origin) {
           console.warn('[pdf] bake後も外部URLが残存→非表示:', src.slice(0, 60));
           img.style.display = 'none';
+          nExtLeft++;
         }
       } catch (_) { /* noop */ }
     }
   });
+  _bakeStats = `n=${imgs.length} baked=${nBaked} hidden=${nHidden} extLeft=${nExtLeft}`;
   console.timeEnd('[pdf] bakeImages');
 }
 

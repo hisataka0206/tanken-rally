@@ -68,15 +68,17 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
     progress(t('pdfStageImages', '画像を読込中…'));
     await waitForImagesWithFallback(container);
 
-    // ★全端末対策: Google の地図/ストリートビュー画像（別ドメイン）を、描画前に
+    // ★スマホ対策: Google の地図/ストリートビュー画像（別ドメイン）を、描画前に
     //   データURL（同一オリジン扱い）へ焼き込む。html2canvas は clone DOM 内で
     //   別ドメイン画像を "もう一度" 取得しに行くため、キャッシュが冷たい1回目は
-    //   この再取得が CORS/キャッシュのハンドシェイクで解決せず待ち続け、描画タイム
-    //   アウトに到達して失敗する（＝「1回目は失敗、2回目はキャッシュ済みで一瞬」の正体）。
-    //   先に data URL 化しておけば html2canvas は外部再取得をせず、1回目から成功する。
-    //   以前はスマホ限定にしていたが、この落とし穴は PC でも起きるため全端末で実行する。
-    //   失敗した画像は元の src のまま残す（安全側）。
-    await bakeCrossOriginImages(container);
+    //   この再取得がスマホで解決せずハング → 描画タイムアウトで失敗する
+    //   （＝「1回目は失敗、2回目はキャッシュ済みで一瞬」の正体）。
+    //   bake で全ての別ドメイン画像を data URL 化し、焼けない画像は隠すことで、
+    //   html2canvas に外部URLを一切触らせない。PC は desktop Chrome が別ドメイン
+    //   再取得で固まらないため従来どおり触らない（bake の負荷も避ける）。
+    if (_pdfConstrained) {
+      await bakeCrossOriginImages(container);
+    }
 
     // 2) html2canvas でラスタライズ
     // ★モバイル対策: スマホブラウザには canvas の上限（iOS Safari は約1,677万画素、
@@ -607,12 +609,28 @@ function escapeHtml(s) {
 // html2canvas が clone 内で別ドメイン画像を再取得しようとしてスマホで固まるのを防ぐ。
 // 画像は crossorigin=anonymous + CORS 済みで読めているので canvas 経由で data URL 化できる。
 // taint 等で失敗した画像は元の src のまま残す（安全側）。
+// 個別画像のロード完了を待つ。読めたら true、失敗/タイムアウトは false。
+// ★従来は「未ロードの画像はbakeでスキップ→外部URLのまま残り、html2canvasが
+//   clone内で再取得してハング」していた。ここで確実に待ってから焼くための保険。
+function ensureImageLoaded(img, timeoutMs = 12000) {
+  if (img.complete) return Promise.resolve(img.naturalWidth > 0);
+  return new Promise(resolve => {
+    let done = false;
+    const finish = ok => { if (!done) { done = true; resolve(ok); } };
+    img.addEventListener('load', () => finish(true), { once: true });
+    img.addEventListener('error', () => finish(false), { once: true });
+    setTimeout(() => finish(img.complete && img.naturalWidth > 0), timeoutMs);
+  });
+}
+
 async function bakeCrossOriginImages(root) {
   console.time('[pdf] bakeImages');
   // 別ドメイン画像だけを対象にする。同一オリジンのキャラPNG（透過あり）は焼かない
   // （JPEG化すると透過が白背景になってしまうため & そもそも html2canvas で問題なく扱えるため）。
+  // ★重要: ここで complete 判定はしない。未ロードの画像も対象に含め、下で必ず待つ。
+  //   （complete で弾くと、間に合わなかった外部画像が焼かれず残り、html2canvas が
+  //    clone 内で再取得してスマホでハング→描画タイムアウトになる。これが1回目失敗の主因。）
   const imgs = Array.from(root.querySelectorAll('img')).filter(img => {
-    if (!img.complete || img.naturalWidth === 0) return false;
     const src = img.currentSrc || img.src || '';
     if (!src || src.startsWith('data:')) return false;
     try { return new URL(src, location.href).origin !== location.origin; }
@@ -620,9 +638,17 @@ async function bakeCrossOriginImages(root) {
   });
   // 長辺の上限。これより大きい画像（特に 1280px の Static Map）は縮小してから焼く。
   // フル解像度で toDataURL するとエンコード/再デコード/メモリが重く、体感フリーズの主因になる。
-  // モバイルは軽さ優先で 1024px、PC は画質優先で 1600px（PC はエンコード負荷に余裕がある）。
-  const MAX_SIDE = _pdfConstrained ? 1024 : 1600;
+  // モバイルのみ bake するため上限は 1024px（軽さ優先。見た目の劣化はほぼ無い）。
+  const MAX_SIDE = 1024;
   for (const img of imgs) {
+    // まず確実にロード完了を待つ（未ロードなら最大12秒）。
+    const loaded = await ensureImageLoaded(img);
+    if (!loaded || !img.naturalWidth) {
+      // 読めなかった外部画像は隠す。残すと html2canvas が clone で再取得しハングする。
+      console.warn('[pdf] bake: 読込不可の外部画像を非表示:', (img.src || '').slice(0, 60));
+      img.style.display = 'none';
+      continue;
+    }
     try {
       let w = img.naturalWidth, h = img.naturalHeight;
       const longest = Math.max(w, h);
@@ -641,11 +667,27 @@ async function bakeCrossOriginImages(root) {
       c.width = c.height = 0; // 一時キャンバス解放
       img.src = dataUrl;
     } catch (e) {
-      console.warn('[pdf] bake skip (keep original):', (img.src || '').slice(0, 60), e && e.message);
+      // ★焼けなかった外部画像は元の src（外部URL）のまま残さず、必ず隠す。
+      //   残すと html2canvas が clone 内で外部URLを再取得してハング→1回目失敗の原因になる。
+      console.warn('[pdf] bake失敗→非表示:', (img.src || '').slice(0, 60), e && e.message);
+      img.style.display = 'none';
     }
   }
   // data URL 差し替え後のロードを待つ（data URL は基本即時）
   await waitForImages(root);
+  // ★最終保険: ここまでで external(http) のままの img が1つでも残っていたら隠す。
+  //   html2canvas に外部URLを一切渡さないことで、clone 内再取得によるハングを構造的に排除。
+  Array.from(root.querySelectorAll('img')).forEach(img => {
+    const src = img.currentSrc || img.src || '';
+    if (/^https?:/i.test(src)) {
+      try {
+        if (new URL(src, location.href).origin !== location.origin) {
+          console.warn('[pdf] bake後も外部URLが残存→非表示:', src.slice(0, 60));
+          img.style.display = 'none';
+        }
+      } catch (_) { /* noop */ }
+    }
+  });
   console.timeEnd('[pdf] bakeImages');
 }
 

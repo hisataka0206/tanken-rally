@@ -12,6 +12,22 @@ import { randomFunCharacterImage } from './characters.js?v=106';
 // お楽しみ要素: ストリートビューカードにランダムでキャラを紛れ込ませる確率
 const EASTER_EGG_PROBABILITY = 0.3;
 
+// 端末が非力（スマホ / 低メモリ）かどうか。generateMapPdf の冒頭で判定してセットする。
+// true のときは html2canvas の解像度を下げ、キャラ画像も出さない（メモリ不足で固まる対策）。
+let _pdfConstrained = false;
+
+function detectConstrainedDevice() {
+  try {
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle/i.test(ua)
+      || (navigator.maxTouchPoints > 1 && /Mac/.test(ua)); // iPadOS（Macを名乗る）
+    const lowMem = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
+    return isMobile || lowMem;
+  } catch (_) {
+    return false;
+  }
+}
+
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
 
@@ -35,6 +51,10 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
+  // 端末判定（スマホ/低メモリ）。以降の解像度とキャラ描画の抑制に使う。
+  _pdfConstrained = detectConstrainedDevice();
+  console.info(`[pdf] constrained device = ${_pdfConstrained}`);
+
   // 1) 隠し要素に PDF 用 HTML を構築
   const container = buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, apiKey });
   document.body.appendChild(container);
@@ -52,16 +72,18 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
     progress(t('pdfStageRender', '描画中…（少し時間がかかります）'));
     const contentW = container.scrollWidth || 794;
     const contentH = container.scrollHeight || 1;
-    const MAX_PIXELS = 14000000;   // 上限より少し安全側
-    const MAX_DIMENSION = 14000;
-    let SCALE = 2;
+    // スマホ/低メモリ端末は、巨大キャンバスでタブが固まるため予算を大きく下げる。
+    const MAX_PIXELS    = _pdfConstrained ?  5000000 : 14000000;
+    const MAX_DIMENSION = _pdfConstrained ?     8000 :    14000;
+    const SCALE_FLOOR   = _pdfConstrained ?      0.6 :      0.9;
+    let SCALE = _pdfConstrained ? 1.5 : 2;
     if (contentW * contentH * SCALE * SCALE > MAX_PIXELS) {
-      SCALE = Math.max(0.9, Math.sqrt(MAX_PIXELS / (contentW * contentH)));
+      SCALE = Math.max(SCALE_FLOOR, Math.sqrt(MAX_PIXELS / (contentW * contentH)));
     }
     if (contentH * SCALE > MAX_DIMENSION) {
       SCALE = Math.min(SCALE, MAX_DIMENSION / contentH);
     }
-    console.info(`[pdf] content=${contentW}x${contentH}px scale=${SCALE.toFixed(2)}`);
+    console.info(`[pdf] content=${contentW}x${contentH}px scale=${SCALE.toFixed(2)} constrained=${_pdfConstrained}`);
     const canvas = await html2canvas(container, {
       useCORS: true,
       allowTaint: false,
@@ -417,8 +439,9 @@ function buildTurnCard({ label, labelColor, title, subtitle, icon, lat, lng, hea
   // フォールバック：SV取得失敗時に表示する Static Map（地点中心、ズーム18、マーカー付き）
   const fallback = `https://maps.googleapis.com/maps/api/staticmap?size=480x320&scale=2&center=${lat},${lng}&zoom=18&markers=color:red%7Csize:mid%7C${lat},${lng}&maptype=roadmap&language=${apiLang()}&key=${apiKey}`;
   // お楽しみ要素: たまにキャラクターが写真の隅に紛れ込む（get以外のポーズ）
+  // ※スマホ/低メモリ端末では、重いPNGでメモリを圧迫して固まるため出さない。
   let eggHtml = '';
-  if (Math.random() < EASTER_EGG_PROBABILITY) {
+  if (!_pdfConstrained && Math.random() < EASTER_EGG_PROBABILITY) {
     const { url } = randomFunCharacterImage();
     const side = Math.random() < 0.5 ? 'left:8px;' : 'right:8px;';
     const rot = (Math.random() * 16 - 8).toFixed(1);

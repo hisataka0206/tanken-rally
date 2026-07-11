@@ -19,7 +19,8 @@ const ROOT_FOLDER_ID = '10EzCggGS5BcZ2LJXOnbfd1WLhSh7MECH';
 // https://docs.google.com/spreadsheets/d/<ID>/edit
 const LOG_SHEET_ID   = '1ClqbDlFA6flvz2i3A7OABE0seq4GeqhcztLFCHdTuHk';
 const SHARED_SECRET    = 'tanken-rally-poc-2026'; // config.js の GAS_SECRET と合わせること
-const SESSION_RETENTION_DAYS = 7;                  // セッションフォルダの保持期間（日）
+const SESSION_RETENTION_DAYS = 30;                 // セッションフォルダ（写真）の保持期間（日）。約1か月。
+                                                   // ※フロントの履歴に出す「削除済み」文言と一致させること。
 
 // ===== エントリポイント =====
 function doPost(e) {
@@ -833,13 +834,22 @@ function getUserHistory(body) {
     const sessions = [];
     for (let i = 1; i < sRows.length; i++) {
       if (String(sRows[i][uidIdx]) !== userId) continue;
+      // スポット名の一覧を「スポット詳細(JSON)」から取り出す（写真フォルダを消しても残る情報）
+      let spots = [];
+      try {
+        const arr = JSON.parse(String(sRows[i][sCol('スポット詳細(JSON)')] || '[]'));
+        if (Array.isArray(arr)) spots = arr.map(s => (s && s.name) ? String(s.name) : '').filter(Boolean);
+      } catch (_) { /* JSON壊れは空扱い */ }
       sessions.push({
-        sessionId:   String(sRows[i][sCol('sessionId')] || ''),
-        date:        String(sRows[i][sCol('日時')] || ''),
-        stationName: String(sRows[i][sCol('駅名')] || ''),
-        folderUrl:   String(sRows[i][sCol('フォルダURL')] || ''),
-        spotCount:   Number(sRows[i][sCol('スポット数')]) || 0,
-        score:       null,
+        sessionId:    String(sRows[i][sCol('sessionId')] || ''),
+        date:         String(sRows[i][sCol('日時')] || ''),
+        stationName:  String(sRows[i][sCol('駅名')] || ''),
+        folderUrl:    String(sRows[i][sCol('フォルダURL')] || ''),
+        spotCount:    Number(sRows[i][sCol('スポット数')]) || 0,
+        spots:        spots,
+        distanceText: String(sRows[i][sCol('総距離')] || ''),
+        durationMin:  sRows[i][sCol('推定時間(分)')] || '',
+        score:        null,
       });
     }
 

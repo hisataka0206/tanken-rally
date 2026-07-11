@@ -152,6 +152,7 @@ const TRANSLATIONS = {
     historyError: '履歴の読み込みに失敗したよ。もう一度ためしてね。',
     historyOpenFolder: '📂 ひらく',
     historyResume: '✏️ つづき',
+    historySecurityNoteFmt: '🔒 {date}より前の写真は、セキュリティのため削除されていて見ることができません。',
 
     btnZukan: '📖 キャラずかん',
     zukanTitle: '📖 キャラずかん',
@@ -540,6 +541,7 @@ const TRANSLATIONS = {
     historyError: 'Failed to load history. Please try again.',
     historyOpenFolder: '📂 Open',
     historyResume: '✏️ Continue',
+    historySecurityNoteFmt: '🔒 Photos from before {date} have been deleted for security and cannot be viewed.',
 
     btnZukan: '📖 Character Collection',
     zukanTitle: '📖 Character Collection',
@@ -911,6 +913,7 @@ const TRANSLATIONS = {
     historyError: '履歴（りれき）のよみこみに しっぱいしたよ。もういちど ためしてね。',
     historyOpenFolder: '📂 ひらく',
     historyResume: '✏️ つづき',
+    historySecurityNoteFmt: '🔒 {date}より前（まえ）の写真（しゃしん）は、セキュリティのため削除（さくじょ）されていて見（み）ることができません。',
 
     btnZukan: '📖 キャラずかん',
     zukanTitle: '📖 キャラずかん',

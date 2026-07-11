@@ -496,6 +496,9 @@ async function openHistory() {
     const a = getStoredAuth();
     accEl.textContent = a ? t('zukanAccountFmt').replace('{name}', a.name || '') : '';
   }
+  // セキュリティ削除の注意文（今日から約1か月前の日付を計算して表示）
+  const noteEl = $('history-security-note');
+  if (noteEl) noteEl.textContent = t('historySecurityNoteFmt').replace('{date}', oneMonthAgoLabel());
   $('history-modal').classList.remove('hidden');
 
   if (!drive) {
@@ -520,6 +523,15 @@ function formatHistoryDate(iso) {
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
 }
 
+// 今日から約1か月前の日付ラベル（写真の保持期間＝GAS の SESSION_RETENTION_DAYS≒30日に対応）
+function oneMonthAgoLabel() {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate();
+  if (LANG === 'en') return `${y}/${String(m).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
+  return `${y}年${m}月${day}日`;
+}
+
 function renderHistory(items) {
   const list = $('history-list');
   if (!items || !items.length) {
@@ -530,12 +542,23 @@ function renderHistory(items) {
   items.forEach(it => {
     const dateStr = formatHistoryDate(it.date);
     const scoreStr = (it.score != null) ? `${it.score}${t('suffPoints')}` : '—';
+    // 移動（距離・時間）— 写真フォルダを消しても残るメタ情報
+    const routeParts = [];
+    if (it.distanceText) routeParts.push(`🚶 ${escapeHtml(String(it.distanceText))}`);
+    if (it.durationMin)  routeParts.push(`⏱ ${escapeHtml(String(it.durationMin))}${t('suffMin')}`);
+    const routeHtml = routeParts.length ? `<div class="history-route">${routeParts.join(' ・ ')}</div>` : '';
+    // 訪れたスポット名
+    const spotsHtml = (it.spots && it.spots.length)
+      ? `<div class="history-spots">📍 ${escapeHtml(it.spots.join(' / '))}</div>`
+      : (it.spotCount ? `<div class="history-spots">📍 ${Number(it.spotCount)}</div>` : '');
     const item = document.createElement('div');
     item.className = 'history-item';
     item.innerHTML = `
       <div class="history-main">
         <div class="history-station">🚉 ${escapeHtml(it.stationName || '')}</div>
-        <div class="history-meta">${escapeHtml(dateStr)} ・ 🏆 ${escapeHtml(scoreStr)} ・ 📍 ${Number(it.spotCount) || 0}</div>
+        <div class="history-meta">${escapeHtml(dateStr)} ・ 🏆 ${escapeHtml(scoreStr)}</div>
+        ${routeHtml}
+        ${spotsHtml}
       </div>
       <div class="history-actions">
         ${it.folderUrl ? `<a class="history-link" href="${escapeHtml(it.folderUrl)}" target="_blank" rel="noopener">${escapeHtml(t('historyOpenFolder'))}</a>` : ''}

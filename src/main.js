@@ -214,6 +214,7 @@ const FIND_MIN_RATIO  = 0.5;  // 最低出現ステージ数の割合（スポ�
 const FIND_EXTRA_PROB = 0.4;  // 最低を超えて当たりを1ステージずつ増やす確率
 let _hitStages  = null;       // 当たり（キャラがいる）ステージのキー集合。null=未計算・セッション毎に確定
 let _searchUsed = false;      // GPS無し救済「さがす」を今セッションで使ったか（1回だけ）
+let _resolvedStages = new Set(); // 一度開いて「いなかった」ステージ（再さがし不可・photoWizardStageで管理）
 
 // 当たりステージを確定する（start + spot群 から 最低〜最大 個をランダム選出）。
 function ensureHitStages() {
@@ -338,7 +339,9 @@ function arStageContext(info) {
 function updateArHuntButton(info) {
   const btn = $('ar-hunt-btn');
   if (!btn) return;
-  btn.classList.toggle('hidden', !arStageContext(info));
+  const ctx = arStageContext(info);
+  // 全ステージで押せる（行って確認できる）。ただし一度チェックして「いなかった」ステージは非表示。
+  btn.classList.toggle('hidden', !ctx || _resolvedStages.has(state.photoWizardStage));
 }
 
 async function openArHunt() {
@@ -348,6 +351,12 @@ async function openArHunt() {
   // admin: 出すキャラを固定（指定があれば上書き）
   if (isAdmin() && adminOverride.charId) ctx.char = characterById(adminOverride.charId);
   arCurrent = ctx;
+
+  // 「いなかった」外れステージは、開いてチェックした時点で再さがし不可にする（当たり＝キャラ有りは対象外）。
+  if (!ctx.char) {
+    _resolvedStages.add(state.photoWizardStage);
+    updateArHuntButton(info); // 背後のボタンを即・非表示に
+  }
 
   // オーバーレイ表示・初期化
   const overlay = $('ar-overlay');
@@ -1695,7 +1704,7 @@ async function onStartExplore() {
   const btn = $('start-explore-btn');
   btn.textContent = t('statusReady');
   btn.disabled = true;
-  _hitStages = null; _searchUsed = false;  // 新しい探検＝当たりステージ再抽選＋GPS無し救済リセット
+  _hitStages = null; _searchUsed = false; _resolvedStages = new Set(); // 新しい探検＝抽選・救済・チェック済みをリセット
 
   try {
     state.sessionId = generateSessionId();

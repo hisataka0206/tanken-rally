@@ -65,6 +65,14 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
     progress(t('pdfStageImages', '画像を読込中…'));
     await waitForImagesWithFallback(container);
 
+    // ★スマホ対策: Google の地図/ストリートビュー画像（別ドメイン）を、描画前に
+    //   データURL（同一オリジン扱い）へ焼き込む。html2canvas が別ドメイン画像の
+    //   取り扱いでスマホ上で固まる問題を回避する（1スポットでも「描画中」で止まる症状）。
+    //   PC は元々問題ないので触らない。失敗時は元のまま html2canvas に任せる。
+    if (_pdfConstrained) {
+      await bakeCrossOriginImages(container);
+    }
+
     // 2) html2canvas でラスタライズ
     // ★モバイル対策: スマホブラウザには canvas の上限（iOS Safari は約1,677万画素、
     //   1辺は概ね 16,384px まで）があり、超えると描画が固まる・空になる。
@@ -585,6 +593,34 @@ function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[c]));
+}
+
+// 別ドメイン画像（Googleの地図・ストリートビュー等）を data URL に焼き込む。
+// html2canvas が clone 内で別ドメイン画像を再取得しようとしてスマホで固まるのを防ぐ。
+// 画像は crossorigin=anonymous + CORS 済みで読めているので canvas 経由で data URL 化できる。
+// taint 等で失敗した画像は元の src のまま残す（安全側）。
+async function bakeCrossOriginImages(root) {
+  console.time('[pdf] bakeImages');
+  const imgs = Array.from(root.querySelectorAll('img'))
+    .filter(img => img.complete && img.naturalWidth > 0 && !(img.src || '').startsWith('data:'));
+  for (const img of imgs) {
+    try {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const cx = c.getContext('2d');
+      cx.drawImage(img, 0, 0);
+      // 地図・SVは不透明なので JPEG でOK（軽い）。透過が要る画像はスマホでは出していない。
+      const dataUrl = c.toDataURL('image/jpeg', 0.85);
+      c.width = c.height = 0; // 一時キャンバス解放
+      img.src = dataUrl;
+    } catch (e) {
+      console.warn('[pdf] bake skip (keep original):', (img.src || '').slice(0, 60), e && e.message);
+    }
+  }
+  // data URL 差し替え後のロードを待つ（data URL は基本即時）
+  await waitForImages(root);
+  console.timeEnd('[pdf] bakeImages');
 }
 
 function waitForImages(root) {

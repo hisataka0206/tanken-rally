@@ -135,3 +135,7 @@ html2canvas は **box-shadow / transform(回転) / filter / text-shadow** のラ
 
 ### 学び
 - **「画像もフォントもシロ」でも描画は固まりうる。** 次に疑うのは html2canvas が苦手な CSS（影・変形・フィルタ）。**描画時だけ onclone で装飾を外す**のが低リスク高効果。
+
+### 追記2の続報（2026-07-12）: CSS軽量化だけでは不足 → モバイルはストリートビュー節を省く
+onclone での box-shadow/transform/filter 除去＋MAX_PIXELS圧縮（scale 0.87→0.74）を入れても、**794×4994・SV16枚のルートは iPhone 実機で依然90秒タイムアウト**（`renderStart … s=0.74 > ERROR@90762ms`）。html2canvas はこのDOM規模自体が重い。
+→ **対策: `_pdfConstrained`（スマホ）では曲がり角のストリートビュー節（`buildTurnPointsHtml`＝SV16枚・高さの大半）を丸ごと省き、「PC版でつきます」の一言に置換。** 地図全体像＋区間フロー＋スポット一覧の核は維持。これで画像20→~4枚・高さ大幅減となり描画が現実的な時間に収まる。SV写真が要る場合はPCでDL。

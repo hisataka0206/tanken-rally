@@ -121,23 +121,20 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
     mark(`renderStart ${contentW}x${contentH} s=${SCALE.toFixed(2)}`);
     // html2canvas が固まったまま返ってこないケースの保険。一定時間で諦めてエラーにし、
     // 無限フリーズではなくメッセージを出す（呼び出し側でボタンを復帰させる）。
-    const RENDER_TIMEOUT_MS = _pdfConstrained ? 90000 : 180000;
-    const canvas = await Promise.race([
-      html2canvas(container, {
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        scale: SCALE,
-        // 保険: 画像は事前に data URL 化済みなので即読めるはずだが、万一外部URLが
-        //   残っても html2canvas が長時間ハングしないよう明示的に短めの上限を置く。
-        imageTimeout: 15000,
-        // ★真因対策: html2canvas はクローンiframeにページの <link>（CSS/フォント）を
-        //   丸ごとコピーし、その読み込み完了を待つ。Google Fonts 等の別ドメイン資源は
-        //   キャッシュが冷たい1回目にクローン内でコールドfetch → 解決せずハングし、
-        //   描画タイムアウト(90秒)で失敗する（＝1回目失敗・2回目一瞬の正体）。
-        //   PDF本文はシステムフォント指定なので、クローンから別ドメインの link を
-        //   取り除いても見た目は変わらない。これでクローンの別ドメイン読込をゼロにする。
-        onclone: (clonedDoc) => {
+    const h2cOpts = {
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: '#ffffff',
+      scale: SCALE,
+      // 保険: 画像は事前に data URL 化済みなので即読めるはずだが、万一外部URLが
+      //   残っても html2canvas が長時間ハングしないよう明示的に短めの上限を置く。
+      imageTimeout: 15000,
+      // ★真因対策: html2canvas はクローンiframeにページの <link>（CSS/フォント）を
+      //   丸ごとコピーし、その読み込み完了を待つ。Google Fonts 等の別ドメイン資源は
+      //   キャッシュが冷たい1回目にクローン内でコールドfetch → 解決せずハングし、
+      //   タイムアウトで失敗する（＝1回目失敗・2回目一瞬の正体）。link/style/font を
+      //   すべて落とし、本文をシステムフォント固定にして依存をゼロにする。
+      onclone: (clonedDoc) => {
           try {
             mark('onclone');
             let removed = 0;
@@ -149,7 +146,20 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
               catch (_) { cross = /^https?:/i.test(href); }
               if (cross) { try { el.parentNode && el.parentNode.removeChild(el); removed++; } catch (_) {} }
             });
-            // clone 側にフォント読み込みが残らないよう保険（存在すれば）
+            // ★フォント依存を完全に断つ: @font-face や Google Fonts を含む <style> も除去。
+            //   さらに本文をシステムフォント固定にして、クローンが Web フォントを一切要求しない
+            //   状態にする → クローンの fonts.ready が即解決し「1回目コールドで固まる」が消える。
+            clonedDoc.querySelectorAll('style').forEach(el => {
+              const txt = el.textContent || '';
+              if (/@font-face|fonts\.googleapis|fonts\.gstatic|@import/i.test(txt)) {
+                try { el.parentNode && el.parentNode.removeChild(el); removed++; } catch (_) {}
+              }
+            });
+            const sysFontStyle = clonedDoc.createElement('style');
+            sysFontStyle.textContent =
+              '#pdf-render-root, #pdf-render-root * { font-family:' +
+              " -apple-system, 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, sans-serif !important; }";
+            (clonedDoc.head || clonedDoc.body || clonedDoc.documentElement).appendChild(sysFontStyle);
             _bakeStats += ` linkRemoved=${removed}`;
             // ★モバイル描画高速化: html2canvas は box-shadow / transform(回転) / filter の
             //   ラスタライズが極端に重い（縦長DOMで90秒ハングの主因）。描画クローンでのみ
@@ -166,16 +176,30 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
             }
           } catch (_) { /* noop */ }
         },
-      }),
-      new Promise((_, reject) => setTimeout(
-        () => reject(new Error(t('pdfErrRenderTimeout',
-          'PDFの描画に時間がかかりすぎたため中断しました。ルートを短くするか、PCでお試しください。'))),
-        RENDER_TIMEOUT_MS
-      )),
-    ]);
-    mark(`renderDone ${canvas.width}x${canvas.height}`);
-    if (!canvas.width || !canvas.height) {
-      throw new Error('canvas rendering failed (size 0)');
+    };
+    // ★「1回目だけ固まり、押し直すと一瞬」への対策＝短いタイムアウトで自動リトライ。
+    //   html2canvas は中断できないので、詰まった試行は放置し、キャッシュが温まった
+    //   再試行が先に完了する（＝「もう一度DLを押す」をアプリが自動でやる）。
+    const ATTEMPT_TIMEOUT_MS = _pdfConstrained ? 12000 : 30000;
+    const MAX_ATTEMPTS = 4;
+    let canvas = null;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS && !canvas; attempt++) {
+      mark(`try${attempt}`);
+      try {
+        const c = await Promise.race([
+          html2canvas(container, h2cOpts),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('attempt-timeout')), ATTEMPT_TIMEOUT_MS)),
+        ]);
+        if (c && c.width && c.height) { canvas = c; mark(`renderDone try${attempt} ${c.width}x${c.height}`); break; }
+        mark(`try${attempt}-empty`);
+      } catch (_) {
+        mark(`try${attempt}-timeout`);
+      }
+      if (attempt < MAX_ATTEMPTS) await new Promise(r => setTimeout(r, 500));
+    }
+    if (!canvas || !canvas.width || !canvas.height) {
+      throw new Error(t('pdfErrRenderTimeout',
+        'PDFの描画に時間がかかりすぎたため中断しました。ルートを短くするか、PCでお試しください。'));
     }
     progress(t('pdfStageWrite', 'PDF書き出し中…'));
 

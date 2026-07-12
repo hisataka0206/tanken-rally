@@ -69,11 +69,17 @@
     <!-- ヘッダー -->
     <header class="header">
       <span class="header-icon">🗺️</span>
-      <h1 data-i18n="appTitle">テクタン</h1>
-      <span class="header-version" id="header-version">v1.0.0</span>
-      <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
-      <button id="home-btn" class="zukan-btn" type="button" data-i18n-title="btnHome" title="トップにもどる">🏠</button>
-      <button id="admin-btn" class="zukan-btn hidden" type="button" title="マスターモード（admin）">🛠</button>
+      <div class="header-brand">
+        <div class="header-title-row">
+          <h1 data-i18n="appTitle">テクタン</h1>
+          <span class="header-version" id="header-version">v1.0.0</span>
+        </div>
+        <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
+      </div>
+      <div class="header-actions">
+        <button id="home-btn" class="zukan-btn" type="button" data-i18n-title="btnHome" title="トップにもどる">🏠</button>
+        <button id="admin-btn" class="zukan-btn hidden" type="button" title="マスターモード（admin）">🛠</button>
+      </div>
     </header>
 
     <!-- 再開中インジケータ（履歴から再開した探検を続けている間、ずっと表示。#2 取り違え防止） -->

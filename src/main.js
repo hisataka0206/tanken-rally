@@ -17,7 +17,7 @@ import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, lo
 import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout } from './utils/auth.js?v=106';
 import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
 import { initShell, updateShell } from './utils/shell.js?v=106';
-import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices } from './utils/chargen.js?v=106';
+import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug } from './utils/chargen.js?v=106';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -721,6 +721,13 @@ async function openZukan() {
   }
 }
 
+// ログイン中アカウントの userId を返す（未ログインは null）。
+// 履歴・セッションの所有者キーは必ずこれを使い、端末共有の explorerId には落とさない。
+function accountUserId() {
+  const a = getStoredAuth();
+  return (a && a.userId) ? a.userId : null;
+}
+
 // ===== ぼうけんの履歴 =====
 async function openHistory() {
   const list = $('history-list');
@@ -738,9 +745,15 @@ async function openHistory() {
     list.innerHTML = `<p class="history-empty">${escapeHtml(t('historyNoGas'))}</p>`;
     return;
   }
+  // 履歴はログイン中アカウント限定（未ログイン時は端末IDに落とさず、履歴を出さない）。
+  const uid = accountUserId();
+  if (!uid) {
+    list.innerHTML = `<p class="history-empty">${escapeHtml(t('historyLoginRequired'))}</p>`;
+    return;
+  }
   list.innerHTML = `<p class="history-loading">${escapeHtml(t('historyLoading'))}</p>`;
   try {
-    const items = await drive.getUserHistory({ userId: getExplorerId(), limit: 50 });
+    const items = await drive.getUserHistory({ userId: uid, limit: 50 });
     renderHistory(items);
   } catch (e) {
     console.warn('[history] 取得失敗:', e);
@@ -1761,7 +1774,7 @@ async function onStartExplore() {
             sessionId: state.sessionId,
             stationName: state.stationName,
             playerName,
-            userId: getExplorerId(),          // ログイン中はアカウントの userId
+            userId: accountUserId() || '',    // 所有者はアカウントの userId のみ（未ログインは空＝どのアカウント履歴にも出さない）
             userName: (account && account.name) || '',
             folderUrl: state.driveSession.folderUrl,
             orderedSpots: state.orderedSpots.map(s => ({
@@ -2718,11 +2731,35 @@ async function openChargen() {
     alert(t('chargenLoading'));
     return;
   }
+  // 生成経路（実API/モック）の可視化: コンソールに必ず出力＋admin時はバッジ表示。
+  const genDbg = getLastGenDebug();
+  console.info('[chargen] source =', result.source, '｜', genDbg && genDbg.reason);
+  updateChargenSourceBadge(result.source, genDbg && genDbg.reason);
   _chargenCandidates = result.candidates;
   _chargenChosen = null;
   _chargenChosenName = '';
   renderChargenSilhouettes(_chargenCandidates);
   chargenSetPhase('pick');
+}
+
+// 生成経路バッジ（admin マスターモードのみ表示・テスト用）。
+// source: 'nanobanana'（実API）/ 'mock'（既存絵の色替え）。
+function updateChargenSourceBadge(source, reason) {
+  const modal = $('chargen-modal');
+  if (!modal) return;
+  let badge = $('chargen-source-badge');
+  if (!isAdmin()) { if (badge) badge.remove(); return; }
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'chargen-source-badge';
+    badge.style.cssText = 'position:absolute;top:8px;left:8px;z-index:5;font-size:11px;'
+      + 'padding:3px 8px;border-radius:999px;font-weight:700;color:#fff;';
+    const card = modal.querySelector('.modal-card, .chargen-card, .card') || modal.firstElementChild || modal;
+    card.appendChild(badge);
+  }
+  const real = source === 'nanobanana';
+  badge.textContent = (real ? '🟢 実API' : '🟠 モック') + (reason ? '：' + reason : '');
+  badge.style.background = real ? '#2e7d32' : '#e07b00';
 }
 
 function renderChargenSilhouettes(cands) {

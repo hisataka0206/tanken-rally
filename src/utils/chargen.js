@@ -114,18 +114,32 @@ function sanitizeTheme(x) {
 let _drive = null;
 export function setChargenBackend(drive) { _drive = drive; }
 
+// 直近の実API生成の診断（source の切り分け用）。main.js から参照して可視化する。
+let _lastGenDebug = { source: null, reason: '' };
+export function getLastGenDebug() { return _lastGenDebug; }
+
 async function callNanoBananaPro({ prompt, count }) {
-  // TODO(実API): _drive.generateCharacters({ prompt, count }) を実装して差し替える。
-  // 現状は未接続なので null を返し、呼び出し側がモックにフォールバックする。
-  if (!_drive || typeof _drive.generateCharacters !== 'function') return null;
+  // 実API: _drive.generateCharacters({ prompt, count })（GAS経由で NanoBanana Pro）。
+  // 失敗時は null を返し、呼び出し側がモックにフォールバックする。理由は _lastGenDebug に記録。
+  if (!_drive || typeof _drive.generateCharacters !== 'function') {
+    _lastGenDebug = { source: 'mock', reason: 'backend未登録（GAS_URL未設定 or setChargenBackend未実行）' };
+    console.warn('[chargen] 実API未接続 → モック生成:', _lastGenDebug.reason);
+    return null;
+  }
   try {
     const res = await _drive.generateCharacters({ prompt, count });
     if (res && Array.isArray(res.images) && res.images.length) {
+      _lastGenDebug = { source: 'nanobanana', reason: `実API成功（${res.images.length}枚）` };
+      console.info('[chargen] 実API生成 成功:', _lastGenDebug.reason);
       return res.images.map(img => ({ imageDataUrl: img.dataUrl || img }));
     }
+    _lastGenDebug = { source: 'mock', reason: '実APIが画像0件を返却' };
+    console.warn('[chargen] 実API 画像0件 → モック生成');
     return null;
   } catch (e) {
-    console.warn('[chargen] 実API生成に失敗（モックにフォールバック）:', e && e.message);
+    const msg = (e && e.message) || String(e);
+    _lastGenDebug = { source: 'mock', reason: '実API失敗: ' + msg };
+    console.warn('[chargen] 実API生成に失敗（モックにフォールバック）:', msg);
     return null;
   }
 }
@@ -189,9 +203,10 @@ export async function startGeneration(params) {
     count,
   });
 
-  if (real && real.length >= count) {
+  // 実APIが1枚でも返れば採用（全3枚成功を要求しない＝一部SAFETYブロック等でも実APIを活かす）。
+  if (real && real.length >= 1) {
     return {
-      candidates: real.slice(0, count).map((r, idx) => ({
+      candidates: real.map((r, idx) => ({
         candidateId: 'g' + idx,
         bodyId: (bodies[idx] || AXIS_BODY[0]).id,
         impressionId: AXIS_IMPRESSION[0].id,
@@ -200,7 +215,7 @@ export async function startGeneration(params) {
         imageUrl: r.imageDataUrl,
         colorFilter: 'none',
         imageDataUrl: r.imageDataUrl,
-        vocab: perCandidate[idx],
+        vocab: perCandidate[idx] || perCandidate[0],
       })),
       rarityId: rarity.id,
       source: 'nanobanana',

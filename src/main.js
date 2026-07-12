@@ -765,18 +765,21 @@ function renderZukanGrid(collection) {
   // つくったなかま（キャラ自動生成）: 専用ストアから追記
   const genRecs = loadGeneratedCharacters();
   let genHtml = '';
-  if (genRecs.length) {
-    genHtml = `<div class="zukan-section-label">${escapeHtml(t('chargenZukanSection', '🌟 つくった なかま'))}</div>` +
-      genRecs.map(rec => {
-        const rar = rarityById(rec.rarityId);
-        const style = rec.imageDataUrl ? '' : ` style="filter:${rec.colorFilter || 'none'}"`;
-        return `
-          <div class="zukan-item zukan-generated zukan-clickable" data-gen-id="${escapeHtml(rec.genId || '')}" role="button">
-            <img src="${escapeHtml(generatedImageUrl(rec))}" alt=""${style} />
-            <div class="zukan-name">${escapeHtml(rec.name || '')}</div>
-            <div class="zukan-count">${'★'.repeat(rar.stars || 1)}</div>
-          </div>`;
-      }).join('');
+  const genCards = genRecs.map(rec => {
+    const url = generatedImageUrl(rec);
+    if (!url) return '';   // 画像もベース絵も無い壊れレコードは表示しない
+    const rar = rarityById(rec.rarityId);
+    const style = rec.imageDataUrl ? '' : ` style="filter:${rec.colorFilter || 'none'}"`;
+    // 画像の読み込みに失敗した場合はカードごと隠す（壊れアイコンを出さない）
+    return `
+      <div class="zukan-item zukan-generated zukan-clickable" data-gen-id="${escapeHtml(rec.genId || '')}" role="button">
+        <img src="${escapeHtml(url)}" alt=""${style} onerror="this.closest('.zukan-item').style.display='none'" />
+        <div class="zukan-name">${escapeHtml(rec.name || '')}</div>
+        <div class="zukan-count">${'★'.repeat(rar.stars || 1)}</div>
+      </div>`;
+  }).filter(Boolean);
+  if (genCards.length) {
+    genHtml = `<div class="zukan-section-label">${escapeHtml(t('chargenZukanSection', '🌟 つくった なかま'))}</div>` + genCards.join('');
   }
 
   grid.innerHTML = charsHtml + genHtml;

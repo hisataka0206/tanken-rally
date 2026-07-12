@@ -456,6 +456,9 @@ export function mergeServerGenerated(list) {
   list.forEach(r => {
     const genId = r && r.genId;
     if (!genId || obj[genId]) return;
+    // 画像もベース絵も無いレコードは描画できない（壊れ画像になる）のでマージしない。
+    // GAS再設定中などに画像保存が間に合わずメタだけ残った行を弾く。
+    if (!r.imageDataUrl && !r.baseCharId) return;
     obj[genId] = {
       genId,
       name: r.name || '',

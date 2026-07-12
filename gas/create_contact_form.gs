@@ -6,6 +6,12 @@
 //   3. 関数プルダウンで createContactForm を選び「実行」→ 初回は権限承認
 //   4. 実行ログ（表示 → ログ）に出る「公開URL」を policy.html の連絡先に貼る
 //
+// ★「Specified permissions are not sufficient ... auth/forms」と出たら:
+//   マニフェストにFormsスコープが無いのが原因。
+//   ⚙️プロジェクトの設定 →「appsscript.json マニフェストをエディタで表示する」にチェック
+//   → appsscript.json に下記を追加して保存 → 再実行:
+//     "oauthScopes": ["https://www.googleapis.com/auth/forms"]
+//
 // 回答は作成者（あなた）だけが Google フォームの回答画面で確認できます。
 // メールアドレスは公開せず、このフォームが唯一の連絡窓口になります。
 function createContactForm() {

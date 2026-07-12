@@ -159,22 +159,22 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
                 try { el.parentNode && el.parentNode.removeChild(el); removed++; } catch (_) {}
               }
             });
-            const sysFontStyle = clonedDoc.createElement('style');
-            sysFontStyle.textContent =
-              '#pdf-render-root, #pdf-render-root * { font-family:' +
-              " -apple-system, 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, sans-serif !important; }";
-            (clonedDoc.head || clonedDoc.body || clonedDoc.documentElement).appendChild(sysFontStyle);
+            // ※以前ここで font-family を * で強制上書きしていたが、それだと描画クローンの
+            //   文字メトリクスがライブDOMと変わり、ページ分割の座標（ライブDOMで測定）とズレて
+            //   写真が改ページで切れる不具合が出た。PDF本文は元からシステムフォント指定なので
+            //   上書きは不要。link/@font-face 除去だけでフォント依存（ハング）は断てる。
             _bakeStats += ` linkRemoved=${removed}`;
-            // ★モバイル描画高速化: html2canvas は box-shadow / transform(回転) / filter の
-            //   ラスタライズが極端に重い（縦長DOMで90秒ハングの主因）。描画クローンでのみ
-            //   これらを無効化して描画コストを大幅に下げる。背景グラデ(background-image)は
-            //   見出し帯の視認性に必要なので残す＝見た目はほぼ不変で速度だけ改善。
+            // ★モバイル描画高速化: html2canvas は box-shadow / filter のラスタライズが重い。
+            //   描画クローンでのみ無効化して描画コストを下げる。
+            //   ※transform(回転) は無効化しない：ライブDOMの getBoundingClientRect は回転後の
+            //     範囲を含むため、クローンでも回転を残さないと分割座標とズレて写真が切れる。
+            //   背景グラデ(background-image)は見出しの視認性に必要なので残す。
             if (_pdfConstrained) {
               const st = clonedDoc.createElement('style');
               st.textContent =
                 '#pdf-render-root *, #pdf-render-root *::before, #pdf-render-root *::after {' +
                 'box-shadow:none !important; text-shadow:none !important; filter:none !important;' +
-                'transform:none !important; transition:none !important; animation:none !important; }';
+                'transition:none !important; animation:none !important; }';
               (clonedDoc.head || clonedDoc.body || clonedDoc.documentElement).appendChild(st);
               _bakeStats += ' lowfx=1';
             }

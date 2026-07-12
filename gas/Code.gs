@@ -12,13 +12,15 @@
  *   5. デプロイURL を config.js の GAS_URL に設定する
  */
 
-// ===== 設定 =====
-// 指定 Drive フォルダ（https://drive.google.com/drive/folders/<ID>）
-const ROOT_FOLDER_ID = '10EzCggGS5BcZ2LJXOnbfd1WLhSh7MECH';
-// セッションログ・不具合報告の蓄積用 Spreadsheet ID
-// https://docs.google.com/spreadsheets/d/<ID>/edit
-const LOG_SHEET_ID   = '1ClqbDlFA6flvz2i3A7OABE0seq4GeqhcztLFCHdTuHk';
-const SHARED_SECRET    = 'tanken-rally-poc-2026'; // config.js の GAS_SECRET と合わせること
+// ===== 設定（公開リポジトリに実値を載せない：GAS の Script Property から読む） =====
+// Apps Script → プロジェクトの設定 → スクリプトプロパティに次を設定すること：
+//   ROOT_FOLDER_ID    … 写真/生成キャラ画像の保存先 Drive フォルダID
+//   LOG_SHEET_ID      … セッション/ランキング等の蓄積 Spreadsheet ID
+//   GAS_SHARED_SECRET … config.js の GAS_SECRET と同値（合言葉）
+const _PROP = PropertiesService.getScriptProperties();
+const ROOT_FOLDER_ID = _PROP.getProperty('ROOT_FOLDER_ID') || '';
+const LOG_SHEET_ID   = _PROP.getProperty('LOG_SHEET_ID') || '';
+const SHARED_SECRET    = _PROP.getProperty('GAS_SHARED_SECRET') || ''; // config.js の GAS_SECRET と同値をプロパティに設定
 const SESSION_RETENTION_DAYS = 30;                 // セッションフォルダ（写真）の保持期間（日）。約1か月。
                                                    // ※フロントの履歴に出す「削除済み」文言と一致させること。
 

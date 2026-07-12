@@ -75,13 +75,16 @@ tanken-rally/
 
 1. [script.google.com](https://script.google.com) で新規プロジェクトを作成
 2. `gas/Code.gs` の内容を貼り付け
-3. **写真保存先の Drive フォルダ ID を `ROOT_FOLDER_ID` に設定**（既定値: `10EzCggGS5BcZ2LJXOnbfd1WLhSh7MECH`）
-   - 自分の Drive で右クリック「新しいフォルダ」→ 作成 → そのフォルダを開いた URL の末尾が ID
-   - GAS 実行ユーザーが Drive 上でこのフォルダにアクセスできる必要あり
+3. **スクリプトプロパティを設定**（プロジェクトの設定 → スクリプトプロパティ。実値はリポジトリに載せない方針）
+   - `ROOT_FOLDER_ID` … 写真/生成キャラ画像の保存先 Drive フォルダID（自分の Drive でフォルダ作成→URL末尾がID。GAS実行ユーザーがアクセス可能なこと）
+   - `LOG_SHEET_ID` … セッション/ランキング等の蓄積 Spreadsheet ID
+   - `GAS_SHARED_SECRET` … `config.js` の `GAS_SECRET` と同値（合言葉）
+   - `GEMINI_API_KEY` … キャラ自動生成（画像）用（任意）
+   - `OPENAI_API_KEY` … 地名由来・メモ整形・音声用（任意）
 4. 「デプロイ」→「新しいデプロイ」→ 種類: ウェブアプリ
 5. 実行ユーザー: 自分 / アクセスできるユーザー: 全員
 6. 発行された URL を `config.js` の `GAS_URL` に設定
-7. `Code.gs` の `SHARED_SECRET` と `config.js` の `GAS_SECRET` を同値にする
+7. `config.js` の `GAS_SECRET` を、上の `GAS_SHARED_SECRET` と同値にする
 8. **自動削除トリガーの登録**: GAS エディタで関数 `setupAutoCleanup` を一度だけ手動実行
    - 6時間ごとに `cleanupOldSessions` が走り、`SESSION_RETENTION_DAYS`（既定 7日）より古いセッションフォルダをゴミ箱へ移動
    - 初回実行時に Drive へのアクセス許可ダイアログが出るので承認

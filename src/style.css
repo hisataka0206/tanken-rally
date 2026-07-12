@@ -3160,3 +3160,9 @@ body.ar-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .home-hero-logo, .home-hero-logo span { animation: none; }
 }
+
+/* トップ画面の法務リンク（目立たない小さいテキスト） */
+.home-policy {
+  display: block; text-align: center; margin-top: 6px;
+  font-size: 11px; color: #a8a29a; text-decoration: underline;
+}

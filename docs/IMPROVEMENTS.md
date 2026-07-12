@@ -108,7 +108,9 @@
 - ✅ 2026-07-12 **Google Maps キーの露出リスクを緩和（完了）**：Maps JS は構造上キーがclient露出するためプロキシ不可 → 代わりにキー制限で対処。
   ①HTTPリファラー制限（`https://hisataka0206.github.io/*` ＋ localhost）②API制限（Maps JS/Places/Directions/Geocoding/Static Maps/Street View の使用API限定）③各APIの日次クォータ上限（Places=5,000/日・他=2,000/日 等）④GCP予算アラート（¥10,000/月・50/90/100%通知）。→ 露出しても他サイト不可＋課金上限固定。
 - ✅ 2026-07-12 **Gemini（画像生成）キーをGAS経由でサーバ側に移動済み**（Script Property `GEMINI_API_KEY`、ブラウザ非露出）。
-- ⏳ 残：**OpenAI キーのGASプロキシ化**（`fetchOriginStory`/`tidyMemo`/`transcribeAudio`）。→ 本タスクで対応中。
+- ✅ 2026-07-12 **OpenAI キーのGASプロキシ化 完了**（`fetchOriginStory`/`tidyMemo`/`transcribeAudio` → GAS `openaiChat`/`openaiTranscribe` 経由。Script Property `OPENAI_API_KEY`。config.js/Secrets/deploy.yml から OpenAI キー削除）。
+- ⏳ 残（本番前）：**GAS側ハードニング**（`generateCharacters`/`openaiChat` の回数・レート上限、Originチェック）＋ **生成画像モデレーション**。詳細は `docs/public-release-plan.md` §1-5 / リスク#11-12。
+- 注：残る露出は Maps キー（制限済）と `GAS_SECRET`（合言葉・仕組み上露出）のみ。後者はGASハードニングで実害を抑える方針。
 
 ---
 
@@ -211,6 +213,17 @@
 - 2026-07-11 [[写真保持]]を30日に変更＋履歴に「1か月より前は削除」文言（日付は動的計算）
 - 2026-07-11 [[地図PDFモバイル最適化]]: 別ドメイン画像を縮小して data URL 化（html2canvas固まり回避）＋端末判定厳格化。退行分析: `docs/pdf-map-performance-postmortem.md`
 - 2026-07-11 [[ARバリエーション]]／[[説明文の段階解放]]／[[図鑑コンプ]]（詳細は上のアイデアプール参照）
+- 2026-07-12 [[テクタン]]改名（旧たんけんラリー）＋ロゴ書体 Mochiy Pop P One
+- 2026-07-12 [[キャラ自動生成]] Phase1 実装：実API（[[Gemini画像生成]]・GAS経由）稼働、背景透過cutout、DNAプロンプト自然文化、**レジェンド枠クールDNA**（epic/legend）、**スポット連動モチーフ**、3体を別プロンプト個別生成、**生成キャラのストーリー＋図鑑詳細**（作成者は全文）、**端末間同期**（画像=Drive/メタ=Sheets・#10）
+- 2026-07-12 [[命名ロジック刷新]]：ポケモン名 全1025種の分析（4-5字カタカナ・濁音・語尾型）に基づき、駅名カタカナ短縮＋語尾型（レジェンドは格上語尾）でキャラ名生成
+- 2026-07-12 [[タイプ名リネーム]]（#7 権利）：type/motif がポケモンのタイプ体系と丸かぶり→独自の非IP語彙へ
+- 2026-07-12 [[追加ロスター5体]]（生成物を昇格）：ヴェルダ/ギアロン(legend)・コハネ/コリュウ(epic)・ゴロネ(rare)。lore付き・レア枠出現・図鑑レア度表示
+- 2026-07-12 [[履歴のユーザー分離]]（アカウントuserId限定・端末IDに落とさない）／[[状態永続化]]（乱獲・再生成をsession×userで封じる）
+- 2026-07-12 [[トップ画面]]（3入口ホーム＋大きな動くロゴ）／[[ログイン統合]]（1画面・自動作成/ログイン・アカウント有無を漏らさない）／ヘッダー刷新／[[いまどこ？]]（現在地＋方角・使用で減点）／不具合報告削除
+- 2026-07-12 [[スコア正規化統一]]：総合点＝正規化計画点(0-100)+実行点（表示・ムード・ランキング一致）
+- 2026-07-12 [[地図PDF]] 一連：フォント/コールド資源ハングを onclone除去＋自動リトライで解消、モバイル高画質化（scale≈2）、改ページで写真が切れるデグレ修正（oncloneのフォント上書き撤去）
+- 2026-07-12 [[セキュリティ]]：Maps キー制限（リファラ/API/クォータ/予算アラート）＋ OpenAI・Gemini を GAS プロキシ化（キー非露出）
+- 2026-07-12 [[冒険履歴の改善]]：計画のみ/写真あり を区別、同一内容の計画のみは重複集約（増殖対策）、写真枚数・作成時刻表示、削除ボタン、ひらく/つづき横並び（GASに saveSession upsert/dedup・updateSessionPhotoCount・deleteSession 追加）
 
 ---
 

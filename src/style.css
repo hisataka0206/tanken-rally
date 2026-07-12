@@ -3090,3 +3090,43 @@ body.ar-open { overflow: hidden; }
   transform: scale(1.4);
   transform-origin: center 45%;
 }
+
+/* ===== トップ画面の大きな動くロゴ ===== */
+.home-hero { text-align: center; margin: 10px auto 18px; }
+.home-hero-logo {
+  font-family: 'Mochiy Pop P One', 'Yusei Magic', sans-serif;
+  font-size: clamp(44px, 13vw, 72px);
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  animation: heroFloat 3s ease-in-out infinite;
+}
+.home-hero-logo span {
+  display: inline-block;
+  text-shadow: 0 3px 0 rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.15);
+  animation: heroPop 0.6s cubic-bezier(.2,1.6,.4,1) backwards;
+}
+.home-hero-sub {
+  margin-top: 8px;
+  font-family: 'Yusei Magic', sans-serif;
+  font-size: clamp(13px, 3.6vw, 16px);
+  color: var(--brown, #6B4A32);
+  font-weight: 700;
+  opacity: 0;
+  animation: heroSubIn 0.5s ease 0.5s forwards;
+}
+@keyframes heroPop {
+  0%   { opacity: 0; transform: translateY(-34px) scale(0.3) rotate(-12deg); }
+  70%  { transform: translateY(4px) scale(1.12) rotate(4deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes heroFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes heroSubIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-hero-logo, .home-hero-logo span { animation: none; }
+}

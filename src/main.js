@@ -908,6 +908,17 @@ function showToast(msg, ms = 2600) {
   _toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
+// トップ画面の大きなアプリ名ロゴ（1文字ずつポップイン＋カラフル＋ゆらゆら）
+function buildHomeHeroLogo() {
+  const el = $('home-hero-logo');
+  if (!el) return;
+  const title = t('appTitle', 'テクタン') || 'テクタン';
+  const palette = ['#0F7A4D', '#2b7fe0', '#e0559a', '#e8a723']; // 緑・空・キャンディ・ひまわり
+  el.innerHTML = [...title].map((ch, i) =>
+    `<span style="animation-delay:${(i * 0.09).toFixed(2)}s;color:${palette[i % palette.length]}">${escapeHtml(ch)}</span>`
+  ).join('');
+}
+
 // 再開中インジケータ（#2 取り違え防止）: 履歴から再開した探検の間、駅名をずっと表示。
 function showResumeIndicator(station) {
   const el = $('resume-indicator');
@@ -4381,6 +4392,7 @@ function enterApp() {
   // トップ画面（3つの入口）から開始（#3）
   const hello = $('home-hello');
   if (hello) { const a = getStoredAuth(); hello.textContent = a && a.name ? t('homeHelloFmt', 'ようこそ、{name}さん！').replace('{name}', a.name) : ''; }
+  buildHomeHeroLogo();
   showStep('step-home');
 }
 

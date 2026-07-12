@@ -77,7 +77,7 @@ export function validateCredentials(name, pin) {
   if (n.length < 1)  return 'name-required';
   if (n.length > 20) return 'name-too-long';
   const p = String(pin || '');
-  if (p.length < 4)  return 'pin-too-short';
+  if (p.length < 6)  return 'pin-too-short';
   return null;
 }
 

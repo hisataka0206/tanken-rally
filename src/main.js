@@ -4142,8 +4142,47 @@ $('photo-camera-input').addEventListener('change', onPhotoInputChange);
 $('home-start').addEventListener('click', () => showStep('step-station'));
 $('home-history').addEventListener('click', openHistory);
 $('home-zukan').addEventListener('click', openZukan);
+$('home-grow').addEventListener('click', openGrowTeaser);
 $('home-btn').addEventListener('click', () => showStep('step-home'));
 $('home-logout').addEventListener('click', onLogout);
+
+// ===== 新機能の予告: 育てる（仮） =====
+// 100人は「目標」として表示するだけ（進捗ゲージ・リアルタイム人数は出さない）。
+// 「残り人数バナー」は 50人 / 10人 のタイミングでだけ手動で出す。
+const GROW_MILESTONE_NEAR = 50;      // 「もうすぐ解放」告知の残り人数
+const GROW_MILESTONE_LAST = 10;      // 「ラストスパート」告知の残り人数
+// いま出す告知: null=まだ出さない / GROW_MILESTONE_NEAR / GROW_MILESTONE_LAST
+// 実際に残り50人・10人になった時に、ここを 50 → 10 と切り替える。
+const GROW_MILESTONE      = null;
+const GROW_MILESTONE_DATE = '';      // 告知に添える日付（例 '8月1日'）。空なら日付なし
+
+function openGrowTeaser() {
+  const banner = $('grow-milestone');
+  banner.classList.remove('is-near', 'is-last');
+
+  const dateSuffix = GROW_MILESTONE_DATE
+    ? t('growMilestoneDateFmt', '（{date} 時点）').replace('{date}', GROW_MILESTONE_DATE)
+    : '';
+
+  if (GROW_MILESTONE === GROW_MILESTONE_LAST) {
+    banner.textContent = t('growMilestoneLastFmt', '🔥 ラストスパート！ のこり {n}人！').replace('{n}', GROW_MILESTONE_LAST) + dateSuffix;
+    banner.classList.add('is-last');
+    banner.classList.remove('hidden');
+  } else if (GROW_MILESTONE === GROW_MILESTONE_NEAR) {
+    banner.textContent = t('growMilestoneNearFmt', '🎉 のこり {n}人！ もうすぐ解放だよ！').replace('{n}', GROW_MILESTONE_NEAR) + dateSuffix;
+    banner.classList.add('is-near');
+    banner.classList.remove('hidden');
+  } else {
+    banner.classList.add('hidden'); // まだ告知しない
+  }
+
+  $('grow-modal').classList.remove('hidden');
+}
+
+// 予告モーダルを閉じる（✕・背景・ボタン共通）
+document.getElementById('grow-modal').addEventListener('click', (e) => {
+  if (e.target.dataset.action === 'grow-close') $('grow-modal').classList.add('hidden');
+});
 
 // キャラずかん
 $('logout-btn').addEventListener('click', onLogout);

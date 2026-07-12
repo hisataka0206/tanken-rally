@@ -108,6 +108,11 @@
           <span class="home-entry-icon">📖</span>
           <span class="home-entry-label" data-i18n="homeZukan">ずかんを 見る</span>
         </button>
+        <button id="home-grow" class="home-entry home-entry-soon" type="button">
+          <span class="home-entry-icon">🌱</span>
+          <span class="home-entry-label" data-i18n="homeGrow">育てる（仮）</span>
+          <span class="home-entry-badge" data-i18n="homeGrowBadge">作成中</span>
+        </button>
         <button id="home-logout" class="home-logout" type="button" data-i18n="btnLogout">ログアウト</button>
         <a class="home-policy" href="policy.html" target="_blank" rel="noopener" data-i18n="homePolicy">利用規約・プライバシー</a>
       </div>
@@ -499,6 +504,30 @@
           <div class="modal-actions">
             <button type="button" class="btn-primary" data-action="chargen-close" data-i18n="btnClose">閉じる</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 新機能の予告: 育てる（仮）。100人ゲージ＋残り50/10人の告知バナー（演出用の固定値） -->
+    <div id="grow-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="grow-modal-title">
+      <div class="modal-backdrop" data-action="grow-close"></div>
+      <div class="modal-content grow-content">
+        <button type="button" class="modal-x" data-action="grow-close" aria-label="close">✕</button>
+        <div class="grow-emoji" aria-hidden="true">🌱</div>
+        <h3 id="grow-modal-title" class="grow-title" data-i18n="growTitle">育てる（仮）</h3>
+        <span class="grow-badge" data-i18n="growBadge">作成中</span>
+        <p class="grow-lead" data-i18n="growLead">つかまえた なかまを おうちで そだてられる、あたらしい あそびを じゅんびしているよ。</p>
+
+        <!-- 目標（100人）。進捗ゲージではなく、目標として表示するだけ -->
+        <p class="grow-goal" data-i18n="growGoal">🎯 目標は 100人！ みんなで あそべる日を めざしてるよ。</p>
+
+        <!-- 残り人数の告知バナー（50人・10人のタイミングだけ表示） -->
+        <div id="grow-milestone" class="grow-milestone hidden"></div>
+
+        <p class="grow-unlock" data-i18n="growUnlock">100人いじょうの お友だちが あそんでくれる頃に できあがるよ。お友だちを さそって、はやく 解放しよう！</p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-primary" data-action="grow-close" data-i18n="growClose">たのしみに まってるね！</button>
         </div>
       </div>
     </div>

@@ -3070,6 +3070,68 @@ body.ar-open { overflow: hidden; }
 }
 .home-entry-primary .home-entry-label { color: #fff; font-size: 19px; }
 
+/* 新機能の予告ボタン「育てる（仮）」= 準備中の雰囲気（点線・淡色）＋「作成中」バッジ */
+.home-entry-soon {
+  position: relative;
+  border-style: dashed;
+  border-color: #cdb98f;
+  background: repeating-linear-gradient(135deg, #fffdf6, #fffdf6 10px, #fff7e6 10px, #fff7e6 20px);
+}
+.home-entry-soon .home-entry-label { color: #7a6a48; }
+.home-entry-badge {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #ffcf4d;
+  color: #6a4e00;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.12);
+}
+
+/* 予告モーダル本体 */
+.grow-content { text-align: center; }
+.grow-emoji { font-size: 46px; line-height: 1; margin-top: 4px; }
+.grow-title { margin: 6px 0 2px; }
+.grow-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: #ffcf4d;
+  color: #6a4e00;
+  font-size: 12px;
+  font-weight: 800;
+}
+.grow-lead { color: var(--text, #444); font-size: 14px; margin: 10px 4px 4px; }
+
+/* 目標（100人）: 進捗ゲージではなく、目標として見せるだけ */
+.grow-goal {
+  margin: 14px 6px 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #eef7f0;
+  border: 2px dashed #8FD6A3;
+  font-size: 16px;
+  font-weight: 800;
+  color: #157a45;
+}
+
+/* 残り50人・10人の告知バナー */
+.grow-milestone {
+  margin: 12px auto 4px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 15px;
+  animation: growPulse 1.4s ease-in-out infinite;
+}
+.grow-milestone.is-near { background: #e8f8ee; color: #157a45; border: 2px solid #8FD6A3; }
+.grow-milestone.is-last { background: #ffece0; color: #c0480f; border: 2px solid #ff9d6b; }
+@keyframes growPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+
+.grow-unlock { margin: 12px 6px 2px; font-size: 13px; line-height: 1.7; color: var(--muted, #6f6a60); }
+
 /* トップ画面のログアウト（控えめなテキストボタン） */
 .home-logout {
   align-self: center;

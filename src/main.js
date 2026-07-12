@@ -2742,23 +2742,27 @@ async function openChargen() {
   chargenSetPhase('pick');
 }
 
-// 生成経路バッジ（admin マスターモードのみ表示・テスト用）。
+// 生成経路バッジ（テスト用）。admin ログイン中 or URLに ?debug=1 のとき表示。
 // source: 'nanobanana'（実API）/ 'mock'（既存絵の色替え）。
+function chargenDebugVisible() {
+  try { if (location.search.indexOf('debug=1') >= 0) return true; } catch (_) { /* no-op */ }
+  return isAdmin();
+}
 function updateChargenSourceBadge(source, reason) {
-  const modal = $('chargen-modal');
-  if (!modal) return;
+  const card = document.querySelector('#chargen-modal .chargen-content');
+  if (!card) return;
   let badge = $('chargen-source-badge');
-  if (!isAdmin()) { if (badge) badge.remove(); return; }
+  if (!chargenDebugVisible()) { if (badge) badge.remove(); return; }
   if (!badge) {
     badge = document.createElement('div');
     badge.id = 'chargen-source-badge';
-    badge.style.cssText = 'position:absolute;top:8px;left:8px;z-index:5;font-size:11px;'
-      + 'padding:3px 8px;border-radius:999px;font-weight:700;color:#fff;';
-    const card = modal.querySelector('.modal-card, .chargen-card, .card') || modal.firstElementChild || modal;
-    card.appendChild(badge);
+    // モーダル上部に帯として差し込む（in-flow＝クリップされない・確実に見える）
+    badge.style.cssText = 'margin:4px 0 8px;padding:6px 10px;border-radius:10px;'
+      + 'font-size:12px;font-weight:700;color:#fff;text-align:center;line-height:1.4;';
+    card.insertBefore(badge, card.firstElementChild ? card.firstElementChild.nextSibling : null);
   }
   const real = source === 'nanobanana';
-  badge.textContent = (real ? '🟢 実API' : '🟠 モック') + (reason ? '：' + reason : '');
+  badge.textContent = (real ? '🟢 実API（NanoBanana）' : '🟠 モック（既存絵の色替え）') + (reason ? '｜' + reason : '');
   badge.style.background = real ? '#2e7d32' : '#e07b00';
 }
 

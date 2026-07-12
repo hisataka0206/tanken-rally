@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>テクタン キャラ量産テスト（test-gen）</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root { --line:#e2e2e2; --ink:#222; --sub:#666; --ok:#2e7d32; --warn:#e07b00; --bad:#c62828; }
   * { box-sizing: border-box; }
@@ -52,6 +53,7 @@
     <button id="start">▶ 生成開始</button>
     <button id="dry">乱数だけ（無料）</button>
     <button id="conntest">🔌 接続テスト(1件)</button>
+    <button id="zip">⬇ 一括DL(ZIP)</button>
     <button id="stop" disabled>■ 停止</button>
   </div>
   <div class="stats" id="gasinfo"></div>
@@ -228,6 +230,34 @@ async function run(dry) {
   console.log('[test-gen] results', results);
   window.__testGenResults = results;
 }
+// 表示中の全画像（raw+cutout）＋メタ情報を1つのZIPで保存
+async function downloadZip() {
+  if (typeof JSZip === 'undefined') { alert('JSZip の読み込みに失敗しました（ネット接続を確認）'); return; }
+  const cards = document.querySelectorAll('.card');
+  if (!cards.length) { alert('保存できる画像がありません。先に生成してください。'); return; }
+  const zip = new JSZip();
+  let count = 0;
+  cards.forEach(card => {
+    const idx = +String(card.id).replace(/\D/g, '') || 0;
+    card.querySelectorAll('img').forEach((img, k) => {
+      const m = String(img.src).match(/^data:image\/(\w+);base64,(.+)$/);
+      if (!m) return;
+      const kind = img.classList.contains('cut') ? 'cut' : 'raw';
+      // ファイル名はASCIIのみ（日本語駅名を入れると macOS unzip 等で文字化け/エラーになる）。
+      // 駅名などは metadata.json 側に残す。
+      zip.file(`${String(idx + 1).padStart(3, '0')}_${kind}${k}.${m[1]}`, m[2], { base64: true });
+      count++;
+    });
+  });
+  zip.file('metadata.json', JSON.stringify(results, null, 2));
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `tekutan_gen_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.zip`;
+  a.click();
+  $('stats').innerHTML += `｜⬇ ${count}枚をZIP保存`;
+}
+$('zip').addEventListener('click', downloadZip);
 $('start').addEventListener('click', () => run(false));
 $('dry').addEventListener('click', () => run(true));
 $('stop').addEventListener('click', () => { stop = true; $('stop').disabled = true; });

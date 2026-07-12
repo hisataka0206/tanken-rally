@@ -107,3 +107,31 @@ start c=true@0ms > html imgs=10@20ms > imagesWaited@555ms
 - **憶測で対策を重ねない。** 本件は先に「別ドメイン画像の再取得」「bake の取りこぼし」と2回誤診した。**画面内に診断トレースを出して実測**したことで、`extLeft=0`＝画像シロ、ハングは font と即断でき、一発で解決した。スマホなど**コンソールが見えない環境の不具合は、まず"失敗時に状態を吐く計測"を仕込む**のが最短。
 
 （補足）先に入れた bake の堅牢化（`ensureImageLoaded` で未ロードを待つ・焼けない外部画像を隠す・外部URL残の最終スイープ）は本件の直接原因ではなかったが、**別ドメイン画像を html2canvas に渡さない**という点で有効なので defense-in-depth として残置している。
+
+---
+
+## 追記2: フォント/画像はシロなのに描画90秒 ＝ [[html2canvas]] の box-shadow / transform / filter が重い（2026-07-12・スマホ実機トレースで確定）
+
+### 症状
+[[地図PDF]]（長めルート）作成が、画像もフォントも解決済みなのに描画90秒でタイムアウト。iPhone/5G 実機。
+
+### 実測トレース（画面内診断）
+```
+start c=true@0ms > html imgs=19@17ms > imagesWaited@577ms
+> baked n=16 baked=16 hidden=0 extLeft=0@695ms
+> renderStart 794x4994 s=0.87@695ms
+> ERROR 描画タイムアウト@90782ms
+```
+- `extLeft=0`＝外部画像残ゼロ、フォントlink除去（追記1）も適用済み → 画像でもフォントでもない。
+- ハングは `renderStart` 後＝**html2canvas 内部のラスタライズ**。content 794×4994（超縦長）を s=0.87 で描く途中で90秒到達。
+
+### 根本原因
+html2canvas は **box-shadow / transform(回転) / filter / text-shadow** のラスタライズが極端に重い。装飾（カードの影・写真のマステ回転・グラデ）を盛った縦長DOMをモバイルGPU/JSで描くと、ピクセル数以上に時間が伸びて90秒を超える。
+
+### 対策（2026-07-12 実施）
+- `onclone` で **描画クローンにだけ** `#pdf-render-root *{ box-shadow/text-shadow/filter/transform/transition/animation: none !important }` を注入（`_pdfConstrained`＝モバイル時のみ）。**背景グラデ(background-image)は見出し帯の視認性に必要なので残す**＝見た目はほぼ不変で描画だけ軽量化。
+- モバイルの `MAX_PIXELS` を 3.0M→2.2M に圧縮（scale をさらに下げて総ピクセルを削減）。
+- 診断トレースは残置。まだ超える場合の次手＝①street-view ターンカードをモバイルで削減/省略、②縦スライス分割で html2canvas を複数回に分ける、③サーバ側(GAS)でPDF生成。
+
+### 学び
+- **「画像もフォントもシロ」でも描画は固まりうる。** 次に疑うのは html2canvas が苦手な CSS（影・変形・フィルタ）。**描画時だけ onclone で装飾を外す**のが低リスク高効果。

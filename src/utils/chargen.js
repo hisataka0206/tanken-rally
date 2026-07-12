@@ -263,17 +263,21 @@ export async function startGeneration(params) {
 }
 
 // ===== 命名候補（自由入力なし・候補から選ぶ）=====
-export function nameCandidates(station, bodyId, lang = 'ja') {
-  const b = bodyById(bodyId);
-  const bl = b ? axisLabel(b, 'ja') : 'なかま';
+// 命名候補。見た目（＝生成に使った motif の具体名詞）に寄せて、フォルムと名前が
+// ちぐはぐにならないようにする（#9）。motif が無ければ body ラベルにフォールバック。
+export function nameCandidates(station, vocab, lang = 'ja') {
+  // motif は「ほし」「コンパス」「たね・め」等。中黒の前だけ取って短い核にする。
+  const motif = (vocab && vocab.motif) ? String(vocab.motif).split(/[・･]/)[0].trim() : '';
+  const b = (vocab && vocab.bodyId != null) ? bodyById(vocab.bodyId) : null;
+  const core = motif || (b ? axisLabel(b, 'ja') : '') || 'なかま';
   const st = String(station || '').replace(/駅$/, '').trim() || 'たんけん';
-  // 子供向けの安全なテンプレのみ（外部テキストはサニタイズ済みの駅名/語彙ラベルだけ）
+  // 子供向けの安全なテンプレのみ（核＝サニタイズ済みの語彙/駅名だけ）
   const list = [
-    `${st}っち`,
-    `ぷち${bl}`,
-    `${st}の${bl}`,
-    `${bl}マル`,
-    `ちび${st}`,
+    `${core}っち`,
+    `ぷち${core}`,
+    `${st}の${core}`,
+    `${core}マル`,
+    `ちび${core}`,
   ];
   // 重複除去
   return Array.from(new Set(list)).slice(0, 4);

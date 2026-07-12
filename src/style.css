@@ -2964,3 +2964,38 @@ body.ar-open { overflow: hidden; }
 }
 .chargen-var-chip:hover { transform: translateY(-1px); }
 .chargen-var-chip.selected { background: var(--sky-deep, #4aa3df); color: #fff; }
+
+/* ===== 再開中インジケータ（#2）＆ トースト（#6） ===== */
+.resume-indicator {
+  margin: 6px 12px 0;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #FFF3D6;
+  border: 1px solid #E7C86B;
+  color: #7a5a12;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+.resume-indicator.hidden { display: none; }
+
+.tk-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%) translateY(12px);
+  max-width: 88%;
+  padding: 12px 18px;
+  border-radius: 16px;
+  background: rgba(15,122,77,0.96);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  opacity: 0;
+  z-index: 9999;
+  transition: opacity .25s, transform .25s;
+  pointer-events: none;
+}
+.tk-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }

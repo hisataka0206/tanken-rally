@@ -107,7 +107,7 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
     const contentH = container.scrollHeight || 1;
     // スマホ/低メモリ端末は、巨大キャンバスで html2canvas（描画）が固まるため予算を大きく下げる。
     // ※「描画中…」でフリーズする＝ここが効くポイント。総ピクセル数を絞るほど固まりにくい。
-    const MAX_PIXELS    = _pdfConstrained ?  3000000 : 14000000;
+    const MAX_PIXELS    = _pdfConstrained ?  2200000 : 14000000;
     const MAX_DIMENSION = _pdfConstrained ?     6500 :    14000;
     const SCALE_FLOOR   = _pdfConstrained ?      0.5 :      0.9;
     let SCALE = _pdfConstrained ? 1.25 : 2;
@@ -151,6 +151,19 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
             });
             // clone 側にフォント読み込みが残らないよう保険（存在すれば）
             _bakeStats += ` linkRemoved=${removed}`;
+            // ★モバイル描画高速化: html2canvas は box-shadow / transform(回転) / filter の
+            //   ラスタライズが極端に重い（縦長DOMで90秒ハングの主因）。描画クローンでのみ
+            //   これらを無効化して描画コストを大幅に下げる。背景グラデ(background-image)は
+            //   見出し帯の視認性に必要なので残す＝見た目はほぼ不変で速度だけ改善。
+            if (_pdfConstrained) {
+              const st = clonedDoc.createElement('style');
+              st.textContent =
+                '#pdf-render-root *, #pdf-render-root *::before, #pdf-render-root *::after {' +
+                'box-shadow:none !important; text-shadow:none !important; filter:none !important;' +
+                'transform:none !important; transition:none !important; animation:none !important; }';
+              (clonedDoc.head || clonedDoc.body || clonedDoc.documentElement).appendChild(st);
+              _bakeStats += ' lowfx=1';
+            }
           } catch (_) { /* noop */ }
         },
       }),
@@ -265,6 +278,7 @@ function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, ap
 
   // PDF 用の隠しコンテナ（A4 幅相当 = 794px ≒ 210mm @96dpi）
   const wrap = document.createElement('div');
+  wrap.id = 'pdf-render-root';
   wrap.style.cssText = `
     position: fixed;
     top: -10000px;

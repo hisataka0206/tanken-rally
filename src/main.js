@@ -232,6 +232,7 @@ function ensureHitStages() {
   while (target < keys.length && Math.random() < FIND_EXTRA_PROB) target++; // 確率で最大まで増加
   const shuffled = keys.slice().sort(() => Math.random() - 0.5);
   _hitStages = new Set(shuffled.slice(0, target));
+  persistArState(); // 抽選結果を保存（再開時に同じ当たり配置を復元）
 }
 
 // GPS無し救済: 図鑑で未取得の組合せ（キャラ×すがた）を優先して1体返す。
@@ -360,6 +361,7 @@ async function openArHunt() {
   // 「いなかった」外れステージは、開いてチェックした時点で再さがし不可にする（当たり＝キャラ有りは対象外）。
   if (!ctx.char) {
     _resolvedStages.add(state.photoWizardStage);
+    persistArState(); // 再開しても「いなかった」ステージは再チェック不可
     updateArHuntButton(info); // 背後のボタンを即・非表示に
   }
 
@@ -538,6 +540,11 @@ async function onArShutter() {
     });
     // 図鑑（セッション横断）: ローカル即時記録 + Sheets へ fire-and-forget 同期（キーは変異込み）
     recordCapture(key, metaOverride.takenAt);
+    // #4 乱獲防止: 捕獲したステージは解決済みにし「さがす」を非表示＝同じ場所で再捕獲不可。
+    // セッションに永続化するので、履歴から再開しても再捕獲できない。
+    _resolvedStages.add(state.photoWizardStage);
+    persistArState();
+    updateArHuntButton(getWizardStageInfo(state.photoWizardStage));
     if (drive) {
       drive.saveCaptures({
         explorerId: getExplorerId(),
@@ -726,6 +733,62 @@ async function openZukan() {
 function accountUserId() {
   const a = getStoredAuth();
   return (a && a.userId) ? a.userId : null;
+}
+
+// 画面内トースト（#6 生成フローの断絶緩和など）。alert の代替の軽量通知。
+let _toastTimer = null;
+function showToast(msg, ms = 2600) {
+  let el = $('tk-toast');
+  if (!el) { el = document.createElement('div'); el.id = 'tk-toast'; el.className = 'tk-toast'; document.body.appendChild(el); }
+  el.textContent = msg;
+  el.classList.add('show');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+// 再開中インジケータ（#2 取り違え防止）: 履歴から再開した探検の間、駅名をずっと表示。
+function showResumeIndicator(station) {
+  const el = $('resume-indicator');
+  if (!el) return;
+  el.textContent = t('resumeIndicatorFmt', '📜 再開中のぼうけん: {name}').replace('{name}', station || '');
+  el.classList.remove('hidden');
+}
+function hideResumeIndicator() {
+  const el = $('resume-indicator');
+  if (el) el.classList.add('hidden');
+}
+
+// ===== セッション毎のゲーム状態の永続化（#4 乱獲・#11 再生成の防止）=====
+// user×session で名前空間化。再開しても「捕獲済み/生成済み」を引き継ぎ、再捕獲・再生成を封じる。
+function sessionStateKey() {
+  const uid = accountUserId() || getExplorerId();
+  return 'tanken_sess_' + uid + '_' + (state.sessionId || 'nosession');
+}
+function loadSessionState() {
+  try { return JSON.parse(localStorage.getItem(sessionStateKey()) || '{}') || {}; }
+  catch (_) { return {}; }
+}
+function patchSessionState(patch) {
+  try { localStorage.setItem(sessionStateKey(), JSON.stringify({ ...loadSessionState(), ...patch })); }
+  catch (_) { /* no-op */ }
+}
+// AR の抽選・救済・チェック済み・スタート/レア確定を保存（再開時に同じ結果を復元）
+function persistArState() {
+  patchSessionState({
+    hitStages: _hitStages ? [..._hitStages] : null,
+    resolvedStages: [..._resolvedStages],
+    searchUsed: _searchUsed,
+    startCharacterId: state.startCharacterId || null,
+    rareGoalAppears: (state.rareGoalAppears == null ? null : state.rareGoalAppears),
+  });
+}
+function restoreSessionGameState() {
+  const s = loadSessionState();
+  if (Array.isArray(s.hitStages)) _hitStages = new Set(s.hitStages);
+  _resolvedStages = new Set(Array.isArray(s.resolvedStages) ? s.resolvedStages : []);
+  _searchUsed = !!s.searchUsed;
+  if (s.startCharacterId) state.startCharacterId = s.startCharacterId;
+  if (s.rareGoalAppears != null) state.rareGoalAppears = s.rareGoalAppears;
 }
 
 // ===== ぼうけんの履歴 =====
@@ -1195,6 +1258,9 @@ async function onSearchStation(context) {
 
   // 別の駅で再検索する場合に備えて state を初期化
   resetSearchState();
+  // 新しい駅の探検を始める＝再開セッションを抜ける（#2 取り違え防止）。
+  state.sessionId = null; state.driveSession = null;
+  hideResumeIndicator();
   // ルートプレビューもクリア
   clearTimeout(previewTimer);
   previewSeq++; // 進行中のリクエストを破棄
@@ -2306,6 +2372,8 @@ async function onResumeSession() {
     }
     state.driveSession = session;
     state.sessionId = sessionId;
+    // 再開時: このセッションの AR 抽選・捕獲済み・救済使用・スタート/レア確定を復元（#4 乱獲防止）
+    restoreSessionGameState();
 
     // 2) Sheet 由来の駅名を優先、無ければフォルダ名から推定
     if (session.stationName) {
@@ -2430,6 +2498,8 @@ async function onResumeSession() {
     state.photoWizardStage = totalWizardStages() - 1;
     showStep('step-photos');
     renderWizardStage();
+    // 再開中インジケータを表示（新しい駅で検索するまで出しっぱなし。#2 取り違え防止）
+    showResumeIndicator(localizeStationName(state.stationName, LANG));
   } catch (e) {
     errEl.textContent = e.message || t('errResumeFailed');
     errEl.classList.remove('hidden');
@@ -2797,7 +2867,7 @@ function onChargenPick(idx) {
   $('chargen-rarity').textContent = `${rarLabel} ${'★'.repeat(rar.stars || 1)}`;
 
   // 命名候補（候補から選ぶ・自由入力なし）
-  const names = nameCandidates(state.charGen.params.station, cand.bodyId, LANG === 'en' ? 'en' : 'ja');
+  const names = nameCandidates(state.charGen.params.station, { ...(cand.vocab || {}), bodyId: cand.bodyId }, LANG === 'en' ? 'en' : 'ja');
   const nopt = $('chargen-name-options');
   nopt.innerHTML = names.map(n =>
     `<button type="button" class="chargen-name-opt" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join('');
@@ -2829,6 +2899,7 @@ function onChargenSave() {
     imageDataUrl: _chargenChosen.imageDataUrl,
   });
   state.charGen.consumed = true;
+  patchSessionState({ charGenDone: true }); // #11: この探検では生成済み→再開しても再生成不可
   $('chargen-done-msg').textContent = t('chargenDoneFmt').replace('{name}', rec.name);
   chargenSetPhase('done');
   const genEntry = $('chargen-entry');
@@ -3109,9 +3180,10 @@ function maybeStartCharGen() {
   // admin マスターモードは生成ゲートを無条件で通す（テスト用・非adminには一切影響しない）。
   const adminBypass = isAdmin();
   state.charGen.eligible = elig.ok || adminBypass;
+  state.charGen.consumed = !!loadSessionState().charGenDone; // #11: 既に今探検で生成済みなら再生成不可
   state.charGen.rarityId = elig.rarity.id;
-  console.info('[chargen] eligibility', elig.ok, elig.reasons, summary, adminBypass ? '(admin bypass)' : '');
-  if (!state.charGen.eligible) return;
+  console.info('[chargen] eligibility', elig.ok, elig.reasons, summary, adminBypass ? '(admin bypass)' : '', state.charGen.consumed ? '(already generated)' : '');
+  if (!state.charGen.eligible || state.charGen.consumed) return;
   const spots = (state.orderedSpots || []).map(s => s.name);
   state.charGen.params = { station: state.stationName, spots, distanceKm: summary.distanceKm, userPicks: null };
   // ※生成の開始は case X の変数選択（openChargenPickModal → finalizeChargenPick）確定後。
@@ -3160,6 +3232,8 @@ function finalizeChargenPick(useSelection) {
   }
   $('chargen-pick-modal').classList.add('hidden');
   startCharGenBg(); // 選択が済んだので裏で先行生成
+  // #6 生成フローの断絶緩和: 選択→即スコア画面で途切れないよう、進行を明示する。
+  showToast(t('chargenBrewingToast', '✨ なかまを つくっているよ！ スコアのあとで あえるよ'), 3000);
 }
 
 function onStartReport() {
@@ -3865,6 +3939,7 @@ $('ar-shutter-btn').addEventListener('click', onArShutter);
 $('ar-call-btn').addEventListener('click', () => {
   if (!arSession || !arCurrent || _searchUsed) return;
   _searchUsed = true;
+  persistArState(); // GPS無し救済「さがす」は1セッション1回だけ（再開しても復活しない）
   $('ar-call-btn').classList.add('hidden');
   const { char: rc, variant: v } = pickUncaughtEncounter();
   arCurrent.char = rc;

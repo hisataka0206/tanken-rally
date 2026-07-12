@@ -26,8 +26,8 @@ const SESSION_RETENTION_DAYS = 30;                 // セッションフォル�
 // APIキーはコードに直書きせず、スクリプトプロパティに置く（GAS: プロジェクト設定 → スクリプト プロパティ）。
 //   キー名: GEMINI_API_KEY
 // 未設定なら generateCharacters は ok:false を返し、フロントは自動でモック生成にフォールバックする。
-const NANOBANANA_MODEL = 'gemini-3-pro-image'; // 要確認: 最新の正式モデル名に合わせる
-const NANOBANANA_MAX_IMAGES = 4;               // 1リクエストの上限（仕様上4枚まで）
+const NANOBANANA_MODEL = 'gemini-3-pro-image'; // infographicパイプライン(nb_generate.py)で実績のある本番モデル
+const NANOBANANA_MAX_IMAGES = 4;               // 1回のキャラ生成で作る最大枚数（1リクエスト=1枚をこの回数ループ）
 
 // ===== エントリポイント =====
 function doPost(e) {
@@ -1023,44 +1023,51 @@ function generateCharacters(body) {
     // 子供向け: 安全側の指示をプロンプト末尾にも明示（サーバ側 IMAGE_SAFETY と二重）。
     var safePrompt = prompt + ' Safe for young children. No text, no logos, no real people.';
 
-    var payload = {
-      contents: [{ role: 'user', parts: [{ text: safePrompt }] }],
-      generationConfig: {
-        // 画像出力を要求。1リクエストで複数枚。※パラメータ名は要確認。
-        responseModalities: ['IMAGE'],
-        candidateCount: count
-      }
-    };
-
-    var res = UrlFetchApp.fetch(url, {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-    var code = res.getResponseCode();
-    if (code !== 200) {
-      return { ok: false, error: 'gemini http ' + code + ': ' + res.getContentText().slice(0, 300) };
-    }
-    var json = JSON.parse(res.getContentText());
-
-    // candidates[].content.parts[].inlineData(.data,.mimeType) から画像を収集。
+    // 実績のある呼び出し形（infographic-creator / nb_generate.py と同一）:
+    // 最小ボディ {contents:[{parts:[{text}]}]} で 1リクエスト=1枚。count 枚ぶんループし、
+    // それぞれ独立したバリエーションを得る（candidateCount は画像モデルで不安定なため不使用）。
+    var reqPayload = JSON.stringify({ contents: [{ parts: [{ text: safePrompt }] }] });
     var images = [];
-    var cands = (json && json.candidates) || [];
-    for (var i = 0; i < cands.length; i++) {
-      // 生成物の安全ブロック（IMAGE_SAFETY 等）はスキップ。
-      if (cands[i].finishReason && String(cands[i].finishReason).indexOf('SAFETY') >= 0) continue;
-      var parts = (cands[i].content && cands[i].content.parts) || [];
-      for (var j = 0; j < parts.length; j++) {
-        var inline = parts[j].inlineData || parts[j].inline_data;
-        if (inline && inline.data) {
-          var mime = inline.mimeType || inline.mime_type || 'image/png';
-          images.push({ dataUrl: 'data:' + mime + ';base64,' + inline.data });
+    var lastErr = '';
+    for (var n = 0; n < count; n++) {
+      var res = UrlFetchApp.fetch(url, {
+        method: 'post',
+        contentType: 'application/json',
+        payload: reqPayload,
+        muteHttpExceptions: true
+      });
+      var code = res.getResponseCode();
+      var textBody = res.getContentText();
+      if (code !== 200) {
+        // プリペイド残高切れは共通の運用エラーなので即時返す（infographicと同じ挙動）。
+        if (textBody.indexOf('prepayment credits are depleted') >= 0) {
+          return { ok: false, error: 'gemini 429: プリペイド残高切れ。ai.studio でチャージしてください。' };
+        }
+        lastErr = 'gemini http ' + code + ': ' + textBody.slice(0, 200);
+        continue;
+      }
+      // candidates[].content.parts[].inlineData(.data,.mimeType) から最初の画像を1枚採用。
+      var json = JSON.parse(textBody);
+      var cands = (json && json.candidates) || [];
+      var picked = false;
+      for (var i = 0; i < cands.length && !picked; i++) {
+        // 生成物の安全ブロック（IMAGE_SAFETY 等）はスキップ。
+        if (cands[i].finishReason && String(cands[i].finishReason).indexOf('SAFETY') >= 0) continue;
+        var parts = (cands[i].content && cands[i].content.parts) || [];
+        for (var j = 0; j < parts.length; j++) {
+          var inline = parts[j].inlineData || parts[j].inline_data;
+          if (inline && inline.data) {
+            var mime = inline.mimeType || inline.mime_type || 'image/png';
+            images.push({ dataUrl: 'data:' + mime + ';base64,' + inline.data });
+            picked = true;
+            break;
+          }
         }
       }
+      if (!picked) lastErr = 'no image in response (possibly IMAGE_SAFETY blocked)';
     }
     if (!images.length) {
-      return { ok: false, error: 'no images (possibly all IMAGE_SAFETY blocked)' };
+      return { ok: false, error: lastErr || 'no images generated' };
     }
     return { ok: true, images: images };
   } catch (err) {

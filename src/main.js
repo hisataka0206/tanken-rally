@@ -3065,10 +3065,12 @@ function maybeStartCharGen() {
   const summary = buildGenSummary();
   const elig = evaluateEligibility(summary);
   state.charGen.summary = summary;
-  state.charGen.eligible = elig.ok;
+  // admin マスターモードは生成ゲートを無条件で通す（テスト用・非adminには一切影響しない）。
+  const adminBypass = isAdmin();
+  state.charGen.eligible = elig.ok || adminBypass;
   state.charGen.rarityId = elig.rarity.id;
-  console.info('[chargen] eligibility', elig.ok, elig.reasons, summary);
-  if (!elig.ok) return;
+  console.info('[chargen] eligibility', elig.ok, elig.reasons, summary, adminBypass ? '(admin bypass)' : '');
+  if (!state.charGen.eligible) return;
   const spots = (state.orderedSpots || []).map(s => s.name);
   state.charGen.params = { station: state.stationName, spots, distanceKm: summary.distanceKm, userPicks: null };
   // ※生成の開始は case X の変数選択（openChargenPickModal → finalizeChargenPick）確定後。
@@ -3842,6 +3844,11 @@ $('ar-captured-modal').addEventListener('click', e => {
 $('wizard-prev').addEventListener('click', () => showWizardStage((state.photoWizardStage ?? 0) - 1));
 $('wizard-next').addEventListener('click', () => showWizardStage((state.photoWizardStage ?? 0) + 1));
 $('wizard-skip').addEventListener('click', () => showWizardStage(totalWizardStages() - 1));
+// 一覧管理（manage）から各スポット撮影ウィザードへ戻る（履歴からの再開時に各スポットで撮れるようにする）
+{
+  const reenterBtn = $('wizard-reenter');
+  if (reenterBtn) reenterBtn.addEventListener('click', () => showWizardStage(0));
+}
 $('back-to-route').addEventListener('click', async () => {
   // 再開セッションでは Directions が未構築なので必要に応じて再構築する
   const btn = $('back-to-route');

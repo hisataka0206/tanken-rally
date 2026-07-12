@@ -205,6 +205,120 @@ function refreshPhotosView() {
   }
 }
 
+// ===== いまどこ？（現在地＋向いている方角を地図表示・いつでも） =====
+let _whereMap = null, _whereYouMarker = null, _whereYouLL = null;
+let _whereHeading = null, _whereWatchId = null, _whereOrient = null, _whereCentered = false;
+
+async function openWhereModal() {
+  const modal = $('where-modal');
+  const statusEl = $('where-status');
+  modal.classList.remove('hidden');
+  statusEl.textContent = t('whereLocating');
+  _whereCentered = false;
+
+  // iOS: コンパスの利用許可はユーザー操作（このボタン押下）を起点に要求する必要がある
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined'
+        && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      await DeviceOrientationEvent.requestPermission().catch(() => {});
+    }
+  } catch (_) { /* no-op */ }
+
+  // 地図（初回のみ生成）。駅・スポット・ルートを文脈として描画。
+  try {
+    await loadGoogleMaps(CONFIG.GOOGLE_MAPS_API_KEY);
+    if (!_whereMap) {
+      _whereMap = new google.maps.Map($('where-map'), {
+        center: toLL(state.stationLocation) || { lat: 35.681, lng: 139.767 },
+        zoom: 17, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy',
+      });
+      drawWhereContext();
+    } else {
+      setTimeout(() => google.maps.event.trigger(_whereMap, 'resize'), 60);
+    }
+  } catch (e) {
+    statusEl.textContent = t('whereMapError');
+    console.warn('[where] map load failed:', e);
+  }
+
+  // コンパス（向いている方角）
+  _whereOrient = (e) => {
+    let h = null;
+    if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)) h = e.webkitCompassHeading;
+    else if (e.absolute === true && typeof e.alpha === 'number') h = (360 - e.alpha) % 360;
+    if (h != null) { _whereHeading = h; updateYouMarker(); }
+  };
+  const evName = ('ondeviceorientationabsolute' in window) ? 'deviceorientationabsolute' : 'deviceorientation';
+  window.addEventListener(evName, _whereOrient, true);
+
+  // GPS（現在地）
+  if (navigator.geolocation) {
+    _whereWatchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        _whereYouLL = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        statusEl.textContent = t('whereFound');
+        updateYouMarker();
+        if (_whereMap && !_whereCentered) { _whereMap.setCenter(_whereYouLL); _whereCentered = true; }
+      },
+      () => { statusEl.textContent = t('whereGpsError'); },
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 12000 }
+    );
+  } else {
+    statusEl.textContent = t('whereNoGps');
+  }
+}
+
+function updateYouMarker() {
+  if (!_whereMap || !_whereYouLL) return;
+  const icon = {
+    path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+    scale: 6.5, fillColor: '#2b7fe0', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2,
+    rotation: (_whereHeading != null ? _whereHeading : 0),
+  };
+  if (!_whereYouMarker) {
+    _whereYouMarker = new google.maps.Marker({ map: _whereMap, position: _whereYouLL, icon, zIndex: 999, title: t('whereYou') });
+  } else {
+    _whereYouMarker.setPosition(_whereYouLL);
+    _whereYouMarker.setIcon(icon);
+  }
+}
+
+// 駅・スポット・ルートを地図に描いて「自分が経路のどこにいるか」を分かるようにする
+function drawWhereContext() {
+  const sll = toLL(state.stationLocation);
+  if (sll) new google.maps.Marker({
+    map: _whereMap, position: sll, title: localizeStationName(state.stationName, LANG),
+    label: { text: 'S', color: '#fff', fontWeight: 'bold' },
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 11, fillColor: '#004029', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+  });
+  (state.orderedSpots || []).forEach((s, i) => {
+    if (s.lat == null) return;
+    new google.maps.Marker({
+      map: _whereMap, position: { lat: s.lat, lng: s.lng }, title: s.name,
+      label: { text: String.fromCharCode(65 + i), color: '#fff', fontWeight: 'bold' },
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#2e7d32', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+    });
+  });
+  if (state.directionsResult) {
+    try {
+      new google.maps.DirectionsRenderer({
+        map: _whereMap, directions: state.directionsResult, suppressMarkers: true,
+        preserveViewport: true, polylineOptions: { strokeColor: '#2b7fe0', strokeOpacity: 0.6, strokeWeight: 5 },
+      });
+    } catch (_) { /* no-op */ }
+  }
+}
+
+function closeWhereModal() {
+  $('where-modal').classList.add('hidden');
+  if (_whereWatchId != null && navigator.geolocation) { navigator.geolocation.clearWatch(_whereWatchId); _whereWatchId = null; }
+  if (_whereOrient) {
+    window.removeEventListener('deviceorientationabsolute', _whereOrient, true);
+    window.removeEventListener('deviceorientation', _whereOrient, true);
+    _whereOrient = null;
+  }
+}
+
 // ===== STEP 4: ARキャラ捕獲 =====
 // スポットステージ: カテゴリ対応キャラが出現（GPS 50m以内 + コンパス ±30°）
 // ゴールステージ:   レア（タンケンハカセ）がセッション1回の抽選（25%）で出現
@@ -2531,6 +2645,9 @@ async function onResumeSession() {
 //     満点基準がルート・駅・方向ごとに自動で変わる。
 const PLAN_TIME_BUDGET_MIN = 60;    // 探検の時間予算（分）
 const PLAN_STAY_PER_SPOT_MIN = 10;  // 1スポットの標準滞在時間（分）
+// 「いまどこ？」を1回使うごとに実行点から引く点数。キャラ捕獲1体(=40点)の約50%。
+// あまり使いたくない緊急避難的な位置づけ。減点は実行点からのみ・計画点は不変・実行点は0未満にならない。
+const WHERE_PENALTY_PER_USE = 20;
 
 // ===== スコア計算 & ランキング =====
 //
@@ -2641,9 +2758,13 @@ function calculateScore() {
   //   計画点 = どんな探検を計画したか（訪問スポット数 + 移動距離）
   //   実行点 = 実際にどれだけ楽しんで動けたか（写真・タグ・コメント・時間・ペース・キャラ捕獲）
   const planScore = _internalBreakdown.visit + _internalBreakdown.distance;
-  const execScore = _internalBreakdown.photo + _internalBreakdown.tagged
+  const execScoreRaw = _internalBreakdown.photo + _internalBreakdown.tagged
     + _internalBreakdown.cmtNum + _internalBreakdown.cmtChar
     + _internalBreakdown.within60 + _internalBreakdown.pace + _internalBreakdown.capture;
+  // 「いまどこ？」使用ぶんを実行点から減点（計画点は不変・実行点は0未満にしない）。
+  const whereUses = loadSessionState().whereUses || 0;
+  const wherePenalty = Math.min(execScoreRaw, whereUses * WHERE_PENALTY_PER_USE);
+  const execScore = execScoreRaw - wherePenalty;
 
   // 計画点の 0〜100 正規化（満点基準は駅・ルートごとに動的）。
   //   avgMovePerSpot = そのルートの1スポットあたり平均移動時間（＝スポットの近さ）。
@@ -2662,6 +2783,8 @@ function calculateScore() {
     // 総合点＝「正規化した計画点(0〜100)＋実行点」。表示・ムード・ランキングはこれを使う
     //（計画点を /100 で見せているのに合計だけ生の計画点を足すと不整合になるため統一）。
     rankingScore: planScore100 + execScore,
+    whereUses,
+    wherePenalty,
     planScore,
     planScore100,
     planIdealSpots,
@@ -3977,6 +4100,16 @@ $('wizard-skip').addEventListener('click', () => showWizardStage(totalWizardStag
   const reenterBtn = $('wizard-reenter');
   if (reenterBtn) reenterBtn.addEventListener('click', () => showWizardStage(0));
 }
+// いまどこ？（緊急避難的な導線。使うと実行点から少し減点）
+$('where-btn').addEventListener('click', () => {
+  // 使用回数をカウント（実行点から減点する。セッションに永続化して再開後も引き継ぐ）
+  const used = (loadSessionState().whereUses || 0) + 1;
+  patchSessionState({ whereUses: used });
+  openWhereModal();
+});
+$('where-modal').addEventListener('click', e => {
+  if (e.target.dataset.action === 'where-close') closeWhereModal();
+});
 $('back-to-route').addEventListener('click', async () => {
   // 再開セッションでは Directions が未構築なので必要に応じて再構築する
   const btn = $('back-to-route');

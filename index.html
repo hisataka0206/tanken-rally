@@ -251,6 +251,8 @@
             <button id="ar-hunt-btn" class="ar-hunt-btn hidden" type="button">
               <span data-i18n="btnArHunt">👀 キャラをさがす</span>
             </button>
+            <!-- いまどこ？：地図で現在地と向いている方角を表示（いつでも） -->
+            <button id="where-btn" class="where-btn" type="button" data-i18n="btnWhere">🧭 まよったら…いまどこ？（点がすこしへる）</button>
             <div id="photo-wizard-thumbs" class="photo-wizard-thumbs"></div>
           </div>
           <div class="photo-wizard-nav">
@@ -508,6 +510,18 @@
           <button type="button" class="btn-secondary" data-action="chargen-pick-skip" data-i18n="chargenVarSkip">おまかせ</button>
           <button id="chargen-var-ok" type="button" class="btn-primary" data-i18n="chargenVarOk">これで きめた →</button>
         </div>
+      </div>
+    </div>
+
+    <!-- いまどこ？モーダル（現在地＋方角を地図表示） -->
+    <div id="where-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="where-title">
+      <div class="modal-backdrop" data-action="where-close"></div>
+      <div class="modal-content where-content">
+        <button type="button" class="modal-x" data-action="where-close" aria-label="close">✕</button>
+        <h3 id="where-title" class="chargen-title" data-i18n="whereTitle">🧭 いまどこ？</h3>
+        <p id="where-status" class="where-status" data-i18n="whereLocating">いまの場所をさがしているよ…</p>
+        <div id="where-map" class="where-map"></div>
+        <p class="where-hint" data-i18n="whereHint">青い矢印が「あなた」だよ。矢印のむきが、いま向いている方向。</p>
       </div>
     </div>
 

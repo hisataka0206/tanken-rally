@@ -3052,3 +3052,25 @@ body.ar-open { overflow: hidden; }
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ===== いまどこ？（現在地＋方角） ===== */
+/* 緊急避難的な「いまどこ？」ボタン: 目立たせず、点が減る=多用したくない雰囲気にする */
+.where-btn {
+  display: block;
+  margin: 12px auto 2px;
+  padding: 6px 14px;
+  border: 1.5px dashed #d99a2b;
+  border-radius: 999px;
+  background: #fff8ec;
+  color: #9a6a12;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  cursor: pointer;
+  opacity: 0.92;
+}
+.where-btn:active { opacity: 1; }
+.where-content { max-width: 520px; }
+.where-status { text-align: center; color: var(--muted, #7a746a); font-size: 13px; margin: 4px 0 8px; }
+.where-map { width: 100%; height: 58vh; max-height: 460px; border-radius: 14px; overflow: hidden; background: #e8eef2; }
+.where-hint { text-align: center; color: var(--muted, #7a746a); font-size: 12px; margin-top: 8px; }

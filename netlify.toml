@@ -8,4 +8,11 @@
   command = "bash netlify-build.sh"
   publish = "dist"
 
+# Netlify の secrets scanning 対策：
+#   これらのキーは意図的に config.js に書き出してブラウザへ配信する（Mapsキーは
+#   リファラー制限で保護／GAS_SECRET は元々クライアント露出前提）。走査対象から外さないと
+#   「成果物に秘密値が検出された」としてビルドが失敗するため、明示的に除外する。
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "GOOGLE_MAPS_API_KEY,GAS_URL,GAS_SECRET"
+
 # SPA ではないので特別なリダイレクトは不要。404 は dist/404.html を Netlify が自動使用。

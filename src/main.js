@@ -23,6 +23,11 @@ const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
   ? new DriveClient(CONFIG.GAS_URL, CONFIG.GAS_SECRET)
   : null;
 
+// お問い合わせ／キャラ報告フォームの公開URL。
+// ここに Google フォームの公開URLを貼る（policy.html の [お問い合わせフォームURL] と同じもの）。
+// 空のままなら報告リンクは policy.html を開く。
+const CONTACT_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdbzVYXHy_E8_0CWehcy8i8YIihFv5_3Fyych4eOpStO4yeXA/viewform';
+
 // キャラ自動生成のバックエンドとして drive を登録（GAS側に GEMINI_API_KEY が
 // 設定されていれば実API生成、無ければ chargen 側が自動でモックにフォールバック）。
 setChargenBackend(drive);
@@ -808,6 +813,7 @@ function showGeneratedDetail(genId) {
         <div class="zukan-detail-name">${escapeHtml(rec.name || '')} <span class="zukan-detail-rarity">${'★'.repeat(rar.stars || 1)}</span></div>
         <div class="zukan-detail-personality">${escapeHtml(generatedPersonality(rec, LANG))}</div>
         <p class="zukan-detail-story">${escapeHtml(story)}</p>
+        <a class="gen-report" href="${escapeHtml(CONTACT_FORM_URL || 'policy.html')}" target="_blank" rel="noopener">${escapeHtml(t('genReport', '⚠️ このキャラを報告'))}</a>
       </div>
     </div>`;
   detail.classList.remove('hidden');

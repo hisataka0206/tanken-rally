@@ -3166,3 +3166,9 @@ body.ar-open { overflow: hidden; }
   display: block; text-align: center; margin-top: 6px;
   font-size: 11px; color: #a8a29a; text-decoration: underline;
 }
+
+/* 生成キャラ詳細の報告リンク（小さく控えめ） */
+.gen-report {
+  display: inline-block; margin-top: 10px;
+  font-size: 11px; color: #b0a89c; text-decoration: underline;
+}

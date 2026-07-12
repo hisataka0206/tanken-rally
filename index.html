@@ -511,41 +511,6 @@
       </div>
     </div>
 
-    <!-- 不具合報告：フローティングボタン（全ステップ共通） -->
-    <button id="report-issue-btn" type="button" class="report-issue-fab"
-      title="アプリの不具合を報告" aria-label="不具合を報告" data-i18n="btnReportIssue">
-      🐛 不具合を報告
-    </button>
-
-    <!-- 不具合報告モーダル -->
-    <div id="issue-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="issue-modal-title">
-      <div class="modal-backdrop" data-action="close"></div>
-      <div class="modal-content modal-content-wide">
-        <h3 id="issue-modal-title" data-i18n="issueTitle">🐛 不具合を報告</h3>
-        <p class="modal-desc" data-i18n-html="issueDesc">
-          困ったことや、おかしな動きがあったら教えてください。<br />
-          開発者がこの情報をもとに、ちょっとずつ良くしていきます。
-        </p>
-        <div class="issue-types">
-          <label><input type="checkbox" data-issue-type="station-location" /> <span data-i18n="issueT_stationLocation">駅の位置がおかしい（別の場所に飛んだ）</span></label>
-          <label><input type="checkbox" data-issue-type="spots-bad" /> <span data-i18n="issueT_spotsBad">スポットの内容が不適切・少なすぎる</span></label>
-          <label><input type="checkbox" data-issue-type="route-weird" /> <span data-i18n="issueT_routeWeird">ルートが変（遠回り・通れない道など）</span></label>
-          <label><input type="checkbox" data-issue-type="streetview-empty" /> <span data-i18n="issueT_streetviewEmpty">ストリートビュー写真が出ない</span></label>
-          <label><input type="checkbox" data-issue-type="pdf-broken" /> <span data-i18n="issueT_pdfBroken">PDFが正しく出力されない</span></label>
-          <label><input type="checkbox" data-issue-type="photo-upload" /> <span data-i18n="issueT_photoUpload">写真のアップロード・タグがおかしい</span></label>
-          <label><input type="checkbox" data-issue-type="report-edit" /> <span data-i18n="issueT_reportEdit">たんけんノートの編集で困った</span></label>
-          <label><input type="checkbox" data-issue-type="other" /> <span data-i18n="issueT_other">その他</span></label>
-        </div>
-        <textarea id="issue-detail" rows="4"
-          data-i18n-placeholder="issueDetailPh"
-          placeholder="詳しく書きたい場合はこちらに自由に記入してください（任意）"></textarea>
-        <div class="modal-actions">
-          <button class="btn-secondary" data-action="close" data-i18n="btnCancel">キャンセル</button>
-          <button id="issue-submit-btn" class="btn-primary" data-i18n="btnSubmit">送信</button>
-        </div>
-      </div>
-    </div>
-
     <!-- 写真タグ編集モーダル -->
     <div id="tag-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="tag-modal-title">
       <div class="modal-backdrop" data-action="close"></div>

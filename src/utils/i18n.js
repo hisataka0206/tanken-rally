@@ -68,6 +68,7 @@ const TRANSLATIONS = {
     photoHint: '💡 撮影あとに写真をタップして、場所のタグ（任意）を付けられるよ。',
     // 撮影ウィザード（STEP 4 のステージ別画面）
     btnWizardPrev: '← 前へ',
+    btnWizardToMap: '← マップ',
     btnWizardNext: '次へ →',
     btnWizardSkip: 'スキップ ↪',
     btnWizardReenter: '🚶 各スポットで写真をとる',
@@ -497,6 +498,7 @@ const TRANSLATIONS = {
     photoGalleryLabel: '🖼️ Pick from gallery',
     photoHint: '💡 After taking a photo, tap it to add a location tag (optional).',
     btnWizardPrev: '← Back',
+    btnWizardToMap: '← Map',
     btnWizardNext: 'Next →',
     btnWizardSkip: 'Skip ↪',
     btnWizardReenter: '🚶 Take photos at each spot',
@@ -909,6 +911,7 @@ const TRANSLATIONS = {
     photoGalleryLabel: '🖼️ 写真（しゃしん）をえらぶ',
     photoHint: '💡 撮影（さつえい）したあとに写真（しゃしん）をタップして、場所のタグ（任意（にんい））をつけられるよ。',
     btnWizardPrev: '← 前（まえ）へ',
+    btnWizardToMap: '← マップ',
     btnWizardNext: '次（つぎ）へ →',
     btnWizardSkip: 'スキップ ↪',
     btnWizardReenter: '🚶 各（かく）スポットで写真（しゃしん）をとる',

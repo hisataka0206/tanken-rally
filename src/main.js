@@ -7,7 +7,6 @@ import { DriveClient, generateSessionId } from './utils/drive.js?v=106';
 import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=106';
 import { CITIES, localizeStationName } from './data/cities.js?v=106';
 import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=106';
-import { addReport as addIssueReport } from './utils/issues.js?v=106';
 import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=106';
 import { APP_VERSION, RELEASE_LABEL } from './version.js?v=106';
 import { FEATURES } from './config-features.js?v=106';
@@ -133,7 +132,10 @@ function renderWizardStage() {
       .replace('{n}', state.photoWizardStage + 1)
       .replace('{total}', totalWizardStages());
     // ナビゲーションボタンの活性化
-    $('wizard-prev').disabled = (state.photoWizardStage === 0);
+    // 先頭ステージでも「前へ」は押せる（マップに戻る導線にする）ので disabled にしない
+    $('wizard-prev').disabled = false;
+    $('wizard-prev').textContent = (state.photoWizardStage === 0)
+      ? t('btnWizardToMap', '← マップ') : t('btnWizardPrev', '← 前へ');
     renderWizardThumbs(info.tag);
     // ARキャラ捕獲ボタン（スポット/ゴールステージのみ表示）
     updateArHuntButton(info);
@@ -1842,10 +1844,9 @@ async function onStartExplore() {
           stationName: state.stationName,
           playerName,
         });
-        info.innerHTML = t('driveFolderSavedFmt')
-          .replace('{url}', state.driveSession.folderUrl)
-          .replace('{name}', escapeHtml(state.driveSession.folderName))
-          .replace('{sessionId}', escapeHtml(state.sessionId));
+        // 保存先フォルダ・再開パスワードはユーザーに見せない（履歴から再開できるので不要）。
+        info.textContent = '';
+        info.classList.add('hidden');
 
         // 続けて Sheet にメタデータ（駅名・スポット順序など）を保存
         // 失敗しても探検フロー自体は継続するため try/catch で握り潰す
@@ -2658,6 +2659,9 @@ function calculateScore() {
 
   return {
     total,
+    // 総合点＝「正規化した計画点(0〜100)＋実行点」。表示・ムード・ランキングはこれを使う
+    //（計画点を /100 で見せているのに合計だけ生の計画点を足すと不整合になるため統一）。
+    rankingScore: planScore100 + execScore,
     planScore,
     planScore100,
     planIdealSpots,
@@ -2745,8 +2749,8 @@ function openScoreModal() {
   if (!FEATURES.scoringEnabled) return;
 
   const result = calculateScore();
-  $('score-total').textContent = `${result.total}${t('suffPoints')}`;
-  $('score-rank-label').textContent = scoreMoodLabel(result.total);
+  $('score-total').textContent = `${result.rankingScore}${t('suffPoints')}`;
+  $('score-rank-label').textContent = scoreMoodLabel(result.rankingScore);
 
   // 計画点 / 実行点 の内訳表示
   //   計画点は 0〜100 に正規化した独立指標（XX/100）で表示。
@@ -2927,7 +2931,7 @@ async function onSubmitScore() {
       stationName: state.stationName,
       cityId: state.cityId || 'other',          // 地域単位（東京/名古屋/大阪/神戸/京都/その他）
       playerName,
-      score: result.total,
+      score: result.rankingScore,   // 正規化した計画点(0〜100) + 実行点
       visitCount: result.visitCount,
       distanceM: result.distanceM,
       photoCount: result.photoCount,
@@ -2937,7 +2941,7 @@ async function onSubmitScore() {
     });
     // 同じ地域内（例: 名古屋）のランキングを取得
     const ranking = await drive.getRanking({ cityId: state.cityId || 'other', limit: 10 });
-    showRankingPhase(playerName, result.total, ranking);
+    showRankingPhase(playerName, result.rankingScore, ranking);
   } catch (e) {
     alert(t('errRankingSendFailedFmt').replace('{err}', e.message || e));
   } finally {
@@ -3960,7 +3964,11 @@ $('ar-captured-modal').addEventListener('click', e => {
 });
 
 // 撮影ウィザードのナビゲーション
-$('wizard-prev').addEventListener('click', () => showWizardStage((state.photoWizardStage ?? 0) - 1));
+$('wizard-prev').addEventListener('click', () => {
+  const s = state.photoWizardStage ?? 0;
+  if (s <= 0) showStep('step-route');            // 先頭ステージの「前へ」はマップ（ルート画面）に戻る
+  else showWizardStage(s - 1);
+});
 $('wizard-next').addEventListener('click', () => showWizardStage((state.photoWizardStage ?? 0) + 1));
 $('wizard-skip').addEventListener('click', () => showWizardStage(totalWizardStages() - 1));
 // 一覧管理（manage）から各スポット撮影ウィザードへ戻る（履歴からの再開時に各スポットで撮れるようにする）
@@ -4044,55 +4052,6 @@ $('chargen-pick-modal').addEventListener('click', e => {
 // セッション再開（パスワードで前回の写真を復元）
 $('resume-session-btn').addEventListener('click', onResumeSession);
 $('resume-session-input').addEventListener('keydown', e => { if (e.key === 'Enter') onResumeSession(); });
-
-// 不具合報告
-$('report-issue-btn').addEventListener('click', () => {
-  const modal = $('issue-modal');
-  // 開くたびにフォームをリセット
-  modal.querySelectorAll('[data-issue-type]').forEach(cb => { cb.checked = false; });
-  $('issue-detail').value = '';
-  modal.classList.remove('hidden');
-});
-$('issue-modal').addEventListener('click', e => {
-  if (e.target.dataset.action === 'close') $('issue-modal').classList.add('hidden');
-});
-$('issue-submit-btn').addEventListener('click', async () => {
-  const types = Array.from(document.querySelectorAll('#issue-modal [data-issue-type]:checked'))
-    .map(cb => cb.dataset.issueType);
-  const detail = $('issue-detail').value;
-  const context = {
-    stationName: state.stationName || '',
-    cityTab: document.querySelector('.city-tab.active')?.dataset.cityId || '',
-    currentStep: document.querySelector('.step.active')?.id || '',
-    sessionId: state.sessionId || '',
-    ua: navigator.userAgent,
-    href: location.href,
-  };
-  const submitBtn = $('issue-submit-btn');
-  const original = submitBtn.textContent;
-  submitBtn.disabled = true;
-  submitBtn.textContent = t('statusSavingScore');
-  try {
-    // ローカル保存（オフラインバックアップ）
-    addIssueReport({ types, detail, context });
-    // Sheet にも送信（drive クライアントが無効なら自動でスキップ）
-    if (drive) {
-      try {
-        await drive.submitIssue({ types, detail, context });
-        console.info('[issue-report] Sheet にも保存しました');
-      } catch (e) {
-        console.warn('[issue-report] Sheet送信失敗（ローカルには保存済）:', e);
-      }
-    }
-    alert(t('notifyIssueThanks'));
-    $('issue-modal').classList.add('hidden');
-  } catch (e) {
-    alert(e.message);
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = original;
-  }
-});
 
 // ===== 起動時ログインゲート（なまえ＋あいことば） =====
 let _appEntered = false;

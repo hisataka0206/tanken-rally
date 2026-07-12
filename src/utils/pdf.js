@@ -105,12 +105,16 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
     progress(t('pdfStageRender', '描画中…（少し時間がかかります）'));
     const contentW = container.scrollWidth || 794;
     const contentH = container.scrollHeight || 1;
-    // スマホ/低メモリ端末は、巨大キャンバスで html2canvas（描画）が固まるため予算を大きく下げる。
-    // ※「描画中…」でフリーズする＝ここが効くポイント。総ピクセル数を絞るほど固まりにくい。
-    const MAX_PIXELS    = _pdfConstrained ?  2200000 : 14000000;
-    const MAX_DIMENSION = _pdfConstrained ?     6500 :    14000;
-    const SCALE_FLOOR   = _pdfConstrained ?      0.5 :      0.9;
-    let SCALE = _pdfConstrained ? 1.25 : 2;
+    // 画質（A4印刷向け）: DPI ≒ 96 × SCALE。SCALE=2 で約192DPI＝印刷に十分。
+    //   以前はスマホのハング対策で SCALE を大きく下げていたが、ハングの真因は
+    //   フォント等のコールド資源待ち（onclone で除去＋自動リトライ済み）であり、
+    //   ピクセル数ではないと判明。よってスマホもデスクトップ相当の高解像度に戻す。
+    //   ただし iOS Safari のキャンバス上限（総 ~16.7M px・1辺 ~16384px）を超えると
+    //   空描画になるため、MAX_PIXELS/MAX_DIMENSION で自動的に少しだけ下げる。
+    const MAX_PIXELS    = _pdfConstrained ? 12000000 : 14000000; // iOS上限 ~16.7M の安全側
+    const MAX_DIMENSION = _pdfConstrained ?    14000 :    14000;
+    const SCALE_FLOOR   = _pdfConstrained ?      1.0 :      0.9; // スマホでも等倍未満に落とさない（文字の可読性優先）
+    let SCALE = 2;
     if (contentW * contentH * SCALE * SCALE > MAX_PIXELS) {
       SCALE = Math.max(SCALE_FLOOR, Math.sqrt(MAX_PIXELS / (contentW * contentH)));
     }
@@ -180,7 +184,9 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
     // ★「1回目だけ固まり、押し直すと一瞬」への対策＝短いタイムアウトで自動リトライ。
     //   html2canvas は中断できないので、詰まった試行は放置し、キャッシュが温まった
     //   再試行が先に完了する（＝「もう一度DLを押す」をアプリが自動でやる）。
-    const ATTEMPT_TIMEOUT_MS = _pdfConstrained ? 12000 : 30000;
+    // 高解像度化で1回の描画時間が伸びるため、各試行のタイムアウトも余裕を持たせる。
+    // （フォント等コールド資源のハングは onclone 除去で別途解消済み。これは正当な描画時間用）
+    const ATTEMPT_TIMEOUT_MS = _pdfConstrained ? 22000 : 40000;
     const MAX_ATTEMPTS = 4;
     let canvas = null;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS && !canvas; attempt++) {

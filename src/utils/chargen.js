@@ -11,6 +11,7 @@ import { CHARACTERS, characterImageUrl } from './characters.js?v=106';
 import { getExplorerId } from './collection.js?v=106';
 import { AXIS_BODY, AXIS_IMPRESSION, bodyById, impressionById, axisLabel } from '../data/archetypes.js?v=106';
 import { makeVocabPicks, VOCAB } from '../data/vocab.js?v=106';
+import { cutoutBackground } from './imagefx.js?v=106';
 
 // case X 明示メニュー用: ユーザーが選べる語彙（被りにくい user_selectable プール）。
 // 子供向けに軸を絞る＝モチーフ（タイプ的な"なに"）＋ふんいき（"どんな感じ"）。
@@ -80,7 +81,9 @@ export function buildPrompt({ station, spots, distanceKm, vocab }) {
   return [
     // --- ブランディング固定部（画風・安全）---
     'Original mascot character for a kids station-exploration game "Tekutan".',
-    'Consistent house art style: thick clean outlines, rounded chibi proportions, big friendly eyes, soft candy-pop colors, sticker-like flat shading. Single character, centered, plain transparent background.',
+    'Consistent house art style: thick clean outlines, rounded chibi proportions, big friendly eyes, soft candy-pop colors, sticker-like flat shading.',
+    // 背景は「透明」を要求しても不透明で返るため、抜きやすい単色ベタ背景を明示（クライアントで透過処理する）。
+    'Single character, centered, fully inside the frame with margin, isolated on a plain solid pure-white background with no scenery, no shadow, no gradient.',
     'Child-friendly: not scary, no violence, no text, no weapons.',
     // --- ユーザー変数＝記述語彙DB（6論点・IP非依存の一般名詞。日英混在でOK、Geminiは両対応）---
     v.motif      ? `Creature motif: ${v.motif}.`        : '',
@@ -205,6 +208,10 @@ export async function startGeneration(params) {
 
   // 実APIが1枚でも返れば採用（全3枚成功を要求しない＝一部SAFETYブロック等でも実APIを活かす）。
   if (real && real.length >= 1) {
+    // 生成画像は不透明背景のことが多い。四隅フラッドフィルで背景を透過に抜く。
+    // これでシルエット（brightness(0)＝黒影）が「黒い長方形」でなくキャラの形になり、
+    // reveal / 図鑑 / AR でもステッカー状に表示される。失敗時は元画像にフォールバック。
+    const cut = await Promise.all(real.map(r => cutoutBackground(r.imageDataUrl, { tolerance: 48 })));
     return {
       candidates: real.map((r, idx) => ({
         candidateId: 'g' + idx,
@@ -212,9 +219,9 @@ export async function startGeneration(params) {
         impressionId: AXIS_IMPRESSION[0].id,
         rarityId: rarity.id,
         baseCharId: null,
-        imageUrl: r.imageDataUrl,
+        imageUrl: cut[idx] || r.imageDataUrl,
         colorFilter: 'none',
-        imageDataUrl: r.imageDataUrl,
+        imageDataUrl: cut[idx] || r.imageDataUrl,
         vocab: perCandidate[idx] || perCandidate[0],
       })),
       rarityId: rarity.id,

@@ -1007,6 +1007,16 @@ function findSpotsCacheRow_(sheet, key) {
 // 返り値: { ok:true, images:[{dataUrl}] } / 失敗時 { ok:false, error }
 // ※APIキーはスクリプトプロパティ GEMINI_API_KEY に設定。未設定なら ok:false（フロントはモックへ）。
 // ※モデル名・レスポンス形状は最新ドキュメントで要確認（下記は generateContent の一般形に基づく実装）。
+// ===== 外部リクエスト権限(script.external_request)の承認用ワンショット =====
+// UrlFetchApp で外部URL（Gemini API 等）を叩くには script.external_request スコープの承認が必要。
+// 手順: Apps Scriptエディタでこの関数を選び「実行」→権限ダイアログで「許可」→
+//       その後 Webアプリを「新バージョン」でデプロイし直す。以降 generateCharacters が実API生成になる。
+function authorizeExternalRequest() {
+  var res = UrlFetchApp.fetch('https://www.googleapis.com/discovery/v1/apis', { muteHttpExceptions: true });
+  Logger.log('authorizeExternalRequest status: ' + res.getResponseCode());
+  return res.getResponseCode();
+}
+
 function generateCharacters(body) {
   try {
     var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');

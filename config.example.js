@@ -3,7 +3,7 @@
 
 export const CONFIG = {
   GOOGLE_MAPS_API_KEY: 'YOUR_GOOGLE_MAPS_API_KEY',
-  OPENAI_API_KEY: 'YOUR_OPENAI_API_KEY',
+  // OpenAI キーはクライアントに置かない（GAS の Script Property OPENAI_API_KEY に保持）
 
   // gas/Code.gs を script.google.com でデプロイしてURLをここに貼る
   GAS_URL: 'YOUR_GAS_DEPLOY_URL',

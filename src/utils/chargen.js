@@ -85,18 +85,30 @@ export function buildPrompt({ station, spots, distanceKm, vocab, bodyHint }) {
     epic:   'Add floating accent shapes and soft sparkles around the character.',
     legend: 'Add lively floating accent shapes, glowing sparkles and a subtle radiant aura.',
   };
+  // レジェンド枠（epic/legend＝☆3以上）だけ「クールな強キャラ」DNAへ差し替える（提案B）。
+  //   ブランド共通ルール（太い焦茶アウトライン・フラット塗り・白ツヤ・2Dベクター）は死守し、
+  //   cute/yuru-chara/pastel/pink cheeks を排除して sharp/glowing/dynamic に置換する。
+  const legendary = (rarity.stars || 1) >= 3;
   return [
     // === 固定DNA（画風の統一）===
     // 共有された SD/SDXL タグDNA を Gemini 自然文へ翻案。重み記法 (:1.3) と別枠ネガティブは
     // Gemini 非対応のため使わず、否定は末尾に「Avoid: …」の肯定文で付与する。
-    'Design one original mascot character for a kids station-exploration game called "Tekutan".',
-    'Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration.',
-    'Bold clean dark-brown outlines (never pure black), flat pastel colors with soft glossy white highlights, round pink rosy cheeks, big friendly eyes, and simple short stubby dark-brown limbs, with sticker-like flat shading.',
+    ...(legendary ? [
+      'Design one COOL LEGENDARY GUARDIAN mascot character for a kids station-exploration game called "Tekutan".',
+      'Art style: a single flat 2D vector illustration. Keep the house rules strictly: bold clean dark-brown outlines (never pure black), flat vibrant colors with glossy white highlights, sticker-like flat shading.',
+      'This is a special LEGEND-tier character: sharp glowing eyes, sharp edges and a bold dynamic silhouette, floating powerfully, a confident and majestic heroic presence. NOT cute, NOT round-baby, no pastel, no pink cheeks — cool and awe-inspiring but still friendly for kids.',
+    ] : [
+      'Design one original mascot character for a kids station-exploration game called "Tekutan".',
+      'Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration.',
+      'Bold clean dark-brown outlines (never pure black), flat pastel colors with soft glossy white highlights, round pink rosy cheeks, big friendly eyes, and simple short stubby dark-brown limbs, with sticker-like flat shading.',
+    ]),
     // 背景は「透明」を要求しても不透明で返るため、抜きやすい単色ベタ背景を明示（クライアントで透過処理する）。
     'Show only this one character, centered with margin fully inside the frame, isolated on a plain solid pure-white background with no scenery, no shadow, no gradient.',
     // Gemini が「デザインソフトで開いた様子」を絵として描く事故を防ぐ（Photoshop UI 混入対策）。
     'Output ONLY the finished character artwork itself as a clean plain illustration. This is NOT a screenshot and NOT a software mockup: absolutely no application window, no Photoshop or image-editor interface, no menu bar, no toolbars, no side panels, no layers panel, no rulers, no canvas checkerboard, no window frame or UI of any kind.',
-    'Child-friendly: cute and friendly, not scary, no violence, no weapons.',
+    legendary
+      ? 'Child-friendly: cool and powerful but not scary, no violence, no weapons.'
+      : 'Child-friendly: cute and friendly, not scary, no violence, no weapons.',
     // === フォルム（シルエット）＝候補ごとに変えて3体の形をはっきり分ける ===
     bodyHint ? `Base creature form: ${bodyHint}. Give it a clear, distinctive silhouette in this shape.` : '',
     // === 差別化変数＝記述語彙DB（6論点・IP非依存の一般名詞。日英混在OK、Geminiは両対応）===
@@ -202,14 +214,47 @@ function mockCandidates({ distanceKm, userPicks }) {
   });
 }
 
+// ===== スポット連動モチーフ（提案A・生成側）=====
+// 訪れたスポットのカテゴリ→その場所を象徴する具体オブジェクトの語彙。
+// 「この場所だからこの子が出た」というナラティブ（お土産感）を生む。IP非依存の一般名詞のみ。
+const SPOT_MOTIFS = {
+  station: ['切符', '時計', '案内ばん', '車輪', 'スーツケース', 'コンパス', 'ランプ'],   // 駅・ターミナル（旅の起点）
+  historic: ['巻物', 'ランタン', '石ひ', 'ふるいカギ', 'おうぎ', 'かわら', 'こま犬'],       // 史跡・文化財
+  museum: ['がくぶち', 'ふで', 'つぼ', '化石', 'ほうせき', 'ちず'],                          // 美術館・博物館
+  science: ['フラスコ', '歯車', '磁石', '望遠鏡', '電球', 'ロケット', '試験管'],            // 科学館
+  nature: ['どんぐり', '木の葉', '虫めがね', '切りかぶ', 'きのこ', '花', 'お弁当箱'],        // 公園・自然
+  toy: ['つみ木', 'こま', 'ボール', 'ロボット', 'ふうせん', 'けん玉'],                       // 玩具
+  sweets: ['カップケーキ', 'ソフトクリーム', 'キャンディ', 'いちご', 'クッキー'],            // スイーツ
+  dagashi: ['ラムネ', 'あめ玉', 'くじ', 'コイン', 'ふうせんガム'],                           // 駄菓子屋
+};
+
+// 訪れたスポットのカテゴリ配列から、その場所らしい具体モチーフを1つ選ぶ。
+// 駅（station）は探検の起点として常に候補に含める。該当が無ければ null（→汎用語彙にフォールバック）。
+function pickSpotMotif(spotCats) {
+  const pool = ['station']; // ハブ（駅）は常に候補
+  (spotCats || []).forEach(c => { if (SPOT_MOTIFS[c]) pool.push(c); });
+  if (!pool.length) return null;
+  const cat = pool[Math.floor(Math.random() * pool.length)];
+  const list = SPOT_MOTIFS[cat];
+  return (list && list.length) ? list[Math.floor(Math.random() * list.length)] : null;
+}
+
 // ===== 先行生成（バックグラウンド）=====
 // レポート/スコア表示中に裏で走らせる投機実行。3体候補を返す。
-// params: { station, spots, distanceKm, body?, impression? }
+// params: { station, spots, spotCats?, distanceKm, userPicks? }
 export async function startGeneration(params) {
   const p = params || {};
   const count = 3;
-  // 候補ごとに語彙DB（6論点）を選定。実APIでは各候補の vocab で個別プロンプト生成する。
-  const perCandidate = Array.from({ length: count }, () => makeVocabPicks(p.userPicks));
+  // 候補ごとに語彙DB（6論点）を選定。ユーザーがmotifを選んでいなければ、訪れたスポットの
+  // カテゴリから「その場所らしいモチーフ」を割り当てる（提案A スポット連動）。
+  const perCandidate = Array.from({ length: count }, () => {
+    const vv = makeVocabPicks(p.userPicks);
+    if (!(p.userPicks && p.userPicks.motif)) {
+      const sm = pickSpotMotif(p.spotCats);
+      if (sm) vv.motif = sm;
+    }
+    return vv;
+  });
   const bodies = pickDistinct(AXIS_BODY, count);
   const rarity = rarityForDistance(p.distanceKm);
 

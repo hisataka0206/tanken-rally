@@ -3189,7 +3189,8 @@ function maybeStartCharGen() {
   console.info('[chargen] eligibility', elig.ok, elig.reasons, summary, adminBypass ? '(admin bypass)' : '', state.charGen.consumed ? '(already generated)' : '');
   if (!state.charGen.eligible || state.charGen.consumed) return;
   const spots = (state.orderedSpots || []).map(s => s.name);
-  state.charGen.params = { station: state.stationName, spots, distanceKm: summary.distanceKm, userPicks: null };
+  const spotCats = (state.orderedSpots || []).map(s => s.category).filter(Boolean); // 提案A: スポット連動モチーフ用
+  state.charGen.params = { station: state.stationName, spots, spotCats, distanceKm: summary.distanceKm, userPicks: null };
   // ※生成の開始は case X の変数選択（openChargenPickModal → finalizeChargenPick）確定後。
 }
 

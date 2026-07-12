@@ -46,6 +46,13 @@
   <h1>テクタン キャラ量産テスト <span style="font-weight:400;color:var(--sub)">— 実アプリと同じ生成経路（buildPrompt→GAS→cutout）を叩きます</span></h1>
   <div class="row">
     <div class="fld"><label>体数 N</label><input id="n" type="number" value="100" min="1" max="500"></div>
+    <div class="fld"><label>レア度（強制）</label><select id="rarity">
+      <option value="">おまかせ（ランダム）</option>
+      <option value="common">コモン</option>
+      <option value="rare">レア</option>
+      <option value="epic">エピック</option>
+      <option value="legend">レジェンド（強キャラ）</option>
+    </select></div>
     <div class="fld"><label>1体あたり枚数</label><input id="count" type="number" value="1" min="1" max="4"></div>
     <div class="fld"><label>並列数</label><input id="conc" type="number" value="3" min="1" max="6"></div>
     <div class="fld"><label>cutout tolerance</label><input id="tol" type="number" value="48" min="10" max="120"></div>
@@ -121,10 +128,21 @@ function randomSpots(n) {
   while (pool.length && out.length < n) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   return out;
 }
+// レア度強制 → 距離レンジ（buildPrompt が距離からレア度を判定。legend=5km以上で強キャラDNA）
+const RARITY_DIST = {
+  common: [0.3, 1.4], rare: [1.5, 2.9], epic: [3.0, 4.9], legend: [5.0, 8.0],
+};
 function randomParams() {
   const station = rand(ALL_STATIONS);
   const spots = randomSpots(2 + Math.floor(Math.random() * 4));       // 2〜5
-  const distanceKm = +(0.3 + Math.random() * 5.7).toFixed(2);          // 0.3〜6.0（レア度を広く）
+  const forced = document.getElementById('rarity').value;
+  let distanceKm;
+  if (forced && RARITY_DIST[forced]) {
+    const [lo, hi] = RARITY_DIST[forced];
+    distanceKm = +(lo + Math.random() * (hi - lo)).toFixed(2);        // 指定レア度のレンジ内
+  } else {
+    distanceKm = +(0.3 + Math.random() * 5.7).toFixed(2);             // 0.3〜6.0（レア度を広く）
+  }
   // 語彙: 基本ランダム。時々 user_selectable の motif/atmosphere を「選択」して明示メニューを模擬。
   const overrides = {};
   if (Math.random() < 0.6) overrides.motif = rand(VOCAB.motif.user_selectable);

@@ -213,6 +213,18 @@ export class DriveClient {
     if (!data || !data.ok) throw new Error((data && data.error) || 'getGeneratedCharacters failed');
     return data.characters || [];
   }
+
+  // OpenAI プロキシ（キーは GAS の Script Property OPENAI_API_KEY・ブラウザ非露出）
+  async openaiChat(payload) {
+    const data = await this._post({ action: 'openaiChat', ...payload });
+    if (!data || !data.ok) throw new Error((data && data.error) || 'openaiChat failed');
+    return data; // { ok, text }
+  }
+  async openaiTranscribe(payload) {
+    const data = await this._post({ action: 'openaiTranscribe', ...payload });
+    if (!data || !data.ok) throw new Error((data && data.error) || 'openaiTranscribe failed');
+    return data; // { ok, text }
+  }
 }
 
 // ===== ユーティリティ =====

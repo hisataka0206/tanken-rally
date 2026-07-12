@@ -122,6 +122,12 @@ function doPost(e) {
     if (action === 'getGeneratedCharacters') {
       return respond(headers, getGeneratedCharacters(body));
     }
+    if (action === 'openaiChat') {
+      return respond(headers, openaiChat(body));
+    }
+    if (action === 'openaiTranscribe') {
+      return respond(headers, openaiTranscribe(body));
+    }
 
     return respond(headers, { ok: false, error: 'unknown action' });
 
@@ -848,6 +854,64 @@ function getGeneratedCharacters(body) {
       });
     }
     return { ok: true, characters: out };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+// ===== OpenAI プロキシ（キーは Script Property OPENAI_API_KEY・ブラウザ非露出） =====
+// テキスト: chat/completions。音声: Whisper(audio/transcriptions)。
+// ※ script.external_request スコープが必要（Gemini 用に承認済みなら追加承認は不要）。
+function openaiChat(body) {
+  try {
+    var key = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
+    if (!key) return { ok: false, error: 'OPENAI_API_KEY not set' };
+    var payload = {
+      model: (body && body.model) || 'gpt-4o-mini',
+      messages: (body && body.messages) || [],
+      max_tokens: (body && body.max_tokens) || 350,
+      temperature: (body && body.temperature != null) ? body.temperature : 0.3,
+    };
+    var res = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + key },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    });
+    var code = res.getResponseCode();
+    var txt = res.getContentText();
+    if (code !== 200) return { ok: false, error: 'openai http ' + code + ': ' + txt.slice(0, 200) };
+    var j = JSON.parse(txt);
+    var content = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '';
+    return { ok: true, text: String(content) };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+function openaiTranscribe(body) {
+  try {
+    var key = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
+    if (!key) return { ok: false, error: 'OPENAI_API_KEY not set' };
+    var b64 = (body && body.audioBase64) || '';
+    if (!b64) return { ok: false, error: 'audioBase64 が必要です' };
+    var mime = (body && body.mimeType) || 'audio/webm';
+    var ext = mime.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
+    var blob = Utilities.newBlob(Utilities.base64Decode(b64), mime, 'memo.' + ext);
+    var form = { file: blob, model: 'whisper-1', temperature: '0' };
+    if (body && body.lang) form.language = String(body.lang);
+    var res = UrlFetchApp.fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'post',
+      headers: { Authorization: 'Bearer ' + key },
+      payload: form,               // Blob を含むオブジェクト → GAS が multipart/form-data で送信
+      muteHttpExceptions: true,
+    });
+    var code = res.getResponseCode();
+    var txt = res.getContentText();
+    if (code !== 200) return { ok: false, error: 'whisper http ' + code + ': ' + txt.slice(0, 200) };
+    var j = JSON.parse(txt);
+    return { ok: true, text: String((j && j.text) || '').trim() };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
   }

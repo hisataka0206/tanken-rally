@@ -105,6 +105,10 @@
 - OpenAI / Google Maps API キーがブラウザに露出
 - 本番ではサーバ側プロキシ必須
 - 影響箇所: `src/utils/ai.js`, `src/utils/maps.js`
+- ✅ 2026-07-12 **Google Maps キーの露出リスクを緩和（完了）**：Maps JS は構造上キーがclient露出するためプロキシ不可 → 代わりにキー制限で対処。
+  ①HTTPリファラー制限（`https://hisataka0206.github.io/*` ＋ localhost）②API制限（Maps JS/Places/Directions/Geocoding/Static Maps/Street View の使用API限定）③各APIの日次クォータ上限（Places=5,000/日・他=2,000/日 等）④GCP予算アラート（¥10,000/月・50/90/100%通知）。→ 露出しても他サイト不可＋課金上限固定。
+- ✅ 2026-07-12 **Gemini（画像生成）キーをGAS経由でサーバ側に移動済み**（Script Property `GEMINI_API_KEY`、ブラウザ非露出）。
+- ⏳ 残：**OpenAI キーのGASプロキシ化**（`fetchOriginStory`/`tidyMemo`/`transcribeAudio`）。→ 本タスクで対応中。
 
 ---
 

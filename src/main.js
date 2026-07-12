@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js?v=106';
 import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=106';
-import { fetchOriginStory, tidyMemo, transcribeAudio } from './utils/ai.js?v=106';
+import { fetchOriginStory, tidyMemo, transcribeAudio, setAiBackend } from './utils/ai.js?v=106';
 import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=106';
 import { generateMapPdf } from './utils/pdf.js?v=106';
 import { DriveClient, generateSessionId } from './utils/drive.js?v=106';
@@ -26,6 +26,7 @@ const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
 // キャラ自動生成のバックエンドとして drive を登録（GAS側に GEMINI_API_KEY が
 // 設定されていれば実API生成、無ければ chargen 側が自動でモックにフォールバック）。
 setChargenBackend(drive);
+setAiBackend(drive);   // OpenAI 呼び出しも GAS プロキシ経由（キーはブラウザ非露出）
 
 // デバッグ用：drive 接続状態を可視化
 console.log('[tanken-rally] drive client:', drive ? 'enabled' : 'disabled (GAS未設定)');
@@ -1528,7 +1529,7 @@ async function onSearchStation(context) {
 
     // 地名由来取得（並行実行）
     $('origin-story').textContent = '';
-    fetchOriginStory(name, CONFIG.OPENAI_API_KEY)
+    fetchOriginStory(name)
       .then(story => { $('origin-story').textContent = `${t('originStoryPrefix')}${story}`; })
       .catch(() => {});
 
@@ -2360,7 +2361,8 @@ function updateVoiceMethodNote(method) {
 }
 
 function hasOpenAiKey() {
-  return !!(CONFIG.OPENAI_API_KEY && CONFIG.OPENAI_API_KEY !== 'YOUR_OPENAI_API_KEY');
+  // OpenAI は GAS プロキシ経由（キーは GAS 側）。drive があれば利用可能とみなす。
+  return !!drive;
 }
 
 function currentVoiceMethod() {
@@ -2476,7 +2478,7 @@ async function stopVoiceCapture() {
     $('voice-status').textContent = t('voiceStatusTranscribing');
     try {
       const blob = await recorder.stop();
-      const text = await transcribeAudio(blob, CONFIG.OPENAI_API_KEY, apiLang());
+      const text = await transcribeAudio(blob, apiLang());
       if (text) {
         const ta = $('voice-memo-text');
         ta.value = ta.value ? (ta.value.replace(/\s*$/, '') + ' ' + text) : text;
@@ -3253,7 +3255,7 @@ async function onTidyMemos() {
     alert(t('tidyMemosNone'));
     return;
   }
-  if (!CONFIG.OPENAI_API_KEY || CONFIG.OPENAI_API_KEY === 'YOUR_OPENAI_API_KEY') {
+  if (!drive) {   // GASプロキシ未設定なら整形不可（キーはGAS側に移動済み）
     alert(t('tidyMemosNoKey'));
     return;
   }
@@ -3269,7 +3271,7 @@ async function onTidyMemos() {
   await Promise.all(targets.map(async fileId => {
     const before = rd.photoComments[fileId];
     try {
-      const cleaned = await tidyMemo(before, CONFIG.OPENAI_API_KEY);
+      const cleaned = await tidyMemo(before);
       // 実際に変化があったメモだけ退避（元に戻す対象にする）
       if (cleaned && cleaned !== before) {
         raw[fileId] = before;

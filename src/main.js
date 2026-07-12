@@ -14,10 +14,10 @@ import { FEATURES } from './config-features.js?v=106';
 import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=106';
 import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID, VARIANTS, variantById, rollVariant, collectionKey, parseCollectionKey } from './utils/characters.js?v=106';
 import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, loadLegacyAnonymousCollection } from './utils/collection.js?v=106';
-import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout } from './utils/auth.js?v=106';
+import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout, validateCredentials } from './utils/auth.js?v=106';
 import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
 import { initShell, updateShell } from './utils/shell.js?v=106';
-import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug } from './utils/chargen.js?v=106';
+import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, mergeServerGenerated } from './utils/chargen.js?v=106';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -719,11 +719,22 @@ async function openZukan() {
   $('zukan-modal').classList.remove('hidden');
   // サーバー側のコレクションをマージして再描画（失敗してもローカル表示のまま）
   if (drive) {
-    try {
-      const server = await drive.getCaptures({ explorerId: getExplorerId() });
-      renderZukanGrid(mergeServerCollection(server));
-    } catch (e) {
-      console.warn('[zukan] Sheets読み込み失敗（ローカル表示を継続）:', e);
+    // 捕獲図鑑と生成キャラ（#10 端末間同期）を並行取得してマージ
+    const uid = accountUserId() || getExplorerId();
+    const [capRes, genRes] = await Promise.allSettled([
+      drive.getCaptures({ explorerId: getExplorerId() }),
+      drive.getGeneratedCharacters({ userId: uid }),
+    ]);
+    if (genRes.status === 'fulfilled') {
+      try { mergeServerGenerated(genRes.value); } catch (_) {}
+    } else {
+      console.warn('[zukan] 生成キャラのサーバ取得失敗（ローカル表示を継続）:', genRes.reason);
+    }
+    if (capRes.status === 'fulfilled') {
+      renderZukanGrid(mergeServerCollection(capRes.value)); // 生成キャラの再描画も内包
+    } else {
+      console.warn('[zukan] Sheets読み込み失敗（ローカル表示を継続）:', capRes.reason);
+      renderZukanGrid(loadCollection()); // 生成キャラのマージ分だけでも反映
     }
   }
 }
@@ -1216,7 +1227,10 @@ function fitMapToSpots(map, origin, spots) {
 function showStep(stepId) {
   // CSS の `.step.hidden { display:none !important }` がインライン style に
   // 勝ってしまうため、クラス操作で表示切り替えする
-  ['step-station', 'step-spots', 'step-route', 'step-photos', 'step-report'].forEach(id => {
+  // トップ画面ではすごろくトレイルを隠す（ゲームの進捗ではないため）
+  const trail = document.getElementById('trail');
+  if (trail) trail.classList.toggle('hidden', stepId === 'step-home');
+  ['step-home', 'step-station', 'step-spots', 'step-route', 'step-photos', 'step-report'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     if (id === stepId) {
@@ -1227,8 +1241,8 @@ function showStep(stepId) {
       el.classList.remove('active');
     }
     el.style.display = ''; // 過去のインラインstyle残骸をクリア
-    // ガイドキャラの受け皿をマウント（素材が無い間は自動非表示）
-    if (id === stepId) {
+    // ガイドキャラの受け皿をマウント（素材が無い間は自動非表示）。トップ画面は対象外。
+    if (id === stepId && stepId !== 'step-home') {
       mountGuides(stepId);
       updateShell(stepId); // 進捗トレイル + キャラ吹き出し
     }
@@ -2900,6 +2914,16 @@ function onChargenSave() {
   });
   state.charGen.consumed = true;
   patchSessionState({ charGenDone: true }); // #11: この探検では生成済み→再開しても再生成不可
+  // #10 端末間同期: 実API画像を持つ生成キャラをサーバ保存（画像=Drive／メタ=Sheets）。
+  //   fire-and-forget（失敗してもローカルには保存済み）。モック（画像なし）は同期しない。
+  if (drive && rec.imageDataUrl) {
+    drive.saveGeneratedCharacter({
+      userId: accountUserId() || getExplorerId(),
+      genId: rec.genId, name: rec.name, station: rec.station,
+      rarityId: rec.rarityId, vocab: rec.vocab,
+      imageDataUrl: rec.imageDataUrl, createdAt: rec.createdAt,
+    }).catch(e => console.warn('[chargen] 生成キャラのサーバ保存失敗（ローカルには保存済）:', e));
+  }
   $('chargen-done-msg').textContent = t('chargenDoneFmt').replace('{name}', rec.name);
   chargenSetPhase('done');
   const genEntry = $('chargen-entry');
@@ -3902,12 +3926,15 @@ $('start-explore-btn').addEventListener('click', onStartExplore);
 $('photo-input').addEventListener('change', onPhotoInputChange);
 $('photo-camera-input').addEventListener('change', onPhotoInputChange);
 
-// キャラずかん
-$('zukan-btn').addEventListener('click', openZukan);
-$('logout-btn').addEventListener('click', onLogout);
+// トップ画面（#3）の3つの入口＋ホームに戻るボタン
+$('home-start').addEventListener('click', () => showStep('step-station'));
+$('home-history').addEventListener('click', openHistory);
+$('home-zukan').addEventListener('click', openZukan);
+$('home-btn').addEventListener('click', () => showStep('step-home'));
+$('home-logout').addEventListener('click', onLogout);
 
-// ぼうけんの履歴
-$('history-btn').addEventListener('click', openHistory);
+// キャラずかん
+$('logout-btn').addEventListener('click', onLogout);
 $('history-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'close') $('history-modal').classList.add('hidden');
 });
@@ -4093,15 +4120,12 @@ $('issue-submit-btn').addEventListener('click', async () => {
 
 // ===== 起動時ログインゲート（なまえ＋あいことば） =====
 let _appEntered = false;
-let _loginMode = 'register'; // 'register' | 'login'
 
+// 統合フロー: ログインと新規作成を1画面に統一（#3）。モード切替は廃止。
 function applyLoginMode() {
-  const reg = _loginMode === 'register';
-  $('login-title').textContent      = t(reg ? 'loginTitleRegister' : 'loginTitleLogin');
-  $('login-lead').textContent       = t(reg ? 'loginLead' : 'loginLeadLogin');
-  $('login-submit-btn').textContent = t(reg ? 'loginSubmitRegister' : 'loginSubmitLogin');
-  $('login-switch-text').textContent= t(reg ? 'loginSwitchToLogin' : 'loginSwitchToRegister');
-  $('login-switch-btn').textContent = t(reg ? 'loginSwitchToLoginBtn' : 'loginSwitchToRegisterBtn');
+  $('login-title').textContent      = t('loginTitleUnified', 'なまえと あいことばを いれてね');
+  $('login-lead').textContent       = t('loginLeadUnified', 'はじめての人は じどうで つくられるよ。まえに つくった人は そのまま入れるよ。');
+  $('login-submit-btn').textContent = t('loginSubmitUnified', 'はじめる →');
   hideLoginError();
 }
 
@@ -4114,6 +4138,7 @@ function showLoginError(code) {
     'name-taken':     'loginErrNameTaken',
     'bad-credentials':'loginErrBadCredentials',
     'not-found':      'loginErrNotFound',
+    'login-mismatch': 'loginErrMismatch',
     'network':        'loginErrNetwork',
   };
   const el = $('login-error');
@@ -4138,10 +4163,8 @@ function hideLoginGate() { $('login-gate').classList.add('hidden'); }
 function initLoginGate() {
   applyLoginMode();
   $('login-submit-btn').addEventListener('click', onLoginSubmit);
-  $('login-switch-btn').addEventListener('click', () => {
-    _loginMode = (_loginMode === 'register') ? 'login' : 'register';
-    applyLoginMode();
-  });
+  const switchLine = document.querySelector('.login-switch');
+  if (switchLine) switchLine.classList.add('hidden'); // 統合フローでモード切替は不要
   $('login-pin-toggle').addEventListener('click', () => {
     const pin = $('login-pin');
     const wasHidden = pin.type === 'password';
@@ -4153,31 +4176,45 @@ function initLoginGate() {
   });
 }
 
+// 統合ログイン（#3）: まずログインを試し、名前が無ければ新規作成。
+//   ・ログイン成功            → そのまま入る
+//   ・名前が新規（login失敗→register成功） → 新規作成して入る
+//   ・名前は在るがあいことば違い（login失敗→register が name-taken） → 統合エラー表示
+//     （どちらの理由かをあえて言い分けない＝アカウント有無を漏らさない）
 async function onLoginSubmit() {
   const name = $('login-name').value;
   const pin  = $('login-pin').value;
   const btn = $('login-submit-btn');
   const original = btn.textContent;
+  const fail = (code) => { showLoginError(code); btn.disabled = false; btn.textContent = original; };
+
+  const vErr = validateCredentials(name, pin);
+  if (vErr) { showLoginError(vErr); return; }
+
   btn.disabled = true;
   btn.textContent = t('loginWorking');
   hideLoginError();
   try {
-    const fn = (_loginMode === 'register') ? registerAccount : loginAccount;
-    const res = await fn(name, pin, drive);
+    // 1) まずログイン
+    let res = await loginAccount(name, pin, drive);
     if (!res.ok) {
-      showLoginError(res.error);
-      btn.disabled = false;
-      btn.textContent = original;
-      return;
+      // 2) 失敗 → 新規作成を試す
+      const reg = await registerAccount(name, pin, drive);
+      if (reg.ok) {
+        res = reg; // 新しい名前だった＝新規作成成功
+      } else if (reg.error === 'name-taken') {
+        // 名前は存在する＝ログイン失敗の理由はあいことば違い
+        return fail('login-mismatch');
+      } else {
+        return fail(reg.error || res.error);
+      }
     }
     // 初回ログイン時、端末に残っている無記名の図鑑をアカウントへ引き継ぐ
     await migrateAnonymousCollection();
     enterApp();
   } catch (e) {
     console.warn('[login] error:', e);
-    showLoginError('network');
-    btn.disabled = false;
-    btn.textContent = original;
+    fail('network');
   }
 }
 
@@ -4235,7 +4272,10 @@ function enterApp() {
     selectCity('nagoya', { defaultLineName: '名古屋市営地下鉄 桜通線' });
     bindReportInputs();
   }
-  showStep('step-station');
+  // トップ画面（3つの入口）から開始（#3）
+  const hello = $('home-hello');
+  if (hello) { const a = getStoredAuth(); hello.textContent = a && a.name ? t('homeHelloFmt', 'ようこそ、{name}さん！').replace('{name}', a.name) : ''; }
+  showStep('step-home');
 }
 
 // ===== 初期表示 =====

@@ -199,6 +199,20 @@ export class DriveClient {
     if (!data || !data.ok) throw new Error((data && data.error) || 'generateCharacters failed');
     return data; // { ok:true, images:[{dataUrl}] }
   }
+
+  // 生成キャラ1体をサーバ保存（画像=Drive／メタ=Sheets、userId 紐付け）
+  async saveGeneratedCharacter(payload) {
+    const data = await this._post({ action: 'saveGeneratedCharacter', ...payload });
+    if (!data || !data.ok) throw new Error((data && data.error) || 'saveGeneratedCharacter failed');
+    return data; // { ok, fileId, fileUrl }
+  }
+
+  // userId の生成キャラ一覧を取得（画像は base64 dataURL 同梱）
+  async getGeneratedCharacters({ userId }) {
+    const data = await this._post({ action: 'getGeneratedCharacters', userId });
+    if (!data || !data.ok) throw new Error((data && data.error) || 'getGeneratedCharacters failed');
+    return data.characters || [];
+  }
 }
 
 // ===== ユーティリティ =====

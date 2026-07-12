@@ -320,6 +320,38 @@ export function saveGeneratedCharacter(def) {
   return record;
 }
 
+/** サーバ（GAS）から取得した生成キャラ一覧をローカルストアへマージ（#10 端末間同期）。
+ *  genId をキーに、ローカルに無いものだけ追加する（既存はローカル優先）。 */
+export function mergeServerGenerated(list) {
+  if (!Array.isArray(list) || !list.length) return 0;
+  let obj = {};
+  try { obj = JSON.parse(localStorage.getItem(genStoreKey()) || '{}') || {}; } catch (_) {}
+  let added = 0;
+  list.forEach(r => {
+    const genId = r && r.genId;
+    if (!genId || obj[genId]) return;
+    obj[genId] = {
+      genId,
+      name: r.name || '',
+      station: r.station || '',
+      spots: r.spots || [],
+      distanceKm: r.distanceKm || 0,
+      rarityId: r.rarityId || 'common',
+      bodyId: r.bodyId || null,
+      impressionId: r.impressionId || null,
+      vocab: r.vocab || null,
+      baseCharId: r.baseCharId || null,
+      colorFilter: 'none',
+      imageDataUrl: r.imageDataUrl || null,
+      createdAt: r.createdAt || new Date().toISOString(),
+      fromServer: true,
+    };
+    added++;
+  });
+  if (added) { try { localStorage.setItem(genStoreKey(), JSON.stringify(obj)); } catch (_) {} }
+  return added;
+}
+
 /** 生成キャラの表示画像URL（実API画像優先、無ければモックのベース絵） */
 export function generatedImageUrl(rec) {
   if (rec && rec.imageDataUrl) return rec.imageDataUrl;

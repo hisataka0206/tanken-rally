@@ -116,6 +116,12 @@ function doPost(e) {
     if (action === 'generateCharacters') {
       return respond(headers, generateCharacters(body));
     }
+    if (action === 'saveGeneratedCharacter') {
+      return respond(headers, saveGeneratedCharacter(body));
+    }
+    if (action === 'getGeneratedCharacters') {
+      return respond(headers, getGeneratedCharacters(body));
+    }
 
     return respond(headers, { ok: false, error: 'unknown action' });
 
@@ -743,6 +749,101 @@ function getCaptures(body) {
       };
     }
     return { ok: true, collection };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+// ===== 生成キャラの端末間同期（#10：画像=Drive／メタ=Sheets、userId 紐付け） =====
+const SHEET_TAB_GENERATED = 'generated';
+const SHEET_HEADERS_GENERATED = ['userId', 'genId', 'name', 'station', 'rarityId', 'vocabJSON', 'fileId', 'fileUrl', 'createdAt'];
+
+// 生成キャラ画像の保存先フォルダ（ルート直下に1つ作って共用）
+function getGeneratedFolder_() {
+  const root = getRootFolder();
+  const name = '_generated_characters';
+  const it = root.getFoldersByName(name);
+  return it.hasNext() ? it.next() : root.createFolder(name);
+}
+
+/** 生成キャラ1体を保存。画像を Drive に、メタを Sheets に（userId 紐付け）。
+ *  body: { userId, genId, name, station, rarityId, vocab, imageDataUrl, createdAt } */
+function saveGeneratedCharacter(body) {
+  try {
+    const userId = String((body && body.userId) || '');
+    const genId  = String((body && body.genId) || '');
+    if (!userId || !genId) return { ok: false, error: 'userId と genId が必要です' };
+
+    // 既に同じ genId が保存済みなら重複保存しない
+    const sheet = getLogSheet(SHEET_TAB_GENERATED, SHEET_HEADERS_GENERATED);
+    const rows = sheet.getDataRange().getValues();
+    const col = n => rows[0].indexOf(n);
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][col('genId')]) === genId) {
+        return { ok: true, dup: true, fileUrl: String(rows[i][col('fileUrl')] || '') };
+      }
+    }
+
+    // 画像（dataURL）を Drive に PNG 保存
+    let fileId = '', fileUrl = '';
+    const dataUrl = String((body && body.imageDataUrl) || '');
+    const m = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (m) {
+      const blob = Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], genId + '.png');
+      const file = getGeneratedFolder_().createFile(blob);
+      fileId = file.getId();
+      fileUrl = 'https://drive.google.com/uc?id=' + fileId;
+    }
+
+    sheet.appendRow([
+      userId, genId,
+      String((body && body.name) || ''),
+      String((body && body.station) || ''),
+      String((body && body.rarityId) || ''),
+      JSON.stringify((body && body.vocab) || {}),
+      fileId, fileUrl,
+      String((body && body.createdAt) || new Date().toISOString()),
+    ]);
+    return { ok: true, fileId, fileUrl };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** userId の生成キャラ一覧を返す（画像は base64 dataURL で同梱＝端末を跨いで表示可能）。
+ *  body: { userId } → { ok, characters: [{ genId, name, station, rarityId, vocab, imageDataUrl, createdAt }] } */
+function getGeneratedCharacters(body) {
+  try {
+    const userId = String((body && body.userId) || '');
+    if (!userId) return { ok: false, error: 'userId が必要です' };
+    const sheet = getLogSheet(SHEET_TAB_GENERATED, SHEET_HEADERS_GENERATED);
+    const rows = sheet.getDataRange().getValues();
+    if (rows.length < 2) return { ok: true, characters: [] };
+    const col = n => rows[0].indexOf(n);
+    const out = [];
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][col('userId')]) !== userId) continue;
+      let vocab = {};
+      try { vocab = JSON.parse(String(rows[i][col('vocabJSON')] || '{}')) || {}; } catch (_) {}
+      let imageDataUrl = null;
+      const fileId = String(rows[i][col('fileId')] || '');
+      if (fileId) {
+        try {
+          const blob = DriveApp.getFileById(fileId).getBlob();
+          imageDataUrl = 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes());
+        } catch (_) { imageDataUrl = null; }
+      }
+      out.push({
+        genId: String(rows[i][col('genId')] || ''),
+        name: String(rows[i][col('name')] || ''),
+        station: String(rows[i][col('station')] || ''),
+        rarityId: String(rows[i][col('rarityId')] || 'common'),
+        vocab: vocab,
+        imageDataUrl: imageDataUrl,
+        createdAt: String(rows[i][col('createdAt')] || ''),
+      });
+    }
+    return { ok: true, characters: out };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
   }

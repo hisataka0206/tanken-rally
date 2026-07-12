@@ -2999,3 +2999,56 @@ body.ar-open { overflow: hidden; }
   pointer-events: none;
 }
 .tk-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ===== トップ画面（#3 3つの入口） ===== */
+.home-screen {
+  max-width: 460px;
+  margin: 24px auto;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.home-hello {
+  text-align: center;
+  font-weight: 700;
+  color: var(--brown, #6B4A32);
+  margin: 4px 0 6px;
+  font-size: 15px;
+}
+.home-entry {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 18px 20px;
+  border: 2px solid var(--green-light, #8FD6A3);
+  border-radius: 20px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 3px 0 rgba(15,122,77,0.12);
+  transition: transform .08s, box-shadow .08s;
+}
+.home-entry:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(15,122,77,0.12); }
+.home-entry-icon { font-size: 30px; line-height: 1; }
+.home-entry-label { font-size: 17px; font-weight: 700; color: var(--text, #333); }
+.home-entry-primary {
+  background: linear-gradient(180deg, #2fb56f 0%, #1b9d5c 100%);
+  border-color: #1b9d5c;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.18);
+}
+.home-entry-primary .home-entry-label { color: #fff; font-size: 19px; }
+
+/* トップ画面のログアウト（控えめなテキストボタン） */
+.home-logout {
+  align-self: center;
+  margin-top: 10px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 0;
+  color: var(--muted, #7a746a);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}

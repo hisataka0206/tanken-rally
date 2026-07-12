@@ -72,8 +72,7 @@
       <h1 data-i18n="appTitle">テクタン</h1>
       <span class="header-version" id="header-version">v1.0.0</span>
       <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
-      <button id="history-btn" class="zukan-btn" type="button" data-i18n-title="btnHistory" title="ぼうけんの履歴">📜</button>
-      <button id="zukan-btn" class="zukan-btn" type="button" data-i18n-title="btnZukan" title="キャラずかん">📖</button>
+      <button id="home-btn" class="zukan-btn" type="button" data-i18n-title="btnHome" title="トップにもどる">🏠</button>
       <button id="admin-btn" class="zukan-btn hidden" type="button" title="マスターモード（admin）">🛠</button>
     </header>
 
@@ -83,8 +82,28 @@
     <!-- 冒険の進捗トレイル（すごろく型・shell.js が構築/更新） -->
     <nav id="trail" class="trail" aria-label="progress"></nav>
 
+    <!-- トップ画面（#3）: 3つの入口だけのシンプルなホーム -->
+    <section id="step-home" class="step hidden">
+      <div class="home-screen">
+        <p class="home-hello" id="home-hello"></p>
+        <button id="home-start" class="home-entry home-entry-primary" type="button">
+          <span class="home-entry-icon">🗺️</span>
+          <span class="home-entry-label" data-i18n="homeStart">たんけんを はじめる</span>
+        </button>
+        <button id="home-history" class="home-entry" type="button">
+          <span class="home-entry-icon">📜</span>
+          <span class="home-entry-label" data-i18n="homeHistory">いままでの たんけんを 思い出す</span>
+        </button>
+        <button id="home-zukan" class="home-entry" type="button">
+          <span class="home-entry-icon">📖</span>
+          <span class="home-entry-label" data-i18n="homeZukan">ずかんを 見る</span>
+        </button>
+        <button id="home-logout" class="home-logout" type="button" data-i18n="btnLogout">ログアウト</button>
+      </div>
+    </section>
+
     <!-- STEP 1: 駅名入力 -->
-    <section id="step-station" class="step active">
+    <section id="step-station" class="step hidden">
       <div class="card">
         <h2 class="step-title"><span class="step-num">1</span> <span data-i18n="step1Title">探検する駅をえらぼう</span></h2>
 

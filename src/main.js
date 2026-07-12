@@ -736,7 +736,9 @@ function renderZukanGrid(collection) {
   const compEl = $('zukan-comp');
   if (compEl) compEl.textContent = t('zukanCompFmt', 'コンプ {n}/{total}').replace('{n}', String(owned)).replace('{total}', String(total));
 
-  const charsHtml = CHARACTERS.map(ch => {
+  // レア度が高いものが下（最後）に並ぶよう昇順ソート（通常=1 → レア=2 → エピック=3 → レジェンド=4）
+  const orderedChars = [...CHARACTERS].sort((a, b) => charRarityStars(a) - charRarityStars(b));
+  const charsHtml = orderedChars.map(ch => {
     const ownedSet = ownedVariantIds(_zukanCollection, ch.id);
     const caught = ownedSet.size > 0;
     const name = caught ? charDisplayName(ch) : t('zukanUnknown');

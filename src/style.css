@@ -3083,3 +3083,10 @@ body.ar-open { overflow: hidden; }
   text-shadow: 0 1px 1px rgba(0,0,0,0.25);
 }
 .zukan-rare { box-shadow: inset 0 0 0 2px #f5c451; border-radius: 12px; }
+
+/* レア枠・生成キャラの画像は余白が多く小さく見えるため拡大して迫力を合わせる */
+.zukan-item.zukan-rare img,
+.zukan-item.zukan-generated img {
+  transform: scale(1.4);
+  transform-origin: center 45%;
+}

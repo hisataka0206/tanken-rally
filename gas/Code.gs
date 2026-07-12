@@ -31,6 +31,28 @@ const SESSION_RETENTION_DAYS = 30;                 // セッションフォル�
 const NANOBANANA_MODEL = 'gemini-3-pro-image'; // infographicパイプライン(nb_generate.py)で実績のある本番モデル
 const NANOBANANA_MAX_IMAGES = 4;               // 1回のキャラ生成で作る最大枚数（1リクエスト=1枚をこの回数ループ）
 
+// ===== 生成の1日あたり上限（コストの物理天井）=====
+// 目的: generateCharacters（Gemini画像生成）の月額を ¥30,000 以下に固定する。
+// 単位は「枚（画像）」でカウントする（課金は枚単価のため、count=3/4 の揺れに強い）。
+//
+// コスト前提（保守側＝安全に上振れさせて見積もる）:
+//   ・単価: gemini-3-pro-image 約 $0.24/枚（社内docの上限値／4K相当。実運用の2Kなら $0.10〜0.13）
+//   ・為替: $1 = ¥162（2026-07 時点の円安水準。docの¥150想定より保守的）
+//   ・1枚あたり ≒ $0.24 × 162 ≒ ¥39
+//   ・月= 31日（最長月）で割る: ¥30,000 / 31 ≒ ¥967/日
+//   ・上限枚数/日 = ¥967 / ¥39 ≒ 24枚 → GEN_DAILY_IMAGE_LIMIT = 24
+//   ・最悪ケース検算: 24枚 × ¥39 × 31日 ≒ ¥29,016 ≤ ¥30,000 ✓
+//   ・「回数」換算: 1体作成=3枚なので ≒ 8回/日（＝全ユーザー合計の生成回数上限）。
+//   ・実運用($0.13/枚・¥150)なら 24枚×31日 ≒ ¥14,500/月 と十分な余裕。
+// 予算を変えたい時はこの1定数だけ調整する（枚単価・為替が動いたら上のコメントも更新）。
+const GEN_DAILY_IMAGE_LIMIT = 24;   // 全体で1日に生成できる画像の最大枚数（≒8回/日）
+
+// ===== ログインのレート制限（総当たり対策）=====
+// 「同じ名前で失敗10回/15分 → 15分クールダウン（成功でリセット）」
+const LOGIN_FAIL_MAX       = 10;               // クールダウン発動までの許容失敗回数
+const LOGIN_FAIL_WINDOW_MS = 15 * 60 * 1000;   // 失敗回数を数える時間窓（15分）
+const LOGIN_LOCK_MS        = 15 * 60 * 1000;   // ロック（クールダウン）時間（15分）
+
 // ===== エントリポイント =====
 function doPost(e) {
   const headers = {
@@ -1057,6 +1079,13 @@ function loginUser(body) {
     if (!pinHash)  return { ok: false, error: 'pin-required' };
 
     const nameLower = name.toLowerCase();
+
+    // レート制限: 同じ名前で失敗が続いている間はクールダウン中なら即拒否（認証も試さない）。
+    const lock = checkLoginLock_(nameLower);
+    if (lock.locked) {
+      return { ok: false, error: 'too-many-attempts', retryAfterSec: lock.retryAfterSec };
+    }
+
     const sheet = getLogSheet(SHEET_TAB_USERS, SHEET_HEADERS_USERS);
     const rows = sheet.getDataRange().getValues();
     const headers = rows[0];
@@ -1065,16 +1094,120 @@ function loginUser(body) {
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][col('nameLower')]) === nameLower) {
         if (String(rows[i][col('pinHash')]) !== pinHash) {
+          // 失敗を記録。しきい値到達なら 15分クールダウン。
+          const f = recordLoginFailure_(nameLower);
+          if (f.locked) return { ok: false, error: 'too-many-attempts', retryAfterSec: f.retryAfterSec };
           return { ok: false, error: 'bad-credentials' };
         }
-        // lastLoginAt を更新
+        // 成功: 失敗カウンタをリセットし、lastLoginAt を更新
+        resetLoginGuard_(nameLower);
         sheet.getRange(i + 1, col('lastLoginAt') + 1).setValue(new Date().toISOString());
         return { ok: true, userId: String(rows[i][col('userId')]), name: String(rows[i][col('name')]) };
       }
     }
+    // 存在しない名前も「失敗」として数える（総当たり防止）。
+    const f = recordLoginFailure_(nameLower);
+    if (f.locked) return { ok: false, error: 'too-many-attempts', retryAfterSec: f.retryAfterSec };
     return { ok: false, error: 'not-found' };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
+  }
+}
+
+// ===== ログイン失敗ガード（login_guard シート）=====
+// 1行 = 1名前ぶん。列: [nameLower, failCount, windowStartAt(ms), lockUntil(ms), updatedAt]
+const SHEET_TAB_LOGIN_GUARD     = 'login_guard';
+const SHEET_HEADERS_LOGIN_GUARD = ['nameLower', 'failCount', 'windowStartAt', 'lockUntil', 'updatedAt'];
+
+/** 名前行の {rowNum, failCount, windowStartAt, lockUntil} を返す（無ければ rowNum=null）。 */
+function loginGuardRow_(sheet, nameLower) {
+  var last = sheet.getLastRow();
+  if (last >= 2) {
+    var values = sheet.getRange(2, 1, last - 1, 4).getValues(); // nameLower, failCount, windowStartAt, lockUntil
+    for (var i = 0; i < values.length; i++) {
+      if (String(values[i][0]) === nameLower) {
+        return {
+          rowNum:        i + 2,
+          failCount:     Number(values[i][1]) || 0,
+          windowStartAt: Number(values[i][2]) || 0,
+          lockUntil:     Number(values[i][3]) || 0,
+        };
+      }
+    }
+  }
+  return { rowNum: null, failCount: 0, windowStartAt: 0, lockUntil: 0 };
+}
+
+/** 現在ロック中か判定。{locked, retryAfterSec} */
+function checkLoginLock_(nameLower) {
+  try {
+    var sheet = getLogSheet(SHEET_TAB_LOGIN_GUARD, SHEET_HEADERS_LOGIN_GUARD);
+    var r = loginGuardRow_(sheet, nameLower);
+    var now = Date.now();
+    if (r.lockUntil && now < r.lockUntil) {
+      return { locked: true, retryAfterSec: Math.ceil((r.lockUntil - now) / 1000) };
+    }
+    return { locked: false, retryAfterSec: 0 };
+  } catch (e) {
+    return { locked: false, retryAfterSec: 0 }; // ガード障害でログインを止めない
+  }
+}
+
+/** 失敗を1件記録。15分窓内で LOGIN_FAIL_MAX に達したら 15分ロック。{locked, retryAfterSec} */
+function recordLoginFailure_(nameLower) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); } catch (e) { return { locked: false, retryAfterSec: 0 }; }
+  try {
+    var sheet = getLogSheet(SHEET_TAB_LOGIN_GUARD, SHEET_HEADERS_LOGIN_GUARD);
+    var r = loginGuardRow_(sheet, nameLower);
+    var now = Date.now();
+
+    // 既にロック中なら維持（残り時間を返す）
+    if (r.lockUntil && now < r.lockUntil) {
+      return { locked: true, retryAfterSec: Math.ceil((r.lockUntil - now) / 1000) };
+    }
+
+    // 窓の内外で failCount を更新（窓外／未記録なら新しい窓を開始）
+    var failCount, windowStartAt;
+    if (r.windowStartAt && (now - r.windowStartAt) <= LOGIN_FAIL_WINDOW_MS) {
+      failCount = r.failCount + 1;
+      windowStartAt = r.windowStartAt;
+    } else {
+      failCount = 1;
+      windowStartAt = now;
+    }
+
+    var lockUntil = 0;
+    var locked = false;
+    if (failCount >= LOGIN_FAIL_MAX) {
+      lockUntil = now + LOGIN_LOCK_MS;
+      locked = true;
+    }
+
+    var rowValues = [nameLower, failCount, windowStartAt, lockUntil, new Date().toISOString()];
+    if (r.rowNum) {
+      sheet.getRange(r.rowNum, 1, 1, rowValues.length).setValues([rowValues]);
+    } else {
+      sheet.appendRow(rowValues);
+    }
+    return { locked: locked, retryAfterSec: locked ? Math.ceil(LOGIN_LOCK_MS / 1000) : 0 };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** ログイン成功時: 失敗カウンタ・ロックをリセット（該当行があれば 0 クリア）。 */
+function resetLoginGuard_(nameLower) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); } catch (e) { return; }
+  try {
+    var sheet = getLogSheet(SHEET_TAB_LOGIN_GUARD, SHEET_HEADERS_LOGIN_GUARD);
+    var r = loginGuardRow_(sheet, nameLower);
+    if (r.rowNum) {
+      sheet.getRange(r.rowNum, 1, 1, 5).setValues([[nameLower, 0, 0, 0, new Date().toISOString()]]);
+    }
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -1274,6 +1407,80 @@ function authorizeExternalRequest() {
   return res.getResponseCode();
 }
 
+// ===== 生成の1日あたり上限カウンタ（gen_guard シート）=====
+// 1行 = 1日ぶん。列: [date(JST yyyy-MM-dd), count(その日の生成枚数), updatedAt]
+const SHEET_TAB_GEN_GUARD     = 'gen_guard';
+const SHEET_HEADERS_GEN_GUARD = ['date', 'count', 'updatedAt'];
+
+/** JST の当日日付文字列（yyyy-MM-dd）。日付境界をタイムゾーン非依存で固定する。 */
+function genQuotaToday_() {
+  return Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+}
+
+/** 当日行の {sheet, rowNum, count} を返す（無ければ rowNum=null）。 */
+function genQuotaRow_(sheet, today) {
+  var last = sheet.getLastRow();
+  if (last >= 2) {
+    var values = sheet.getRange(2, 1, last - 1, 2).getValues(); // date, count
+    for (var i = 0; i < values.length; i++) {
+      if (String(values[i][0]) === today) {
+        return { rowNum: i + 2, count: Number(values[i][1]) || 0 };
+      }
+    }
+  }
+  return { rowNum: null, count: 0 };
+}
+
+/** count 枚ぶんを予約（当日カウンタに加算）。上限超過なら予約せず {ok:false}。
+ *  同時実行での二重計上を防ぐため ScriptLock で直列化する。 */
+function reserveGenQuota_(count) {
+  var n = Math.max(0, parseInt(count, 10) || 0);
+  if (n === 0) return { ok: true, used: 0 };
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (e) {
+    // ロックが取れない時は安全側（生成させない）に倒す
+    return { ok: false, used: -1 };
+  }
+  try {
+    var sheet = getLogSheet(SHEET_TAB_GEN_GUARD, SHEET_HEADERS_GEN_GUARD);
+    var today = genQuotaToday_();
+    var cur = genQuotaRow_(sheet, today);
+    if (cur.count + n > GEN_DAILY_IMAGE_LIMIT) {
+      return { ok: false, used: cur.count };
+    }
+    var now = new Date().toISOString();
+    if (cur.rowNum) {
+      sheet.getRange(cur.rowNum, 2, 1, 2).setValues([[cur.count + n, now]]);
+    } else {
+      sheet.appendRow([today, n, now]);
+    }
+    return { ok: true, used: cur.count + n };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 予約したが未使用だったぶん（失敗/安全ブロック）を当日カウンタから戻す。 */
+function refundGenQuota_(count) {
+  var n = Math.max(0, parseInt(count, 10) || 0);
+  if (n === 0) return;
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); } catch (e) { return; }
+  try {
+    var sheet = getLogSheet(SHEET_TAB_GEN_GUARD, SHEET_HEADERS_GEN_GUARD);
+    var today = genQuotaToday_();
+    var cur = genQuotaRow_(sheet, today);
+    if (cur.rowNum) {
+      var next = Math.max(0, cur.count - n);
+      sheet.getRange(cur.rowNum, 2, 1, 2).setValues([[next, new Date().toISOString()]]);
+    }
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function generateCharacters(body) {
   try {
     var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
@@ -1283,6 +1490,15 @@ function generateCharacters(body) {
     var prompt = String((body && body.prompt) || '').slice(0, 4000);
     if (!prompt) return { ok: false, error: 'empty prompt' };
     var count = Math.max(1, Math.min(NANOBANANA_MAX_IMAGES, parseInt((body && body.count) || 3, 10)));
+
+    // 生成の1日あたり上限（コスト天井）: 今日の生成枚数 + count が上限を超えるなら生成しない。
+    // 先に count 枚ぶんを「予約」し、実際に生成できた枚数との差は末尾で払い戻す（同時実行の取りこぼし防止）。
+    var reserve = reserveGenQuota_(count);
+    if (!reserve.ok) {
+      // 上限到達。フロントは ok:false を受けて自動でモック生成にフォールバックする
+      // （お祝いの瞬間に"失敗"を出さない＝docs/character-auto-generation-spec.md §12 の方針）。
+      return { ok: false, error: 'daily-limit', used: reserve.used, limit: GEN_DAILY_IMAGE_LIMIT };
+    }
 
     var url = 'https://generativelanguage.googleapis.com/v1beta/models/'
       + encodeURIComponent(NANOBANANA_MODEL) + ':generateContent?key=' + encodeURIComponent(apiKey);
@@ -1308,6 +1524,7 @@ function generateCharacters(body) {
       if (code !== 200) {
         // プリペイド残高切れは共通の運用エラーなので即時返す（infographicと同じ挙動）。
         if (textBody.indexOf('prepayment credits are depleted') >= 0) {
+          refundGenQuota_(count - images.length); // 未生成ぶんを払い戻す
           return { ok: false, error: 'gemini 429: プリペイド残高切れ。ai.studio でチャージしてください。' };
         }
         lastErr = 'gemini http ' + code + ': ' + textBody.slice(0, 200);
@@ -1333,11 +1550,19 @@ function generateCharacters(body) {
       }
       if (!picked) lastErr = 'no image in response (possibly IMAGE_SAFETY blocked)';
     }
+    // 予約したが実際には生成できなかったぶん（失敗/安全ブロック）を上限カウンタへ払い戻す。
+    refundGenQuota_(count - images.length);
     if (!images.length) {
       return { ok: false, error: lastErr || 'no images generated' };
     }
     return { ok: true, images: images };
   } catch (err) {
+    // 予約済みだが未生成のぶんを取りこぼさず払い戻す（予約前の例外なら count/images は 0 相当で無害）。
+    try {
+      if (typeof count === 'number' && reserve && reserve.ok) {
+        refundGenQuota_(count - ((images && images.length) || 0));
+      }
+    } catch (_) { /* 払い戻し失敗は無視 */ }
     return { ok: false, error: String(err) };
   }
 }

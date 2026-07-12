@@ -134,7 +134,8 @@ export async function loginAccount(name, pin, drive) {
       }
       // GAS 未更新（loginUser 未実装）なら「unknown action」→ ローカルへフォールバック
       if (res && res.error && !isGasNotUpdated_(res.error)) {
-        return { ok: false, error: res.error };
+        // レート制限（クールダウン中）は残り時間も添えて返す
+        return { ok: false, error: res.error, retryAfterSec: res.retryAfterSec };
       }
     } catch (_) {
       return { ok: false, error: 'network' };

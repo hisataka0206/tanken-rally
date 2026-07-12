@@ -4316,6 +4316,7 @@ function showLoginError(code) {
     'bad-credentials':'loginErrBadCredentials',
     'not-found':      'loginErrNotFound',
     'login-mismatch': 'loginErrMismatch',
+    'too-many-attempts':'loginErrTooMany',
     'network':        'loginErrNetwork',
   };
   const el = $('login-error');
@@ -4374,6 +4375,10 @@ async function onLoginSubmit() {
   try {
     // 1) まずログイン
     let res = await loginAccount(name, pin, drive);
+    if (!res.ok && res.error === 'too-many-attempts') {
+      // レート制限中は新規作成を試さず即エラー（アカウント有無も漏らさない）
+      return fail('too-many-attempts');
+    }
     if (!res.ok) {
       // 2) 失敗 → 新規作成を試す
       const reg = await registerAccount(name, pin, drive);

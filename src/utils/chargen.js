@@ -12,6 +12,7 @@ import { getExplorerId } from './collection.js?v=106';
 import { AXIS_BODY, AXIS_IMPRESSION, bodyById, impressionById, axisLabel } from '../data/archetypes.js?v=106';
 import { makeVocabPicks, VOCAB } from '../data/vocab.js?v=106';
 import { cutoutBackground } from './imagefx.js?v=106';
+import { STATION_NAMES_KANA, STATION_NAMES_EN } from '../data/cities.js?v=106';
 
 // case X 明示メニュー用: ユーザーが選べる語彙（被りにくい user_selectable プール）。
 // 子供向けに軸を絞る＝モチーフ（タイプ的な"なに"）＋ふんいき（"どんな感じ"）。
@@ -302,25 +303,61 @@ export async function startGeneration(params) {
   };
 }
 
+// ひらがな→カタカナ変換
+function hiraToKata(s) {
+  return String(s || '').replace(/[ぁ-ゖ]/g, ch => String.fromCharCode(ch.charCodeAt(0) + 0x60));
+}
+// 駅名 → カタカナ4文字までの短縮形（例: 御器所→ゴキソ）。読みが無い漢字駅はそのまま4文字に切る。
+function stationKataShort(station) {
+  const ja = String(station || '').replace(/駅$/, '').trim();
+  if (!ja) return '';
+  const kana = STATION_NAMES_KANA[ja] || '';
+  let k = kana ? hiraToKata(kana) : (/^[ァ-ヶー]+$/.test(ja) ? ja : ja);
+  return k.slice(0, 4);
+}
+
 // ===== 命名候補（自由入力なし・候補から選ぶ）=====
-// 命名候補。見た目（＝生成に使った motif の具体名詞）に寄せて、フォルムと名前が
-// ちぐはぐにならないようにする（#9）。motif が無ければ body ラベルにフォールバック。
+// 見た目（motif）と場所（駅）から、キャラ名らしい候補を作る。
+//   ・駅名は必ず「カタカナ4文字までの短縮形」にする（漢字直球を避ける）。
+//   ・「っち/ぷち/ちび/{駅}の〜」のダサ直球はやめ、名前らしい語尾＋ブレンドにする。
 export function nameCandidates(station, vocab, lang = 'ja') {
-  // motif は「ほし」「コンパス」「たね・め」等。中黒の前だけ取って短い核にする。
-  const motif = (vocab && vocab.motif) ? String(vocab.motif).split(/[・･]/)[0].trim() : '';
+  const motifRaw = (vocab && vocab.motif) ? String(vocab.motif).split(/[・･]/)[0].trim() : '';
   const b = (vocab && vocab.bodyId != null) ? bodyById(vocab.bodyId) : null;
-  const core = motif || (b ? axisLabel(b, 'ja') : '') || 'なかま';
-  const st = String(station || '').replace(/駅$/, '').trim() || 'たんけん';
-  // 子供向けの安全なテンプレのみ（核＝サニタイズ済みの語彙/駅名だけ）
-  const list = [
-    `${core}っち`,
-    `ぷち${core}`,
-    `${st}の${core}`,
-    `${core}マル`,
-    `ちび${core}`,
-  ];
-  // 重複除去
-  return Array.from(new Set(list)).slice(0, 4);
+  const motif = motifRaw || (b ? axisLabel(b, 'ja') : '') || 'なかま';
+
+  if (lang === 'en') {
+    const st = (STATION_NAMES_EN[String(station || '').replace(/駅$/, '')] || '').trim();
+    const m = motif; // motif は日本語のこともあるが、英語版は簡易に
+    const list = [
+      st ? `${st.slice(0, 5)}o` : '',
+      `${m}o`,
+      st ? `${st.slice(0, 4)}by` : '',
+      `${m}pom`,
+    ].filter(Boolean);
+    return Array.from(new Set(list)).slice(0, 4);
+  }
+
+  // ポケモン名 全1025種の分析より（docs/character-taxonomy）:
+  //   4〜5文字カタカナ／濁音多用／語尾に強い型。伝説枠は「格上の語尾」(オン/ドン/ザー/ロス/ース)＋長音。
+  const mk = hiraToKata(motif);          // モチーフをカタカナ化（例: ほし→ホシ）
+  const sk = stationKataShort(station);  // 駅カタカナ短縮（4文字まで）
+  const legendary = vocab && (vocab.rarityId === 'legend' || vocab.rarityId === 'epic');
+  const ENDINGS = legendary
+    ? ['オン', 'ドン', 'ザー', 'ロス', 'ース', 'ガ', 'ール', 'ート']   // 格上（伝説系）
+    : ['ン', 'ール', 'ッチ', 'ピー', 'モン', 'ター', 'リン', 'ッキー']; // 通常
+  const off = Math.floor(Math.random() * ENDINGS.length);
+  const e = i => ENDINGS[(off + i) % ENDINGS.length];
+  const sk3 = sk.slice(0, 3), sk2 = sk.slice(0, 2);
+  const mk3 = mk.slice(0, 3), mk2 = mk.slice(0, 2), mk1 = mk.slice(0, 1);
+
+  const cand = [
+    (sk2 && mk2) ? `${sk2}${mk2}` : '',          // 駅×モチーフのブレンド（例: ゴキ+コン=ゴキコン）
+    mk3 ? `${mk3}${e(0)}` : '',                   // モチーフ＋語尾（例: ホシドン）
+    sk3 ? `${sk3}${e(1)}` : '',                   // 駅＋語尾（例: ゴキソザー）
+    (sk2 && mk1) ? `${sk2}${mk1}${e(2)}` : '',    // 混成＋語尾（例: ゴキホ＋オン）
+    mk2 ? `${mk2}${e(3)}` : '',                   // 短モチーフ＋語尾
+  ].map(s => s.slice(0, 6)).filter(v => v && v.length >= 3);
+  return Array.from(new Set(cand)).slice(0, 4);
 }
 
 // ===== 生成キャラの保存（図鑑「つくったなかま」用の専用ストア）=====

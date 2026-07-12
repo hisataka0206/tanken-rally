@@ -3018,7 +3018,7 @@ function onChargenPick(idx) {
   $('chargen-rarity').textContent = `${rarLabel} ${'★'.repeat(rar.stars || 1)}`;
 
   // 命名候補（候補から選ぶ・自由入力なし）
-  const names = nameCandidates(state.charGen.params.station, { ...(cand.vocab || {}), bodyId: cand.bodyId }, LANG === 'en' ? 'en' : 'ja');
+  const names = nameCandidates(state.charGen.params.station, { ...(cand.vocab || {}), bodyId: cand.bodyId, rarityId: cand.rarityId }, LANG === 'en' ? 'en' : 'ja');
   const nopt = $('chargen-name-options');
   nopt.innerHTML = names.map(n =>
     `<button type="button" class="chargen-name-opt" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join('');

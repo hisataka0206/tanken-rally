@@ -78,25 +78,37 @@ export function buildPrompt({ station, spots, distanceKm, vocab }) {
   const rarity = rarityForDistance(distanceKm);
   const v = vocab || {};
   const spotThemes = (spots || []).slice(0, 5).map(sanitizeTheme).filter(Boolean).join(', ');
+  // レア度連動エフェクト（共有プロンプト議論の effect 層。Gemini 自然文版）
+  const effectByRarity = {
+    common: 'Keep it plain and clean with no extra effects.',
+    rare:   'Add a few small floating accent shapes around the character.',
+    epic:   'Add floating accent shapes and soft sparkles around the character.',
+    legend: 'Add lively floating accent shapes, glowing sparkles and a subtle radiant aura.',
+  };
   return [
-    // --- ブランディング固定部（画風・安全）---
-    'Original mascot character for a kids station-exploration game "Tekutan".',
-    'Consistent house art style: thick clean outlines, rounded chibi proportions, big friendly eyes, soft candy-pop colors, sticker-like flat shading.',
+    // === 固定DNA（画風の統一）===
+    // 共有された SD/SDXL タグDNA を Gemini 自然文へ翻案。重み記法 (:1.3) と別枠ネガティブは
+    // Gemini 非対応のため使わず、否定は末尾に「Avoid: …」の肯定文で付与する。
+    'Design one original mascot character for a kids station-exploration game called "Tekutan".',
+    'Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration.',
+    'Bold clean dark-brown outlines (never pure black), flat pastel colors with soft glossy white highlights, round pink rosy cheeks, big friendly eyes, and simple short stubby dark-brown limbs, with sticker-like flat shading.',
     // 背景は「透明」を要求しても不透明で返るため、抜きやすい単色ベタ背景を明示（クライアントで透過処理する）。
-    'Single character, centered, fully inside the frame with margin, isolated on a plain solid pure-white background with no scenery, no shadow, no gradient.',
-    'Child-friendly: not scary, no violence, no text, no weapons.',
-    // --- ユーザー変数＝記述語彙DB（6論点・IP非依存の一般名詞。日英混在でOK、Geminiは両対応）---
-    v.motif      ? `Creature motif: ${v.motif}.`        : '',
-    v.type       ? `Elemental essence: ${v.type}.`      : '',
-    v.texture    ? `Texture: ${v.texture}.`             : '',
-    v.decoration ? `Decoration: ${v.decoration}.`       : '',
-    v.expression ? `Expression: ${v.expression}.`       : '',
-    v.atmosphere ? `Atmosphere: ${v.atmosphere}.`       : '',
-    // --- 旅のモチーフ ---
-    station ? `Inspired by the area around ${sanitizeTheme(station)} station.` : '',
+    'Show only this one character, centered with margin fully inside the frame, isolated on a plain solid pure-white background with no scenery, no shadow, no gradient.',
+    'Child-friendly: cute and friendly, not scary, no violence, no weapons.',
+    // === 差別化変数＝記述語彙DB（6論点・IP非依存の一般名詞。日英混在OK、Geminiは両対応）===
+    v.motif      ? `Creature concept / motif: ${v.motif}.` : '',
+    v.type       ? `Elemental essence: ${v.type}.`         : '',
+    v.texture    ? `Surface texture: ${v.texture}.`        : '',
+    v.decoration ? `Small accessory: ${v.decoration}.`     : '',
+    v.expression ? `Facial expression: ${v.expression}.`   : '',
+    v.atmosphere ? `Overall mood: ${v.atmosphere}.`        : '',
+    // === 旅のモチーフ ===
+    station ? `Gently inspired by the area around ${sanitizeTheme(station)} station.` : '',
     spotThemes ? `Subtle motifs from: ${spotThemes}.` : '',
-    // --- 距離＝レア度の風格 ---
-    `Rarity feel: ${rarity.id} (more elaborate and radiant for higher rarity).`,
+    // === レア度＝格・エフェクト ===
+    `Rarity: ${rarity.id}. ${effectByRarity[rarity.id] || effectByRarity.common} Higher rarity looks more elaborate and radiant.`,
+    // === ネガティブ（Gemini は別枠ネガティブ非対応→肯定文の禁止指示として付与）===
+    'Avoid: realistic or 3D rendering, photorealism, gradient or realistic shading, any humans or human-like hands, fingers or toes, any text, letters, numbers, signature or watermark, multiple characters, pure-black outlines, and busy or detailed backgrounds.',
   ].filter(Boolean).join(' ');
 }
 

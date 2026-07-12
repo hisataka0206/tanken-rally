@@ -94,6 +94,8 @@ export function buildPrompt({ station, spots, distanceKm, vocab }) {
     'Bold clean dark-brown outlines (never pure black), flat pastel colors with soft glossy white highlights, round pink rosy cheeks, big friendly eyes, and simple short stubby dark-brown limbs, with sticker-like flat shading.',
     // 背景は「透明」を要求しても不透明で返るため、抜きやすい単色ベタ背景を明示（クライアントで透過処理する）。
     'Show only this one character, centered with margin fully inside the frame, isolated on a plain solid pure-white background with no scenery, no shadow, no gradient.',
+    // Gemini が「デザインソフトで開いた様子」を絵として描く事故を防ぐ（Photoshop UI 混入対策）。
+    'Output ONLY the finished character artwork itself as a clean plain illustration. This is NOT a screenshot and NOT a software mockup: absolutely no application window, no Photoshop or image-editor interface, no menu bar, no toolbars, no side panels, no layers panel, no rulers, no canvas checkerboard, no window frame or UI of any kind.',
     'Child-friendly: cute and friendly, not scary, no violence, no weapons.',
     // === 差別化変数＝記述語彙DB（6論点・IP非依存の一般名詞。日英混在OK、Geminiは両対応）===
     v.motif      ? `Creature concept / motif: ${v.motif}.` : '',
@@ -108,7 +110,7 @@ export function buildPrompt({ station, spots, distanceKm, vocab }) {
     // === レア度＝格・エフェクト ===
     `Rarity: ${rarity.id}. ${effectByRarity[rarity.id] || effectByRarity.common} Higher rarity looks more elaborate and radiant.`,
     // === ネガティブ（Gemini は別枠ネガティブ非対応→肯定文の禁止指示として付与）===
-    'Avoid: realistic or 3D rendering, photorealism, gradient or realistic shading, any humans or human-like hands, fingers or toes, any text, letters, numbers, signature or watermark, multiple characters, pure-black outlines, and busy or detailed backgrounds.',
+    'Avoid: any software/application UI or screenshot, Photoshop or editor windows, toolbars, menus, panels, rulers, checkerboard; realistic or 3D rendering, photorealism, gradient or realistic shading, any humans or human-like hands, fingers or toes, any text, letters, numbers, signature or watermark, multiple characters, pure-black outlines, and busy or detailed backgrounds.',
   ].filter(Boolean).join(' ');
 }
 
@@ -220,25 +222,36 @@ export async function startGeneration(params) {
 
   // 実APIが1枚でも返れば採用（全3枚成功を要求しない＝一部SAFETYブロック等でも実APIを活かす）。
   if (real && real.length >= 1) {
-    // 生成画像は不透明背景のことが多い。四隅フラッドフィルで背景を透過に抜く。
+    // 生成画像は不透明背景のことが多い。外周シードのフラッドフィルで背景を透過に抜く。
     // これでシルエット（brightness(0)＝黒影）が「黒い長方形」でなくキャラの形になり、
-    // reveal / 図鑑 / AR でもステッカー状に表示される。失敗時は元画像にフォールバック。
-    const cut = await Promise.all(real.map(r => cutoutBackground(r.imageDataUrl, { tolerance: 48 })));
-    return {
-      candidates: real.map((r, idx) => ({
-        candidateId: 'g' + idx,
-        bodyId: (bodies[idx] || AXIS_BODY[0]).id,
-        impressionId: AXIS_IMPRESSION[0].id,
+    // reveal / 図鑑 / AR でもステッカー状に表示される。
+    const cuts = await Promise.all(real.map(r => cutoutBackground(r.imageDataUrl, { tolerance: 48 })));
+    // 背景が十分に抜けた個体だけ採用（removedRatio が低い＝単色枠/ノイズで抜けず「箱」になる個体は捨てる）。
+    const good = [];
+    cuts.forEach((c, idx) => {
+      if (c && c.url && c.removedRatio >= 0.12) {
+        good.push({ url: c.url, vocab: perCandidate[idx] || perCandidate[0] });
+      }
+    });
+    console.info(`[chargen] cutout採用 ${good.length}/${cuts.length}（removedRatio=${cuts.map(c => (c && c.removedRatio || 0).toFixed(2)).join(',')}）`);
+    if (good.length >= 1) {
+      return {
+        candidates: good.map((g, i) => ({
+          candidateId: 'g' + i,
+          bodyId: (bodies[i] || AXIS_BODY[0]).id,
+          impressionId: AXIS_IMPRESSION[0].id,
+          rarityId: rarity.id,
+          baseCharId: null,
+          imageUrl: g.url,
+          colorFilter: 'none',
+          imageDataUrl: g.url,
+          vocab: g.vocab,
+        })),
         rarityId: rarity.id,
-        baseCharId: null,
-        imageUrl: cut[idx] || r.imageDataUrl,
-        colorFilter: 'none',
-        imageDataUrl: cut[idx] || r.imageDataUrl,
-        vocab: perCandidate[idx] || perCandidate[0],
-      })),
-      rarityId: rarity.id,
-      source: 'nanobanana',
-    };
+        source: 'nanobanana',
+      };
+    }
+    // 全個体が抜け失敗 → 下のモックへフォールバック
   }
 
   // フォールバック（Phase 1 標準）

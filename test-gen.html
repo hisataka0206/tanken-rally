@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>テクタン キャラ量産テスト（test-gen）</title>
+<style>
+  :root { --line:#e2e2e2; --ink:#222; --sub:#666; --ok:#2e7d32; --warn:#e07b00; --bad:#c62828; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif; color:var(--ink); background:#fafafa; }
+  header { position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line); padding:12px 16px; }
+  h1 { font-size:16px; margin:0 0 8px; }
+  .row { display:flex; gap:12px 16px; flex-wrap:wrap; align-items:flex-end; }
+  .fld { display:flex; flex-direction:column; gap:2px; }
+  .fld label { font-size:11px; color:var(--sub); }
+  .fld input, .fld select { padding:6px 8px; border:1px solid var(--line); border-radius:8px; font-size:14px; width:110px; }
+  button { padding:8px 14px; border:0; border-radius:999px; font-weight:700; cursor:pointer; font-size:14px; }
+  #start { background:var(--ok); color:#fff; }
+  #stop { background:var(--bad); color:#fff; }
+  #dry { background:#333; color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  .est { font-size:12px; color:var(--warn); font-weight:700; }
+  .bar { height:8px; background:#eee; border-radius:999px; overflow:hidden; margin-top:8px; }
+  .bar > div { height:100%; width:0; background:var(--ok); transition:width .2s; }
+  .stats { font-size:12px; color:var(--sub); margin-top:6px; }
+  main { padding:16px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px,1fr)); gap:12px; }
+  .card { border:1px solid var(--line); border-radius:12px; background:#fff; overflow:hidden; font-size:11px; }
+  .imgs { display:flex; }
+  .imgs figure { margin:0; flex:1; text-align:center; padding:6px; }
+  .imgs figcaption { font-size:10px; color:var(--sub); }
+  .imgs img { width:100%; height:110px; object-fit:contain; }
+  .cut { background:
+      conic-gradient(#ddd 25%, #fff 0 50%, #ddd 0 75%, #fff 0) 0 0/14px 14px; }
+  .meta { padding:8px; border-top:1px solid var(--line); line-height:1.5; }
+  .pill { display:inline-block; padding:1px 6px; border-radius:999px; color:#fff; font-weight:700; }
+  .b-ok { background:var(--ok); } .b-warn { background:var(--warn); } .b-bad { background:var(--bad); }
+  .prompt { color:var(--sub); max-height:52px; overflow:auto; margin-top:4px; }
+  a.dl { color:#1565c0; }
+  .err { color:var(--bad); padding:10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>テクタン キャラ量産テスト <span style="font-weight:400;color:var(--sub)">— 実アプリと同じ生成経路（buildPrompt→GAS→cutout）を叩きます</span></h1>
+  <div class="row">
+    <div class="fld"><label>体数 N</label><input id="n" type="number" value="100" min="1" max="500"></div>
+    <div class="fld"><label>1体あたり枚数</label><input id="count" type="number" value="1" min="1" max="4"></div>
+    <div class="fld"><label>並列数</label><input id="conc" type="number" value="3" min="1" max="6"></div>
+    <div class="fld"><label>cutout tolerance</label><input id="tol" type="number" value="48" min="10" max="120"></div>
+    <div class="fld"><label>採用 removedRatio 下限</label><input id="minrr" type="number" value="0.12" min="0" max="1" step="0.01"></div>
+    <button id="start">▶ 生成開始</button>
+    <button id="dry">乱数だけ（無料）</button>
+    <button id="conntest">🔌 接続テスト(1件)</button>
+    <button id="stop" disabled>■ 停止</button>
+  </div>
+  <div class="stats" id="gasinfo"></div>
+  <div class="est" id="est"></div>
+  <div class="bar"><div id="prog"></div></div>
+  <div class="stats" id="stats">待機中</div>
+</header>
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+
+<script type="module">
+import { buildPrompt } from './src/utils/chargen.js?v=106';
+import { makeVocabPicks, VOCAB } from './src/data/vocab.js?v=106';
+import { cutoutBackground } from './src/utils/imagefx.js?v=106';
+import { DriveClient } from './src/utils/drive.js?v=106';
+import { CITIES } from './src/data/cities.js?v=106';
+import { CONFIG } from './config.js';
+
+const $ = id => document.getElementById(id);
+const rand = arr => arr[Math.floor(Math.random() * arr.length)];
+const drive = (CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL')
+  ? new DriveClient(CONFIG.GAS_URL, CONFIG.GAS_SECRET) : null;
+
+// 現在のオリジンと GAS 先を可視化（Failed to fetch 切り分け用）
+(function showGasInfo(){
+  const el = document.getElementById('gasinfo');
+  let host = '(未設定)';
+  try { host = CONFIG.GAS_URL ? new URL(CONFIG.GAS_URL).pathname.slice(0, 40) + '…' : '(未設定)'; } catch (_) {}
+  el.textContent = `このページ: ${location.origin || location.href}｜GAS: ${CONFIG.GAS_URL ? 'set' : '未設定'}（${host}）`;
+})();
+
+// 接続テスト: 1件だけ generateCharacters を叩いて生の結果/エラーを表示
+async function connTest() {
+  if (!drive) { alert('config.js の GAS_URL が未設定です'); return; }
+  const info = document.getElementById('gasinfo');
+  info.textContent = '接続テスト中…';
+  try {
+    const res = await drive.generateCharacters({ prompt: 'a simple cute round mascot, flat, plain white background', count: 1 });
+    const n = (res && res.images && res.images.length) || 0;
+    info.textContent = `✅ 接続OK: 画像 ${n} 枚を受信（source=${res.source || 'nanobanana'}）`;
+    console.log('[conntest] ok', res);
+  } catch (e) {
+    const msg = (e && e.message) || String(e);
+    info.textContent = `❌ 接続失敗: ${msg} ／ GAS_URL=${CONFIG.GAS_URL}`;
+    console.error('[conntest] fail', e);
+    alert('接続失敗: ' + msg + '\n\nGAS_URL=' + CONFIG.GAS_URL + '\n\n' +
+      '“Failed to fetch”はCORS/オリジン/URL不一致が典型です。\n' +
+      '・本番アプリで🟢成功したのと同じ場所（localhost or GitHub Pages）でこのページを開く\n' +
+      '・Apps Scriptの「デプロイを管理」の現行Web App URLと config.js の GAS_URL が一致しているか確認');
+  }
+}
+document.getElementById('conntest').addEventListener('click', connTest);
+
+// 全駅をフラット化
+const ALL_STATIONS = [];
+for (const c of CITIES) for (const l of (c.lines || [])) for (const s of (l.stations || [])) ALL_STATIONS.push(s);
+
+// テスト用スポット名プール（実アプリは Google Places 由来。テストは代表的な探検スポット語で代替）
+const SPOT_POOL = ['神社', 'お寺', '公園', '博物館', '科学館', '美術館', '城跡', '古墳', '商店街', '駄菓子屋',
+  '和菓子屋', '図書館', '資料館', '橋', '川沿い', '展望台', '市場', '銭湯', '洋館', '灯台'];
+
+function randomSpots(n) {
+  const pool = SPOT_POOL.slice(); const out = [];
+  while (pool.length && out.length < n) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  return out;
+}
+function randomParams() {
+  const station = rand(ALL_STATIONS);
+  const spots = randomSpots(2 + Math.floor(Math.random() * 4));       // 2〜5
+  const distanceKm = +(0.3 + Math.random() * 5.7).toFixed(2);          // 0.3〜6.0（レア度を広く）
+  // 語彙: 基本ランダム。時々 user_selectable の motif/atmosphere を「選択」して明示メニューを模擬。
+  const overrides = {};
+  if (Math.random() < 0.6) overrides.motif = rand(VOCAB.motif.user_selectable);
+  if (Math.random() < 0.6) overrides.atmosphere = rand(VOCAB.atmosphere.user_selectable);
+  const vocab = makeVocabPicks(overrides);
+  return { station, spots, distanceKm, vocab };
+}
+
+let stop = false, results = [];
+function updateEst() {
+  const n = +$('n').value || 0, count = +$('count').value || 1;
+  $('est').textContent = `推定コスト目安: 約 $${(n * count * 0.2).toFixed(1)}（$0.2/枚 × ${n}体 × ${count}枚）／プリペイド残高を消費`;
+}
+['n', 'count'].forEach(id => $(id).addEventListener('input', updateEst));
+updateEst();
+
+function rrPill(rr) {
+  const c = rr >= 0.12 ? 'b-ok' : (rr > 0 ? 'b-warn' : 'b-bad');
+  return `<span class="pill ${c}">cutout ${(rr * 100).toFixed(0)}%</span>`;
+}
+function card(i, p, opts) {
+  const el = document.createElement('div'); el.className = 'card'; el.id = 'c' + i;
+  const vt = Object.entries(p.vocab).map(([k, v]) => `${k}:${v}`).join(' / ');
+  el.innerHTML = `<div class="imgs" id="c${i}-imgs"><div style="flex:1;padding:20px;color:#aaa">生成中…</div></div>
+    <div class="meta">
+      <b>#${i + 1}</b> 🚉${p.station}｜🏁${p.distanceKm}km｜スポット:${p.spots.join('・')}<br>
+      <span id="c${i}-pills"></span>
+      <div class="prompt">${vt}</div>
+    </div>`;
+  $('grid').appendChild(el);
+  return el;
+}
+
+async function runOne(i) {
+  const p = randomParams();
+  card(i, p);
+  const rec = { i, ...p, source: null, removedRatio: null, error: null };
+  results[i] = rec;
+  if (opts.dry) {
+    rec.prompt = buildPrompt(p);
+    $('c' + i + '-imgs').innerHTML = `<div style="padding:10px;color:#666;font-size:10px">（ドライラン）画像生成なし</div>`;
+    $('c' + i + '-pills').innerHTML = `<span class="pill b-warn">DRY</span>`;
+    return;
+  }
+  if (!drive) { rec.error = 'GAS未設定'; return; }
+  try {
+    const prompt = buildPrompt(p); rec.prompt = prompt;
+    const res = await drive.generateCharacters({ prompt, count: opts.count });
+    const imgs = (res && res.images) || [];
+    if (!imgs.length) throw new Error('画像0件');
+    // 各画像を cutout。1枚目の removedRatio を代表値に。
+    const html = [];
+    let firstRr = 0;
+    for (let k = 0; k < imgs.length; k++) {
+      const raw = imgs[k].dataUrl || imgs[k];
+      const cut = await cutoutBackground(raw, { tolerance: opts.tol });
+      if (k === 0) firstRr = cut.removedRatio;
+      html.push(`<figure><img src="${raw}"><figcaption>raw ${k + 1}</figcaption></figure>
+        <figure><img class="cut" src="${cut.url}"><figcaption>cutout ${(cut.removedRatio * 100).toFixed(0)}%</figcaption></figure>`);
+    }
+    rec.source = res.source || 'nanobanana';
+    rec.removedRatio = firstRr;
+    $('c' + i + '-imgs').innerHTML = html.join('');
+    const okCut = firstRr >= (opts.minrr);
+    $('c' + i + '-pills').innerHTML = `<span class="pill b-ok">実API</span> ${rrPill(firstRr)} ${okCut ? '' : '<span class="pill b-bad">要確認</span>'}`;
+  } catch (e) {
+    rec.error = (e && e.message) || String(e);
+    $('c' + i + '-imgs').innerHTML = `<div class="err">失敗: ${rec.error}</div>`;
+    $('c' + i + '-pills').innerHTML = `<span class="pill b-bad">ERROR</span>`;
+  }
+}
+
+let opts = {};
+let doneCount = 0;
+function updateProgress(total) {
+  $('prog').style.width = (doneCount / total * 100) + '%';
+  const errs = results.filter(r => r && r.error).length;
+  const cutOk = results.filter(r => r && r.removedRatio != null && r.removedRatio >= (opts.minrr)).length;
+  const gen = results.filter(r => r && r.removedRatio != null).length;
+  $('stats').innerHTML = `進捗 ${doneCount}/${total}｜生成成功 ${gen}｜cutout採用 ${cutOk}${gen ? '（' + (cutOk / gen * 100).toFixed(0) + '%）' : ''}｜エラー ${errs}`;
+}
+
+async function run(dry) {
+  const total = Math.max(1, +$('n').value || 1);
+  opts = { dry, count: Math.max(1, +$('count').value || 1), tol: +$('tol').value || 48, minrr: +$('minrr').value || 0.12 };
+  const conc = dry ? 8 : Math.max(1, +$('conc').value || 3);
+  if (!dry && !drive) { alert('config.js の GAS_URL が未設定です'); return; }
+  if (!dry && !confirm(`${total}体 × ${opts.count}枚 を実生成します。推定コスト約 $${(total * opts.count * 0.2).toFixed(1)}。続けますか？`)) return;
+  stop = false; results = []; doneCount = 0; $('grid').innerHTML = '';
+  $('start').disabled = true; $('dry').disabled = true; $('stop').disabled = false;
+  let next = 0;
+  async function worker() {
+    while (!stop) {
+      const my = next++; if (my >= total) break;
+      await runOne(my);
+      doneCount++; updateProgress(total);
+    }
+  }
+  await Promise.all(Array.from({ length: conc }, worker));
+  $('start').disabled = false; $('dry').disabled = false; $('stop').disabled = true;
+  $('stats').innerHTML += stop ? '｜⏹ 停止しました' : '｜✅ 完了';
+  // 結果JSONをコンソールに（分析用）
+  console.log('[test-gen] results', results);
+  window.__testGenResults = results;
+}
+$('start').addEventListener('click', () => run(false));
+$('dry').addEventListener('click', () => run(true));
+$('stop').addEventListener('click', () => { stop = true; $('stop').disabled = true; });
+</script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+Copyright (c) 2026 テクタンチーム (Tekutan Team). All rights reserved.
+無断転載・無断使用を禁じます。全ての権利を留保します。
+
+------------------------------------------------------------------------
+Proprietary License / 独自ライセンス（再利用禁止）
+------------------------------------------------------------------------
+
+This repository and all of its contents — including but not limited to
+source code, configuration, documentation, image assets, and the designs,
+names, and stories of characters generated or defined by this application
+("the Work") — are the proprietary property of the copyright holder.
+
+本リポジトリおよびその全内容（ソースコード・設定・ドキュメント・画像
+アセット、および本アプリが生成／定義するキャラクターのデザイン・名前・
+ストーリーを含むがこれに限らない。以下「本著作物」）は、著作権者に帰属
+する専有物です。
+
+NO LICENSE IS GRANTED. You may NOT copy, reproduce, modify, adapt,
+distribute, publish, sublicense, sell, or use the Work, in whole or in
+part, for any purpose (commercial or non-commercial), without the prior
+written permission of the copyright holder.
+
+いかなる利用許諾も付与されません。著作権者の事前の書面による許可なく、
+本著作物の全部または一部を、目的（商用・非商用を問わない）のいかんに
+かかわらず、複製・改変・翻案・配布・公開・再許諾・販売・使用することを
+禁じます。
+
+The source code is published in a public repository for transparency and
+reference only. Viewing the source does not grant any right to reuse it.
+
+ソースコードは透明性・参照のみを目的として公開リポジトリに置かれており、
+閲覧できることをもって再利用の権利が生じるものではありません。
+
+Third-party libraries and services referenced by the Work (e.g. loaded
+from a CDN) remain the property of their respective owners and are
+governed by their own licenses. This notice does not extend to them.
+
+本著作物が参照する第三者のライブラリ・サービス（例：CDN 経由で読み込む
+もの）は各権利者に帰属し、それぞれのライセンスに従います。本表示はそれら
+には及びません。
+
+THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF THE WORK.
+
+本著作物は現状有姿で提供され、明示黙示を問わずいかなる保証もありません。
+本著作物の利用に起因するいかなる請求・損害・責任についても、著作権者は
+一切責任を負いません。
+
+Inquiries / お問い合わせ:
+  https://docs.google.com/forms/d/e/1FAIpQLSdbzVYXHy_E8_0CWehcy8i8YIihFv5_3Fyych4eOpStO4yeXA/viewform

@@ -22,7 +22,7 @@ const ROOT_FOLDER_ID = _PROP.getProperty('ROOT_FOLDER_ID') || '';
 const LOG_SHEET_ID   = _PROP.getProperty('LOG_SHEET_ID') || '';
 const SHARED_SECRET    = _PROP.getProperty('GAS_SHARED_SECRET') || ''; // config.js の GAS_SECRET と同値をプロパティに設定
 const SESSION_RETENTION_DAYS = 30;                 // セッションフォルダ（写真）の保持期間（日）。約1か月。
-                                                   // ※フロントの履歴に出す「削除済み」文言と一致させること。
+                                                   // ※フロントの履歴/エラー文言・policy.html の「約30日で自動削除」と一致させること。
 
 // ===== キャラ自動生成（NanoBanana Pro / Gemini 3 Pro Image）=====
 // APIキーはコードに直書きせず、スクリプトプロパティに置く（GAS: プロジェクト設定 → スクリプト プロパティ）。
@@ -204,7 +204,7 @@ function resumeSession(body) {
     if (!sessionId) return { ok: false, error: 'sessionId が必要です' };
     const folder = findSessionFolder(sessionId);
     if (!folder) {
-      return { ok: false, error: 'セッションフォルダが見つかりません。IDを確認してください（古いセッションは7日で自動削除されます）。' };
+      return { ok: false, error: 'セッションフォルダが見つかりません。IDを確認してください（古いセッションは30日で自動削除されます）。' };
     }
 
     // Sheet からセッションメタデータを読む（失敗してもフォルダ情報は返すが、

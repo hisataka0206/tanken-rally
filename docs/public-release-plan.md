@@ -130,6 +130,24 @@
 - **現行 GitHub Pages を動かしたくない** なら **GitHub Pro ¥600/月** が最小の追加コスト（上表の無料手段に移せば¥0）。
 - ⚠️ **どれを選んでもレイヤー1（リポジトリ秘匿）止まり**。配信JS自体は読める。**キャラ生成プロンプト等"本当に見られたくない核"は、難読化（レイヤー2）＋サーバ寄せ（レイヤー3＝Plan B）でしか守れない**。まず無料でレイヤー1、本気の秘匿が要るなら Plan B と同時に③をやる、という順序が費用対効果が高い。
 
+### ✅ 採用：Netlify への移行（2026-07-13・設定ファイル作成済み）
+
+push→自動デプロイの快適さを残したまま、リポジトリを Private 化してソースを隠す方式を採用。**リポジトリ直下に `netlify.toml` と `netlify-build.sh` を追加済み**。
+
+- **公開されるのは実行ファイルだけ**：ビルドで `dist/`（`index.html`・`policy.html`・`404.html`・`src/`・生成した `config.js`）だけを配信。**`gas/`・`docs/`・`config.example.js`・`test-gen.html`・`variant-preview.html` は配信されない**（GitHub Pages 時代は全ファイルが公開されており、特に `test-gen.html`＝課金生成を誰でも叩けた点が改善）。
+- `config.js` は Netlify の環境変数から生成（GitHub Actions と同等）。`?v=` は `COMMIT_REF`（コミットSHA）でスタンプ。
+
+**移行手順（ユーザー操作）**：
+1. [app.netlify.com](https://app.netlify.com) でアカウント作成 → **Add new site → Import an existing project → GitHub** を選び、**（Private のままの）`tanken-rally` リポジトリ**を連携。
+2. Build 設定：`netlify.toml` を自動検出（command=`bash netlify-build.sh`／publish=`dist`）。手動なら同値を入力。
+3. **Environment variables** に3つ登録：`GOOGLE_MAPS_API_KEY`・`GAS_URL`・`GAS_SECRET`（GitHub Secrets と同値）。
+4. **Branch deploys** で `beta` を有効化 → `beta--<site>.netlify.app` がプレビューになる（旧 `/beta/` サブパスの代わり。相対パスなので改修不要）。
+5. ⚠️ **Google Maps APIキーの HTTP リファラー制限に Netlify ドメインを追加**：`https://<site>.netlify.app/*` と `https://beta--<site>.netlify.app/*`（独自ドメイン利用時はそれも）。**やらないと地図が真っ白になる**。旧 `github.io` は残置でも可。
+6. デプロイ確認（地図・写真アップロード・PDF・キャラ生成が通るか）。OKなら **GitHub リポジトリを Private 化**し、`.github/workflows/deploy.yml` は不要になるので削除（Private だと Pages ビルドが失敗して紛らわしいため）。
+7. （任意）独自ドメインを Netlify に接続。その場合はリファラー制限もそのドメインに更新。
+
+> **これはレイヤー1のみ**：上記でリポジトリと `gas/`・`test-gen.html` は隠れるが、配信される `src/*.js` は依然ブラウザで読める。核ロジックの秘匿が必要になったら Plan B（難読化＋サーバ寄せ）へ。
+
 ---
 
 ## 2. セキュリティリスク一覧

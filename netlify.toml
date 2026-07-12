@@ -1,0 +1,11 @@
+# Netlify 設定（GitHub Pages からの移行）。
+# ・リポジトリは Private のまま連携でき、ソースツリーは公開されない。
+# ・publish は build 済みの dist/ のみ＝実行に必要なファイルだけを配信する。
+#   （gas/・docs/・config.example.js・test-gen.html 等のソース/検証ファイルは配信しない）
+# ・環境変数（Site settings → Environment variables）に次を設定すること：
+#     GOOGLE_MAPS_API_KEY / GAS_URL / GAS_SECRET
+[build]
+  command = "bash netlify-build.sh"
+  publish = "dist"
+
+# SPA ではないので特別なリダイレクトは不要。404 は dist/404.html を Netlify が自動使用。

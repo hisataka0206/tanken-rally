@@ -59,6 +59,12 @@ function doPost(e) {
     if (action === 'saveSession') {
       return respond(headers, saveSession(body));
     }
+    if (action === 'updateSessionPhotoCount') {
+      return respond(headers, updateSessionPhotoCount(body));
+    }
+    if (action === 'deleteSession') {
+      return respond(headers, deleteSession(body));
+    }
     if (action === 'loadSession') {
       return respond(headers, loadSession(body));
     }
@@ -237,7 +243,7 @@ function resumeSession(body) {
 
 const SHEET_TAB_SESSION = 'セッション';
 const SHEET_TAB_ISSUE   = '不具合報告';
-const SHEET_HEADERS_SESSION = ['日時', 'sessionId', '駅名', 'プレーヤー名', 'フォルダURL', 'スポット数', 'スポット詳細(JSON)', '総距離', '推定時間(分)', 'userId', 'userName'];
+const SHEET_HEADERS_SESSION = ['日時', 'sessionId', '駅名', 'プレーヤー名', 'フォルダURL', 'スポット数', 'スポット詳細(JSON)', '総距離', '推定時間(分)', 'userId', 'userName', '写真枚数'];
 const SHEET_HEADERS_ISSUE   = ['日時', 'sessionId', '駅名', '都市タブ', 'ステップ', '種類', '詳細', 'userAgent', 'URL'];
 
 /** シートのヘッダ行に、不足している列を末尾に追加する（既存シートのスキーマ移行用）。 */
@@ -264,30 +270,109 @@ function getLogSheet(tabName, headers) {
   return sheet;
 }
 
-/** 探検開始時にセッションのメタデータを Sheet に保存 */
+/** セッションのメタデータを Sheet に保存。
+ *  ・同一 sessionId があれば更新（冪等）。
+ *  ・「計画のみ(写真0)」の新規は、同一内容(同 userId・駅・スポット構成)の計画のみ行があれば
+ *    その行を今の sessionId で更新して重複を作らない（＝写真画面に入って戻るだけの増殖を防ぐ）。
+ *  ・写真ありは触らない。作成時刻(日時)は既存行なら保持する。 */
 function saveSession(body) {
   try {
     const { sessionId, stationName, playerName, folderUrl, orderedSpots, routeStats, userId, userName } = body;
     if (!sessionId) return { ok: false, error: 'sessionId が必要です' };
+    const photoCount = Number(body.photoCount) || 0;
     const sheet = getLogSheet(SHEET_TAB_SESSION, SHEET_HEADERS_SESSION);
-    // 既存シートに userId / userName 列が無ければ追加（スキーマ移行）
     ensureColumns_(sheet, SHEET_HEADERS_SESSION);
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const map = {
-      '日時': new Date().toISOString(),
-      'sessionId': sessionId,
-      '駅名': stationName || '',
-      'プレーヤー名': playerName || '',
-      'フォルダURL': folderUrl || '',
-      'スポット数': (orderedSpots && orderedSpots.length) || 0,
-      'スポット詳細(JSON)': JSON.stringify(orderedSpots || []),
-      '総距離': (routeStats && routeStats.distanceText) || '',
-      '推定時間(分)': (routeStats && routeStats.durationMin) || '',
-      'userId': userId || '',
-      'userName': userName || '',
+    const rng = sheet.getDataRange().getValues();
+    const headers = rng[0];
+    const ci = h => headers.indexOf(h);
+    const now = new Date().toISOString();
+    const spotsSig = JSON.stringify((orderedSpots || []).map(s => String((s && s.name) || '')));
+    const rowSig = row => {
+      try { return JSON.stringify(JSON.parse(String(row[ci('スポット詳細(JSON)')] || '[]')).map(s => String((s && s.name) || ''))); }
+      catch (_) { return '[]'; }
     };
-    sheet.appendRow(headers.map(h => (map[h] !== undefined ? map[h] : '')));
-    return { ok: true };
+    const buildVals = existing => headers.map(h => {
+      switch (h) {
+        case '日時': return existing ? existing[ci('日時')] : now;
+        case 'sessionId': return sessionId;
+        case '駅名': return stationName || '';
+        case 'プレーヤー名': return playerName || '';
+        case 'フォルダURL': return folderUrl || '';
+        case 'スポット数': return (orderedSpots && orderedSpots.length) || 0;
+        case 'スポット詳細(JSON)': return JSON.stringify(orderedSpots || []);
+        case '総距離': return (routeStats && routeStats.distanceText) || '';
+        case '推定時間(分)': return (routeStats && routeStats.durationMin) || '';
+        case 'userId': return userId || '';
+        case 'userName': return userName || '';
+        case '写真枚数': return photoCount;
+        default: return existing ? existing[ci(h)] : '';
+      }
+    });
+    // 1) 同一 sessionId → 更新
+    for (let i = 1; i < rng.length; i++) {
+      if (String(rng[i][ci('sessionId')]) === String(sessionId)) {
+        sheet.getRange(i + 1, 1, 1, headers.length).setValues([buildVals(rng[i])]);
+        return { ok: true, updated: true };
+      }
+    }
+    // 2) 計画のみ(写真0)の重複を集約
+    if (photoCount === 0 && userId) {
+      for (let i = 1; i < rng.length; i++) {
+        if (String(rng[i][ci('userId')]) !== String(userId)) continue;
+        if ((Number(rng[i][ci('写真枚数')]) || 0) !== 0) continue;
+        if (String(rng[i][ci('駅名')]) === String(stationName || '') && rowSig(rng[i]) === spotsSig) {
+          sheet.getRange(i + 1, 1, 1, headers.length).setValues([buildVals(rng[i])]);
+          return { ok: true, deduped: true };
+        }
+      }
+    }
+    // 3) 新規追加
+    sheet.appendRow(buildVals(null));
+    return { ok: true, inserted: true };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** 写真枚数を更新（写真アップ時に呼ぶ。plan→写真あり へ昇格） */
+function updateSessionPhotoCount(body) {
+  try {
+    const sessionId = String((body && body.sessionId) || '');
+    if (!sessionId) return { ok: false, error: 'sessionId が必要です' };
+    const photoCount = Number(body && body.photoCount) || 0;
+    const sheet = getLogSheet(SHEET_TAB_SESSION, SHEET_HEADERS_SESSION);
+    ensureColumns_(sheet, SHEET_HEADERS_SESSION);
+    const rng = sheet.getDataRange().getValues();
+    const headers = rng[0]; const ci = h => headers.indexOf(h);
+    for (let i = 1; i < rng.length; i++) {
+      if (String(rng[i][ci('sessionId')]) === sessionId) {
+        sheet.getRange(i + 1, ci('写真枚数') + 1).setValue(photoCount);
+        return { ok: true };
+      }
+    }
+    return { ok: false, error: 'session not found' };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** 履歴の1件を削除（本人=同 userId のみ削除可） */
+function deleteSession(body) {
+  try {
+    const sessionId = String((body && body.sessionId) || '');
+    const userId = String((body && body.userId) || '');
+    if (!sessionId) return { ok: false, error: 'sessionId が必要です' };
+    if (!userId) return { ok: false, error: 'userId が必要です' };
+    const sheet = getLogSheet(SHEET_TAB_SESSION, SHEET_HEADERS_SESSION);
+    const rng = sheet.getDataRange().getValues();
+    const headers = rng[0]; const ci = h => headers.indexOf(h);
+    for (let i = rng.length - 1; i >= 1; i--) {
+      if (String(rng[i][ci('sessionId')]) === sessionId && String(rng[i][ci('userId')]) === userId) {
+        sheet.deleteRow(i + 1);
+        return { ok: true };
+      }
+    }
+    return { ok: false, error: 'not found' };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
   }
@@ -1028,6 +1113,7 @@ function getUserHistory(body) {
         spots:        spots,
         distanceText: String(sRows[i][sCol('総距離')] || ''),
         durationMin:  sRows[i][sCol('推定時間(分)')] || '',
+        photoCount:   (sCol('写真枚数') >= 0 ? (Number(sRows[i][sCol('写真枚数')]) || 0) : 0),
         score:        null,
       });
     }

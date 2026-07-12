@@ -1023,28 +1023,32 @@ function renderHistory(items) {
   list.innerHTML = '';
   items.forEach(it => {
     const dateStr = formatHistoryDate(it.date);
-    const scoreStr = (it.score != null) ? `${it.score}${t('suffPoints')}` : '—';
-    // 移動（距離・時間）— 写真フォルダを消しても残るメタ情報
-    const routeParts = [];
-    if (it.distanceText) routeParts.push(`🚶 ${escapeHtml(String(it.distanceText))}`);
-    if (it.durationMin)  routeParts.push(`⏱ ${escapeHtml(String(it.durationMin))}${t('suffMin')}`);
-    const routeHtml = routeParts.length ? `<div class="history-route">${routeParts.join(' ・ ')}</div>` : '';
-    // 訪れたスポット名
+    const photoN = Number(it.photoCount) || 0;
+    const hasPhotos = photoN > 0;
+    const scoreStr = (it.score != null) ? `${it.score}${t('suffPoints')}` : '';
+    // 計画のみ / 写真あり をバッジで区別
+    const badge = hasPhotos
+      ? `<span class="history-badge history-badge-photo">📷 ${photoN}${t('suffPhotos', '枚')}</span>`
+      : `<span class="history-badge history-badge-plan">${escapeHtml(t('historyPlanOnly', '📝 計画のみ'))}</span>`;
+    // 訪れたスポット名（距離・時間は表示しない）
     const spotsHtml = (it.spots && it.spots.length)
       ? `<div class="history-spots">📍 ${escapeHtml(it.spots.join(' / '))}</div>`
       : (it.spotCount ? `<div class="history-spots">📍 ${Number(it.spotCount)}</div>` : '');
     const item = document.createElement('div');
-    item.className = 'history-item';
+    item.className = `history-item ${hasPhotos ? 'history-item-photos' : 'history-item-plan'}`;
     item.innerHTML = `
       <div class="history-main">
-        <div class="history-station">🚉 ${escapeHtml(it.stationName || '')}</div>
-        <div class="history-meta">${escapeHtml(dateStr)} ・ 🏆 ${escapeHtml(scoreStr)}</div>
-        ${routeHtml}
+        <div class="history-top">
+          <span class="history-station">🚉 ${escapeHtml(it.stationName || '')}</span>
+          ${badge}
+        </div>
+        <div class="history-meta">🕒 ${escapeHtml(dateStr)}${scoreStr ? ` ・ 🏆 ${escapeHtml(scoreStr)}` : ''}</div>
         ${spotsHtml}
       </div>
       <div class="history-actions">
         ${it.folderUrl ? `<a class="history-link" href="${escapeHtml(it.folderUrl)}" target="_blank" rel="noopener">${escapeHtml(t('historyOpenFolder'))}</a>` : ''}
         ${it.sessionId ? `<button class="history-resume" type="button" data-sid="${escapeHtml(it.sessionId)}">${escapeHtml(t('historyResume'))}</button>` : ''}
+        ${it.sessionId ? `<button class="history-delete" type="button" data-sid="${escapeHtml(it.sessionId)}" title="${escapeHtml(t('historyDelete', '削除'))}" aria-label="${escapeHtml(t('historyDelete', '削除'))}">🗑️</button>` : ''}
       </div>
     `;
     list.appendChild(item);
@@ -1057,6 +1061,26 @@ function renderHistory(items) {
       $('history-modal').classList.add('hidden');
       $('resume-session-input').value = sid;
       onResumeSession();
+    });
+  });
+  // 削除（本人のみ・GAS側でも userId 照合）
+  list.querySelectorAll('.history-delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const sid = btn.dataset.sid;
+      if (!sid || !drive) return;
+      if (!confirm(t('historyDeleteConfirm', 'この冒険の記録を削除する？'))) return;
+      btn.disabled = true;
+      try {
+        await drive.deleteSession({ sessionId: sid, userId: accountUserId() || getExplorerId() });
+        const el = btn.closest('.history-item');
+        if (el) el.remove();
+        if (!list.querySelector('.history-item')) {
+          list.innerHTML = `<p class="history-empty">${escapeHtml(t('historyEmpty'))}</p>`;
+        }
+      } catch (e) {
+        btn.disabled = false;
+        alert(t('historyDeleteError', '削除に失敗したよ。もう一度ためしてね。'));
+      }
     });
   });
 }
@@ -1135,6 +1159,8 @@ async function addPhotoAndUpload(file, spotName, metaOverride = null) {
   }
   refreshPhotosView();
   updatePhotosCount();
+  // 写真が入った → 履歴を「写真あり」に昇格＆枚数更新（fire-and-forget）
+  bumpSessionPhotoCount();
   return finalId;
 }
 
@@ -1978,6 +2004,45 @@ async function onMakeRoute() {
   }
 }
 
+// 現在アップ済み（アップロード中でない）写真の枚数
+function currentPhotoCount() {
+  return (state.uploadedPhotos || []).filter(p => p && !p.uploading).length;
+}
+
+// 履歴（Sheet行）を1回だけ保存。GAS側で同一sessionId更新＋計画のみ重複集約。
+async function ensureSessionSaved() {
+  if (!drive || !state.sessionId || !state.driveSession || state.sessionSaved) return;
+  state.sessionSaved = true; // 二重発火防止（await前に立てる）
+  try {
+    const account = getStoredAuth();
+    await drive.saveSession({
+      sessionId: state.sessionId,
+      stationName: state.stationName,
+      playerName: (account && account.name) || t('rankNoName'),
+      userId: accountUserId() || '',
+      userName: (account && account.name) || '',
+      folderUrl: state.driveSession.folderUrl,
+      orderedSpots: (state.orderedSpots || []).map(s => ({
+        id: s.id, name: s.name, category: s.category,
+        address: s.address || '', lat: s.lat, lng: s.lng, recommended: !!s.recommended,
+      })),
+      routeStats: state.routeStats || null,
+      photoCount: currentPhotoCount(),
+    });
+  } catch (e) { state.sessionSaved = false; throw e; }
+}
+
+// 写真アップ後：履歴の写真枚数を更新（plan→写真あり へ昇格）。失敗は握り潰す。
+async function bumpSessionPhotoCount() {
+  if (!drive || !state.sessionId) return;
+  try {
+    await ensureSessionSaved();
+    await drive.updateSessionPhotoCount({
+      sessionId: state.sessionId, userId: accountUserId() || '', photoCount: currentPhotoCount(),
+    });
+  } catch (e) { console.warn('[history] 写真枚数更新に失敗（続行）:', e); }
+}
+
 // ===== STEP 3→4: 探検スタート =====
 async function onStartExplore() {
   const btn = $('start-explore-btn');
@@ -1987,6 +2052,7 @@ async function onStartExplore() {
 
   try {
     state.sessionId = generateSessionId();
+    state.sessionSaved = false; // この探検の履歴保存フラグをリセット
 
     // タグモーダル用のセレクターを構築（駅スタート → スポット → 駅ゴール）
     buildTagModalOptions();
@@ -2008,27 +2074,11 @@ async function onStartExplore() {
         info.textContent = '';
         info.classList.add('hidden');
 
-        // 続けて Sheet にメタデータ（駅名・スポット順序など）を保存
-        // 失敗しても探検フロー自体は継続するため try/catch で握り潰す
+        // 履歴（Sheet行）はここでは書かない。写真が入って初めて実体化させると
+        // 「写真画面に入って戻るだけ」の増殖が起きにくく、GAS側の重複集約とも噛み合う。
+        // 計画のみでも1件は残せるよう、写真ゼロの控えめ保存だけしておく（同一内容はGASが集約）。
         try {
-          await drive.saveSession({
-            sessionId: state.sessionId,
-            stationName: state.stationName,
-            playerName,
-            userId: accountUserId() || '',    // 所有者はアカウントの userId のみ（未ログインは空＝どのアカウント履歴にも出さない）
-            userName: (account && account.name) || '',
-            folderUrl: state.driveSession.folderUrl,
-            orderedSpots: state.orderedSpots.map(s => ({
-              id: s.id,
-              name: s.name,
-              category: s.category,
-              address: s.address || '',
-              lat: s.lat,
-              lng: s.lng,
-              recommended: !!s.recommended,
-            })),
-            routeStats: state.routeStats || null,
-          });
+          await ensureSessionSaved();
           console.info('[tanken-rally] Sheet にセッション保存しました');
         } catch (e) {
           console.warn('Sheetへのセッション保存に失敗（続行）:', e);
@@ -2548,6 +2598,7 @@ async function onResumeSession() {
     }
     state.driveSession = session;
     state.sessionId = sessionId;
+    state.sessionSaved = true; // 再開＝既に履歴にある。二重保存しない
     // 再開時: このセッションの AR 抽選・捕獲済み・救済使用・スタート/レア確定を復元（#4 乱獲防止）
     restoreSessionGameState();
 

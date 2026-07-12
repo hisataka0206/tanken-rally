@@ -1147,13 +1147,29 @@ body {
 }
 .history-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
   padding: 12px 14px;
   background: #faf6ec;
   border: 2px solid var(--border);
   border-radius: 12px;
+}
+.history-item-photos { border-color: #8FD6A3; }
+.history-item-plan { background: #f6f4ef; }
+.history-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.history-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.history-badge-photo { background: #2e7d32; color: #fff; }
+.history-badge-plan { background: #e6e0d2; color: #7a746a; }
+/* ひらく/つづき/削除 を横一列に（スペース有効活用） */
+.history-actions { display: flex; flex-direction: row; gap: 8px; margin-top: 2px; }
+.history-actions .history-link,
+.history-actions .history-resume { flex: 1; text-align: center; }
+.history-delete {
+  flex: 0 0 auto;
+  font-size: 15px; line-height: 1;
+  padding: 7px 10px; border-radius: 8px;
+  background: #fff; border: 2px solid #ecc1c1; color: #c0392b; cursor: pointer;
 }
 .history-main { min-width: 0; }
 .history-station {

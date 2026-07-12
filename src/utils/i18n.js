@@ -630,6 +630,11 @@ const TRANSLATIONS = {
     chargenBrewingToast: '✨ Making your new friend! You will meet after the score.',
     historyOpenFolder: '📂 Open',
     historyResume: '✏️ Continue',
+    suffPhotos: ' photos',
+    historyPlanOnly: '📝 Plan only',
+    historyDelete: 'Delete',
+    historyDeleteConfirm: 'Delete this adventure record?',
+    historyDeleteError: 'Failed to delete. Please try again.',
     historySecurityNoteFmt: '🔒 Photos from before {date} have been deleted for security and cannot be viewed.',
 
     btnZukan: '📖 Character Collection',

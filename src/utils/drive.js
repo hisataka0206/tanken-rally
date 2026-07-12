@@ -47,13 +47,27 @@ export class DriveClient {
   }
 
   /** 探検開始時にセッションのメタデータを Sheet に保存（アカウントに紐づける userId/userName 付き） */
-  async saveSession({ sessionId, stationName, playerName, folderUrl, orderedSpots, routeStats, userId, userName }) {
+  async saveSession({ sessionId, stationName, playerName, folderUrl, orderedSpots, routeStats, userId, userName, photoCount = 0 }) {
     const data = await this._post({
       action: 'saveSession',
       sessionId, stationName, playerName, folderUrl,
-      orderedSpots, routeStats, userId, userName,
+      orderedSpots, routeStats, userId, userName, photoCount,
     });
     if (!data.ok) throw new Error(data.error);
+    return data;
+  }
+
+  // 履歴の写真枚数を更新（写真アップ時。plan→写真あり へ昇格）
+  async updateSessionPhotoCount({ sessionId, userId, photoCount }) {
+    const data = await this._post({ action: 'updateSessionPhotoCount', sessionId, userId, photoCount });
+    if (!data || !data.ok) throw new Error((data && data.error) || 'updateSessionPhotoCount failed');
+    return data;
+  }
+
+  // 履歴を1件削除（本人のみ）
+  async deleteSession({ sessionId, userId }) {
+    const data = await this._post({ action: 'deleteSession', sessionId, userId });
+    if (!data || !data.ok) throw new Error((data && data.error) || 'deleteSession failed');
     return data;
   }
 

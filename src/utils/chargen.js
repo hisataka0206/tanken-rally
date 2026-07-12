@@ -360,6 +360,55 @@ export function saveGeneratedCharacter(def) {
   return record;
 }
 
+/** 生成キャラの性格（とくちょう）を語彙から作る（図鑑詳細で表示）。 */
+export function generatedPersonality(rec, lang = 'ja') {
+  const v = (rec && rec.vocab) || {};
+  const core = (s) => String(s || '').split(/[・･]/)[0].trim();
+  const atmo = core(v.atmosphere);
+  const expr = core(v.expression);
+  const parts = [atmo, expr].filter(Boolean);
+  return parts.length ? parts.join('・') : (lang === 'en' ? 'One of a kind' : 'せかいに一体');
+}
+
+/** 生成キャラのストーリー（背景）を、探検の入力から作る。オリジナルキャラと同程度の長さ。
+ *  入力: 名前・motif・駅・スポット数・距離・雰囲気・レア度。 */
+export function buildGeneratedStory(rec, lang = 'ja') {
+  const r = rec || {};
+  const v = r.vocab || {};
+  const core = (s, d) => (String(s || '').split(/[・･]/)[0].trim() || d);
+  const motif = core(v.motif, lang === 'en' ? 'a mystery' : 'なぞ');
+  const atmo  = core(v.atmosphere, '');
+  const km    = Math.max(0, Math.round((r.distanceKm || 0) * 10) / 10);
+  const spotN = (r.spotCount != null) ? r.spotCount : (r.spots || []).length;
+  const rarity = r.rarityId || 'common';
+  const legendary = rarity === 'legend' || rarity === 'epic';
+
+  if (lang === 'en') {
+    const st = String(r.station || '').replace(/ Station$/i, '') || 'a certain town';
+    const atmoLine = atmo ? `It carries a ${atmo} air about it. ` : '';
+    const rareLine = legendary
+      ? 'It only shows itself to explorers who have walked a very long way.'
+      : 'The more you walk together, the more it opens up its heart.';
+    return `Born during an adventure that wandered ${spotN} spots and walked ${km} km around ${st}, this is a companion shaped like ${motif}. ${atmoLine}${rareLine}`;
+  }
+
+  const st = String(r.station || '').replace(/駅$/, '') || 'どこかの町';
+  const fu = (lang === 'elementary');
+  const tanken = fu ? '探検（たんけん）' : '探検';
+  const machi  = fu ? '町（まち）' : '町';
+  const aruita = fu ? '歩（ある）いた' : '歩いた';
+  const umareta = fu ? '生（う）まれた' : '生まれた';
+  const nakama = fu ? '仲間（なかま）' : '仲間';
+  const sugata = fu ? '姿（すがた）' : '姿';
+  const tooku  = fu ? '遠（とお）く' : '遠く';
+  const kokoro = fu ? '心（こころ）' : '心';
+  const atmoLine = atmo ? `${atmo}な ふんいきを まとっている。` : '';
+  const rareLine = legendary
+    ? `その${sugata}を見せるのは、うんと${tooku}まで${aruita}探検家の前だけ。`
+    : `いっしょに${aruita}ぶんだけ、すこしずつ${kokoro}をひらいてくれる。`;
+  return `${st}の${machi}を ${spotN}か所 めぐって、${km}km ${aruita}${tanken}の中で ${umareta}、${motif}の${nakama}。${atmoLine}${rareLine}`;
+}
+
 /** サーバ（GAS）から取得した生成キャラ一覧をローカルストアへマージ（#10 端末間同期）。
  *  genId をキーに、ローカルに無いものだけ追加する（既存はローカル優先）。 */
 export function mergeServerGenerated(list) {
@@ -375,6 +424,7 @@ export function mergeServerGenerated(list) {
       name: r.name || '',
       station: r.station || '',
       spots: r.spots || [],
+      spotCount: (r.spotCount != null) ? r.spotCount : ((r.spots || []).length || 0),
       distanceKm: r.distanceKm || 0,
       rarityId: r.rarityId || 'common',
       bodyId: r.bodyId || null,

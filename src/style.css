@@ -3074,3 +3074,12 @@ body.ar-open { overflow: hidden; }
 .where-status { text-align: center; color: var(--muted, #7a746a); font-size: 13px; margin: 4px 0 8px; }
 .where-map { width: 100%; height: 58vh; max-height: 460px; border-radius: 14px; overflow: hidden; background: #e8eef2; }
 .where-hint { text-align: center; color: var(--muted, #7a746a); font-size: 12px; margin-top: 8px; }
+
+/* 図鑑: レア枠キャラのレア度バッジ */
+.zukan-item { position: relative; }
+.zukan-rarity {
+  position: absolute; top: 4px; left: 4px; z-index: 2;
+  font-size: 10px; color: #f5a623; letter-spacing: -1px;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.25);
+}
+.zukan-rare { box-shadow: inset 0 0 0 2px #f5c451; border-radius: 12px; }

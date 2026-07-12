@@ -11,12 +11,12 @@ import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint, apiLang } fro
 import { APP_VERSION, RELEASE_LABEL } from './version.js?v=106';
 import { FEATURES } from './config-features.js?v=106';
 import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=106';
-import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID, VARIANTS, variantById, rollVariant, collectionKey, parseCollectionKey } from './utils/characters.js?v=106';
+import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, charRarityStars, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID, VARIANTS, variantById, rollVariant, collectionKey, parseCollectionKey } from './utils/characters.js?v=106';
 import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, loadLegacyAnonymousCollection } from './utils/collection.js?v=106';
 import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout, validateCredentials } from './utils/auth.js?v=106';
 import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
 import { initShell, updateShell } from './utils/shell.js?v=106';
-import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, mergeServerGenerated } from './utils/chargen.js?v=106';
+import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, buildGeneratedStory, generatedPersonality, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, mergeServerGenerated } from './utils/chargen.js?v=106';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -748,8 +748,11 @@ function renderZukanGrid(collection) {
       if (best && best.filter !== 'none') filterStyle = ` style="filter:${best.filter}"`;
     }
     const badge = caught ? `<div class="zukan-count">${ownedSet.size}/${VARIANTS.length}</div>` : '';
+    // レア枠（rarity 付き）は★で希少度を示す（未捕獲でも「特別な子」だと分かる）
+    const rarityBadge = ch.rarity ? `<div class="zukan-rarity" title="${escapeHtml(ch.rarity)}">${'★'.repeat(charRarityStars(ch))}</div>` : '';
     return `
-      <div class="zukan-item${caught ? ' zukan-clickable' : ' zukan-silhouette'}"${caught ? ` data-char-id="${ch.id}"` : ''} role="${caught ? 'button' : 'presentation'}">
+      <div class="zukan-item${caught ? ' zukan-clickable' : ' zukan-silhouette'}${ch.rarity ? ' zukan-rare' : ''}"${caught ? ` data-char-id="${ch.id}"` : ''} role="${caught ? 'button' : 'presentation'}">
+        ${rarityBadge}
         <img src="${characterImageUrl(ch, 'normal')}" alt=""${filterStyle} />
         <div class="zukan-name">${escapeHtml(name)}</div>
         ${badge}
@@ -765,7 +768,7 @@ function renderZukanGrid(collection) {
         const rar = rarityById(rec.rarityId);
         const style = rec.imageDataUrl ? '' : ` style="filter:${rec.colorFilter || 'none'}"`;
         return `
-          <div class="zukan-item zukan-generated">
+          <div class="zukan-item zukan-generated zukan-clickable" data-gen-id="${escapeHtml(rec.genId || '')}" role="button">
             <img src="${escapeHtml(generatedImageUrl(rec))}" alt=""${style} />
             <div class="zukan-name">${escapeHtml(rec.name || '')}</div>
             <div class="zukan-count">${'★'.repeat(rar.stars || 1)}</div>
@@ -774,8 +777,37 @@ function renderZukanGrid(collection) {
   }
 
   grid.innerHTML = charsHtml + genHtml;
-  grid.querySelectorAll('.zukan-clickable').forEach(el => {
+  grid.querySelectorAll('.zukan-clickable[data-char-id]').forEach(el => {
     el.addEventListener('click', () => showZukanDetail(el.dataset.charId));
+  });
+  grid.querySelectorAll('.zukan-clickable[data-gen-id]').forEach(el => {
+    el.addEventListener('click', () => showGeneratedDetail(el.dataset.genId));
+  });
+}
+
+// 生成キャラの詳細（つくったなかま）: 性格＋ストーリー。作成者は全文が読める。
+// ※将来 他ユーザーが捕獲できるようになったら、オリジナル同様 5回捕獲で全文解放にする
+//   （その場合は revealStoryText(story, ratio) を使う。今は作成者本人なので全文表示）。
+function showGeneratedDetail(genId) {
+  const rec = loadGeneratedCharacters().find(r => r.genId === genId);
+  const detail = $('zukan-detail');
+  if (!rec || !detail) return;
+  const rar = rarityById(rec.rarityId);
+  const story = buildGeneratedStory(rec, LANG);
+  detail.innerHTML = `
+    <button class="zukan-detail-close" type="button" aria-label="close">✕</button>
+    <div class="zukan-detail-body">
+      <img src="${escapeHtml(generatedImageUrl(rec))}" alt="" />
+      <div class="zukan-detail-text">
+        <div class="zukan-detail-name">${escapeHtml(rec.name || '')} <span class="zukan-detail-rarity">${'★'.repeat(rar.stars || 1)}</span></div>
+        <div class="zukan-detail-personality">${escapeHtml(generatedPersonality(rec, LANG))}</div>
+        <p class="zukan-detail-story">${escapeHtml(story)}</p>
+      </div>
+    </div>`;
+  detail.classList.remove('hidden');
+  detail.querySelector('.zukan-detail-close').addEventListener('click', () => {
+    detail.classList.add('hidden');
+    detail.innerHTML = '';
   });
 }
 
@@ -3024,6 +3056,7 @@ function onChargenSave() {
       userId: accountUserId() || getExplorerId(),
       genId: rec.genId, name: rec.name, station: rec.station,
       rarityId: rec.rarityId, vocab: rec.vocab,
+      distanceKm: rec.distanceKm || 0, spotCount: (rec.spots || []).length, // ストーリー生成用
       imageDataUrl: rec.imageDataUrl, createdAt: rec.createdAt,
     }).catch(e => console.warn('[chargen] 生成キャラのサーバ保存失敗（ローカルには保存済）:', e));
   }

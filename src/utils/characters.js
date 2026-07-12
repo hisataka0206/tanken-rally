@@ -204,10 +204,80 @@ export const CHARACTERS = [
       elementary: '「世界一（せかいいち）長（なが）い線（せん）を引（ひ）くこと」をひそかにゆめ見（み）ている。集中（しゅうちゅう）すると芯（しん）がピンととがるけど、使（つか）われて芯（しん）が丸（まる）くなると「まだ本気（ほんき）を出（だ）していない」と少（すこ）し落（お）ちこむ。',
     },
     poses: { normal: 'colorey_discovery.png', found: 'colorey_get.png', captured: 'colorey_bonus.png' } },
+
+  // ===== 追加ロスター（オリジナルより高レア度・まれに出現）=====
+  // category は null（特定スポット固定ではなく、レア枠として出現）。rarity: legend/epic/rare。
+  // 画像は1枚のみのため normal/found/captured すべて同じファイルを使う。
+  { id: 'verda', category: null, color: '#2e9e6a', rarity: 'legend',
+    names: { ja: 'ヴェルダ', en: 'Verda', elementary: 'ヴェルダ' },
+    personality: {
+      ja: '気高い・もの静か', en: 'Noble and quiet', elementary: 'けだかい・ものしずか',
+    },
+    story: {
+      ja: '遠い昔から、わすれられた資料館をひとりで守ってきた緑の守り神。たくさん歩いてきた探検家の前にだけ、みどりの風をまとって静かに姿を現す。',
+      en: 'A green guardian spirit that has watched over a forgotten archive since long ago. It appears, wrapped in a green wind, only before explorers who have walked a long way.',
+      elementary: '遠（とお）いむかしから、わすれられた資料館（しりょうかん）をひとりで守（まも）ってきた緑（みどり）の守（まも）り神（がみ）。たくさん歩（ある）いてきた探検家（たんけんか）の前（まえ）にだけ、みどりの風（かぜ）をまとって静（しず）かに姿（すがた）をあらわす。',
+    },
+    poses: { normal: '004_cut1.png', found: '004_cut1.png', captured: '004_cut1.png' } },
+  { id: 'gearon', category: null, color: '#3f7fd6', rarity: 'legend',
+    names: { ja: 'ギアロン', en: 'Gearon', elementary: 'ギアロン' },
+    personality: {
+      ja: '忠実・沈着', en: 'Loyal and calm', elementary: 'ちゅうじつ・おちついている',
+    },
+    story: {
+      ja: '時計塔のいちばん奥で、街の時間を守り続けてきた機械の騎士。歯車の翼を大きく広げるのは、本気でだれかを守るときだけ。',
+      en: 'A mechanical knight that has protected the town\'s time from deep inside the clock tower. It spreads its gear-shaped wings wide only when it truly means to protect someone.',
+      elementary: '時計塔（とけいとう）のいちばん奥（おく）で、街（まち）の時間（じかん）を守（まも）りつづけてきた機械（きかい）の騎士（きし）。歯車（はぐるま）のつばさを大（おお）きくひろげるのは、本気（ほんき）でだれかを守（まも）るときだけ。',
+    },
+    poses: { normal: '2003_cut1.png', found: '2003_cut1.png', captured: '2003_cut1.png' } },
+  { id: 'kohane', category: null, color: '#9cc7a6', rarity: 'epic',
+    names: { ja: 'コハネ', en: 'Kohane', elementary: 'コハネ' },
+    personality: {
+      ja: 'まけずぎらい・やさしい', en: 'Competitive but kind', elementary: 'まけずぎらい・やさしい',
+    },
+    story: {
+      ja: '木の葉の冠をさずかった、小さな守り鳥。見た目はふんわりだけど、仲間がピンチのときは光る片翼で立ち向かう。',
+      en: 'A little guardian bird crowned with leaves. It looks soft and fluffy, but when a friend is in danger it stands up to face it with one shining wing.',
+      elementary: '木（こ）の葉（は）の冠（かんむり）をさずかった、小（ちい）さな守（まも）り鳥（どり）。見（み）た目（め）はふんわりだけど、仲間（なかま）がピンチのときは光（ひか）る片翼（かたつばさ）で立（た）ち向（む）かう。',
+    },
+    poses: { normal: '001_五条_cut1.png', found: '001_五条_cut1.png', captured: '001_五条_cut1.png' } },
+  { id: 'koryu', category: null, color: '#7fc6c0', rarity: 'epic',
+    names: { ja: 'コリュウ', en: 'Koryu', elementary: 'コリュウ' },
+    personality: {
+      ja: 'ほこりたかい・あまえんぼう', en: 'Proud but a bit spoiled', elementary: 'ほこりたかい・あまえんぼう',
+    },
+    story: {
+      ja: '小さな王冠をかぶった、街を見まもる子どもの竜。えらそうにしているけれど、本当はさびしがりで、たくさん歩く探検家のあとをついてきたがる。',
+      en: 'A young dragon in a tiny crown that watches over the town. It acts all grand, but really it gets lonely, and loves to tag along after explorers who walk a lot.',
+      elementary: '小（ちい）さな王冠（おうかん）をかぶった、街（まち）を見（み）まもる子（こ）どもの竜（りゅう）。えらそうにしているけれど、ほんとうはさびしがりで、たくさん歩（ある）く探検家（たんけんか）のあとをついてきたがる。',
+    },
+    poses: { normal: '066_三条_cut1.png', found: '066_三条_cut1.png', captured: '066_三条_cut1.png' } },
+  { id: 'gorone', category: null, color: '#e8763c', rarity: 'rare',
+    names: { ja: 'ゴロネ', en: 'Gorone', elementary: 'ゴロネ' },
+    personality: {
+      ja: 'のんびり・ふしぎ', en: 'Laid-back and curious', elementary: 'のんびり・ふしぎ',
+    },
+    story: {
+      ja: '古い町かどで、ずっとねむっていた岩の子。頭のむらさきの結晶は、ふしぎな場所に近づくとキラキラ光ってへんじをする。',
+      en: 'A little rock child that slept for ages at an old street corner. The purple crystals on its head sparkle and answer back whenever it nears a mysterious place.',
+      elementary: '古（ふる）い町（まち）かどで、ずっとねむっていた岩（いわ）の子（こ）。頭（あたま）のむらさきの結晶（けっしょう）は、ふしぎな場所（ばしょ）に近（ちか）づくとキラキラ光（ひか）ってへんじをする。',
+    },
+    poses: { normal: '003_吉祥寺_cut1.png', found: '003_吉祥寺_cut1.png', captured: '003_吉祥寺_cut1.png' } },
 ];
 
 const CHAR_BY_ID = Object.fromEntries(CHARACTERS.map(c => [c.id, c]));
 const CATEGORY_CHARACTERS = CHARACTERS.filter(c => c.category);
+
+// 追加ロスター（rarity 付き）＝レア枠。スポットに固定せず、まれに出現する。
+const RARE_ROSTER = CHARACTERS.filter(c => c.rarity);
+const RARE_SPOT_CHANCE = 12; // ヒットしたスポットの何%でレア枠が出るか（残りはカテゴリ固定キャラ）
+function rarityWeight(r) { return r === 'legend' ? 1 : r === 'epic' ? 3 : 6; } // レジェンドほど出にくい
+
+/** rarity → ★の数（表示用）。rarity 無し（通常キャラ）は 1。 */
+export function charRarityStars(char) {
+  const r = char && char.rarity;
+  return r === 'legend' ? 4 : r === 'epic' ? 3 : r === 'rare' ? 2 : 1;
+}
 
 export function characterById(id) {
   return CHAR_BY_ID[id] || null;
@@ -217,11 +287,18 @@ export function characterById(id) {
  *  未知カテゴリ（'other' 等）はスポット名のハッシュでカテゴリ7種から安定的に選ぶ
  *  （同じスポットには常に同じキャラが出る）。 */
 export function characterForSpot(spot) {
-  const direct = CATEGORY_CHARACTERS.find(c => c.category === spot?.category);
-  if (direct) return direct;
   const key = String(spot?.name || spot?.id || '');
   let h = 0;
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  // まれにレア枠を返す（スポット名ハッシュで決定的＝再描画でも変わらない）。
+  // レジェンドほど出にくいよう rarity で重み付け。
+  if (RARE_ROSTER.length && (h % 100) < RARE_SPOT_CHANCE) {
+    const bag = [];
+    RARE_ROSTER.forEach(c => { const w = rarityWeight(c.rarity); for (let i = 0; i < w; i++) bag.push(c); });
+    if (bag.length) return bag[(Math.floor(h / 7)) % bag.length];
+  }
+  const direct = CATEGORY_CHARACTERS.find(c => c.category === spot?.category);
+  if (direct) return direct;
   return CATEGORY_CHARACTERS[h % CATEGORY_CHARACTERS.length];
 }
 

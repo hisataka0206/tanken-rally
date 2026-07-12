@@ -756,7 +756,7 @@ function getCaptures(body) {
 
 // ===== 生成キャラの端末間同期（#10：画像=Drive／メタ=Sheets、userId 紐付け） =====
 const SHEET_TAB_GENERATED = 'generated';
-const SHEET_HEADERS_GENERATED = ['userId', 'genId', 'name', 'station', 'rarityId', 'vocabJSON', 'fileId', 'fileUrl', 'createdAt'];
+const SHEET_HEADERS_GENERATED = ['userId', 'genId', 'name', 'station', 'rarityId', 'vocabJSON', 'distanceKm', 'spotCount', 'fileId', 'fileUrl', 'createdAt'];
 
 // 生成キャラ画像の保存先フォルダ（ルート直下に1つ作って共用）
 function getGeneratedFolder_() {
@@ -801,6 +801,8 @@ function saveGeneratedCharacter(body) {
       String((body && body.station) || ''),
       String((body && body.rarityId) || ''),
       JSON.stringify((body && body.vocab) || {}),
+      Number((body && body.distanceKm) || 0),
+      Number((body && body.spotCount) || 0),
       fileId, fileUrl,
       String((body && body.createdAt) || new Date().toISOString()),
     ]);
@@ -839,6 +841,8 @@ function getGeneratedCharacters(body) {
         station: String(rows[i][col('station')] || ''),
         rarityId: String(rows[i][col('rarityId')] || 'common'),
         vocab: vocab,
+        distanceKm: Number(rows[i][col('distanceKm')]) || 0,
+        spotCount: Number(rows[i][col('spotCount')]) || 0,
         imageDataUrl: imageDataUrl,
         createdAt: String(rows[i][col('createdAt')] || ''),
       });

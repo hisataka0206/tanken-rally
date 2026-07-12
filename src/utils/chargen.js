@@ -74,7 +74,7 @@ export function evaluateEligibility(summary) {
 // ===== 生成プロンプト構築 =====
 // ブランディング固定部＋駅名＋スポット名＋距離(レア度)＋ユーザー変数(軸A×B)。
 // ユーザー由来の自由テキストは入れない（安全・プロンプト混入対策）。
-export function buildPrompt({ station, spots, distanceKm, vocab }) {
+export function buildPrompt({ station, spots, distanceKm, vocab, bodyHint }) {
   const rarity = rarityForDistance(distanceKm);
   const v = vocab || {};
   const spotThemes = (spots || []).slice(0, 5).map(sanitizeTheme).filter(Boolean).join(', ');
@@ -97,6 +97,8 @@ export function buildPrompt({ station, spots, distanceKm, vocab }) {
     // Gemini が「デザインソフトで開いた様子」を絵として描く事故を防ぐ（Photoshop UI 混入対策）。
     'Output ONLY the finished character artwork itself as a clean plain illustration. This is NOT a screenshot and NOT a software mockup: absolutely no application window, no Photoshop or image-editor interface, no menu bar, no toolbars, no side panels, no layers panel, no rulers, no canvas checkerboard, no window frame or UI of any kind.',
     'Child-friendly: cute and friendly, not scary, no violence, no weapons.',
+    // === フォルム（シルエット）＝候補ごとに変えて3体の形をはっきり分ける ===
+    bodyHint ? `Base creature form: ${bodyHint}. Give it a clear, distinctive silhouette in this shape.` : '',
     // === 差別化変数＝記述語彙DB（6論点・IP非依存の一般名詞。日英混在OK、Geminiは両対応）===
     v.motif      ? `Creature concept / motif: ${v.motif}.` : '',
     v.type       ? `Elemental essence: ${v.type}.`         : '',
@@ -211,48 +213,41 @@ export async function startGeneration(params) {
   const bodies = pickDistinct(AXIS_BODY, count);
   const rarity = rarityForDistance(p.distanceKm);
 
-  // 実 API 接続時: 各候補の vocab でプロンプトを作って生成（ここでは代表1本で疎通確認）。
-  const real = await callNanoBananaPro({
-    prompt: buildPrompt({
+  // ★3体それぞれを「別の語彙＋別のフォルム(body)」で個別に生成する（同じプロンプト×3をやめる）。
+  //   これで3体のシルエットがはっきり別物になる。各1枚を並行生成。
+  const gens = await Promise.all(perCandidate.map((v, i) => {
+    const prompt = buildPrompt({
       station: p.station, spots: p.spots, distanceKm: p.distanceKm,
-      vocab: perCandidate[0],
-    }),
-    count,
-  });
-
-  // 実APIが1枚でも返れば採用（全3枚成功を要求しない＝一部SAFETYブロック等でも実APIを活かす）。
-  if (real && real.length >= 1) {
-    // 生成画像は不透明背景のことが多い。外周シードのフラッドフィルで背景を透過に抜く。
-    // これでシルエット（brightness(0)＝黒影）が「黒い長方形」でなくキャラの形になり、
-    // reveal / 図鑑 / AR でもステッカー状に表示される。
-    const cuts = await Promise.all(real.map(r => cutoutBackground(r.imageDataUrl, { tolerance: 48 })));
-    // 背景が十分に抜けた個体だけ採用（removedRatio が低い＝単色枠/ノイズで抜けず「箱」になる個体は捨てる）。
-    const good = [];
-    cuts.forEach((c, idx) => {
-      if (c && c.url && c.removedRatio >= 0.12) {
-        good.push({ url: c.url, vocab: perCandidate[idx] || perCandidate[0] });
-      }
+      vocab: v, bodyHint: bodies[i] ? bodies[i].promptHint : '',
     });
-    console.info(`[chargen] cutout採用 ${good.length}/${cuts.length}（removedRatio=${cuts.map(c => (c && c.removedRatio || 0).toFixed(2)).join(',')}）`);
-    if (good.length >= 1) {
-      return {
-        candidates: good.map((g, i) => ({
-          candidateId: 'g' + i,
-          bodyId: (bodies[i] || AXIS_BODY[0]).id,
-          impressionId: AXIS_IMPRESSION[0].id,
-          rarityId: rarity.id,
-          baseCharId: null,
-          imageUrl: g.url,
-          colorFilter: 'none',
-          imageDataUrl: g.url,
-          vocab: g.vocab,
-        })),
+    return callNanoBananaPro({ prompt, count: 1 })
+      .then(arr => (arr && arr[0]) ? arr[0].imageDataUrl : null)
+      .catch(() => null);
+  }));
+
+  // 生成画像は不透明背景のことが多い。外周シードのフラッドフィルで背景を透過に抜く。
+  const cuts = await Promise.all(gens.map(img => img ? cutoutBackground(img, { tolerance: 48 }) : null));
+  const candidates = [];
+  cuts.forEach((c, i) => {
+    if (c && c.url && c.removedRatio >= 0.12) {
+      candidates.push({
+        candidateId: 'g' + candidates.length,
+        bodyId: (bodies[i] || AXIS_BODY[0]).id,
+        impressionId: AXIS_IMPRESSION[0].id,
         rarityId: rarity.id,
-        source: 'nanobanana',
-      };
+        baseCharId: null,
+        imageUrl: c.url,
+        colorFilter: 'none',
+        imageDataUrl: c.url,
+        vocab: perCandidate[i],
+      });
     }
-    // 全個体が抜け失敗 → 下のモックへフォールバック
+  });
+  console.info(`[chargen] 個別生成 採用 ${candidates.length}/${count}（removedRatio=${cuts.map(c => (c && c.removedRatio || 0).toFixed(2)).join(',')}）`);
+  if (candidates.length >= 1) {
+    return { candidates, rarityId: rarity.id, source: 'nanobanana' };
   }
+  // 全滅 → 下のモックへフォールバック
 
   // フォールバック（Phase 1 標準）
   return {

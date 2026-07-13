@@ -1692,22 +1692,26 @@ export function t(key, fallback) {
 }
 
 // ===== ふりがな（ルビ）変換 =====
-// elementary の「漢字（かな）」表記を <ruby>漢字<rt>かな</rt></ruby> に変換し、
-// カッコ書きではなく文字の上に小さく表示する。
-//   ・変換対象は「漢字の直後に（ひらがなだけ）が続く」パターンのみ。
-//     → 「育（そだ）てる」「思（おも）い出（だ）す」「100人（にん）」は変換、
-//        「育てる（仮）」（中身が漢字）や英数字は対象外で安全。
+// 「（）」には2種類あり、扱いを分ける（混ぜない）：
+//   (A) ふりがな＝読み: 漢字の直後の（ひらがなだけ）… これだけを <ruby> で漢字の上に小さく表示する。
+//        例「育（そだ）てる」「思（おも）い出（だ）す」「上位（じょうい）」→ ルビ化。
+//   (B) 補足のカッコ: 上記以外（例「育てる（仮）」「（任意）」「（約60分）」「（パスワード入力）」）
+//        … これは説明なので（）のまま残す。ルビにしない。
+// 判定は「漢字の直後 ＋ 中身がひらがなのみ」＝読み、それ以外＝補足、で切り分ける。
+//   ・入力欄の placeholder は属性なのでルビ化しない（applyI18n 側で除外）。
+//   ・elementary（子ども版）のみ。大人向け ja / en では変換しない。
 const _KANJI_RANGE = '\\u4E00-\\u9FFF\\u3400-\\u4DBF\\u3005\\u3007\\u30F6';
 const _KANA_RANGE  = '\\u3041-\\u3096\\u309D\\u309E\\u30FC';
-const _FURIGANA_RE = new RegExp('([' + _KANJI_RANGE + ']+)（([' + _KANA_RANGE + ']+)）', 'g');
-/** 「漢字（かな）」→ <ruby> 変換。対象がなければ null を返す（textContent 経路のまま）。
- *  i18n文字列は内部固定の信頼済みコンテンツ（一部は <strong>/<span> 等のHTMLを含む）なので、
+const _READ_RE = new RegExp('([' + _KANJI_RANGE + ']+)（([' + _KANA_RANGE + ']+)）', 'g');
+/** ふりがな（読み）だけを <ruby> 化。補足カッコはそのまま。elementary のみ。
+ *  対象がなければ null（textContent 経路のまま）。
+ *  i18n文字列は内部固定の信頼済みコンテンツ（<strong>/<span> 等のHTMLを含む）ので、
  *  タグを壊さないよう HTMLエスケープはしない（ユーザー入力はここを通さない）。 */
 export function furiganize(str) {
+  if (LANG !== 'elementary') return null;
   if (typeof str !== 'string' || str.indexOf('（') === -1) return null;
-  if (!_FURIGANA_RE.test(str)) return null;
-  _FURIGANA_RE.lastIndex = 0;
-  return str.replace(_FURIGANA_RE, '<ruby>$1<rt>$2</rt></ruby>');
+  const out = str.replace(_READ_RE, '<ruby>$1<rt>$2</rt></ruby>');
+  return out === str ? null : out;
 }
 
 // data-i18n / data-i18n-html / data-i18n-placeholder / data-i18n-title を一括適用
@@ -1715,7 +1719,9 @@ export function applyI18n(root = document) {
   root.querySelectorAll('[data-i18n]').forEach(el => {
     const text = t(el.dataset.i18n);
     if (typeof text !== 'string') return;
-    const ruby = furiganize(text);
+    // <option>/<title> は子要素（<ruby>）を持てないので、ルビ化せず素のテキストにする。
+    const noHtml = el.tagName === 'OPTION' || el.tagName === 'TITLE';
+    const ruby = noHtml ? null : furiganize(text);
     if (ruby !== null) el.innerHTML = ruby; else el.textContent = text;
   });
   root.querySelectorAll('[data-i18n-html]').forEach(el => {

@@ -1362,7 +1362,11 @@ function renderStationChips(line) {
     b.type = 'button';
     b.className = 'pick-chip pick-chip-station';
     b.dataset.value = name;
-    b.textContent = localizeStationName(name, LANG);
+    // 駅名の「漢字（かな）」の読みは、チップ（ボタン）ではルビで上に小さく表示する。
+    // （プルダウンの <option> はルビ不可なので localizeStationName の「漢字（かな）」のまま）
+    const _disp = localizeStationName(name, LANG);
+    const _ruby = furiganize(_disp);
+    if (_ruby) b.innerHTML = _ruby; else b.textContent = _disp;
     b.addEventListener('click', () => {
       const sSel = $('station-select');
       sSel.value = name;

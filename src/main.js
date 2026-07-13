@@ -7,7 +7,7 @@ import { DriveClient, generateSessionId } from './utils/drive.js?v=106';
 import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=106';
 import { CITIES, localizeStationName } from './data/cities.js?v=106';
 import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=106';
-import { applyI18n, LANG, t, furiganize, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=106';
+import { applyI18n, LANG, t, furiganize, installFuriganaObserver, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=106';
 import { APP_VERSION, RELEASE_LABEL } from './version.js?v=106';
 import { FEATURES } from './config-features.js?v=106';
 import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=106';
@@ -4637,6 +4637,10 @@ applyI18n();
 
 // body.lang-XX クラスを付けて CSS から言語別スタイルを切り替えられるようにする
 document.body.classList.add(`lang-${LANG}`);
+
+// 動的に描画されるテキストの「漢字（かな）」も自動でルビ表示にする（elementary のみ）。
+// これで applyI18n を通らない JS 描画（AR/履歴/図鑑/ウィザード/トースト等）も網羅される。
+installFuriganaObserver(document.getElementById('app') || document.body);
 
 const versionEl = $('header-version');
 if (versionEl) {

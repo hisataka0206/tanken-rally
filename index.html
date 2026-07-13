@@ -225,7 +225,7 @@
         <div id="category-filter" class="category-filter"></div>
         <div class="spots-layout">
           <div id="spots-list" class="spots-list"></div>
-          <div id="map" class="map-container"></div>
+          <div id="map" class="map-container" data-no-furigana></div>
           <!-- 距離プレビューはカードの直下（選択の結果がすぐ見える位置） -->
           <div class="route-preview-row">
             <span id="route-btn-hint" class="route-btn-hint"></span>
@@ -602,7 +602,7 @@
         <button type="button" class="modal-x" data-action="where-close" aria-label="close">✕</button>
         <h3 id="where-title" class="chargen-title" data-i18n="whereTitle">いまどこ？</h3>
         <p id="where-status" class="where-status" data-i18n="whereLocating">いまの場所をさがしているよ…</p>
-        <div id="where-map" class="where-map"></div>
+        <div id="where-map" class="where-map" data-no-furigana></div>
         <p class="where-hint" data-i18n="whereHint">青い矢印が「あなた」だよ。矢印のむきが、いま向いている方向。</p>
       </div>
     </div>
@@ -669,7 +669,7 @@
       <div class="card">
         <h2 class="step-title"><span class="step-num">3</span> <span data-i18n="step3Title">探検マップを確認しよう</span></h2>
         <div id="route-info" class="route-info"></div>
-        <div id="route-map" class="map-container"></div>
+        <div id="route-map" class="map-container" data-no-furigana></div>
         <div id="route-spots" class="route-spots-list"></div>
         <div class="step-actions">
           <button id="back-to-spots" class="btn-secondary" data-i18n="btnBackSpots">← スポットを変える</button>

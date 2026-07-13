@@ -1771,6 +1771,73 @@ export function furiganize(str) {
   return out === str ? null : out;
 }
 
+// ===== 動的テキストのふりがな自動適用（DOM走査＋MutationObserver）=====
+// applyI18n（data-i18n）以外に、JSで textContent/innerHTML に書き込まれた読みも
+// ルビ表示にするための仕組み。テキストノードを走査し「漢字（かな）」を <ruby> の
+// DOMノードへ置換する（innerHTML を使わず createTextNode で組むので XSS 安全）。
+const _READ_PATTERN = '([' + _KANJI_RANGE + ']+)（([' + _KANA_RANGE + ']+)）';
+const _READ_TEST = new RegExp(_READ_PATTERN);            // lastIndex を汚さない判定用
+// ルビ化しない親要素（入力欄・選択肢・既存ルビ・スクリプト等）
+const _SKIP_TAGS = { RUBY: 1, RT: 1, RP: 1, SCRIPT: 1, STYLE: 1, TEXTAREA: 1, OPTION: 1, SELECT: 1, TITLE: 1, INPUT: 1, CODE: 1 };
+
+/** root 配下のテキストノードの「漢字（かな）」をルビ（<ruby><rt>）へ変換する。elementary のみ。 */
+export function furiganizeNode(root) {
+  if (LANG !== 'elementary' || !root || typeof document === 'undefined') return;
+  const start = (root.nodeType === 3) ? root.parentNode : root;
+  if (!start || start.closest && start.closest('[data-no-furigana]')) return;
+  const walker = document.createTreeWalker(start, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const p = node.parentNode;
+      if (!p || _SKIP_TAGS[p.nodeName]) return NodeFilter.FILTER_REJECT;
+      const v = node.nodeValue;
+      if (!v || v.indexOf('（') === -1 || !_READ_TEST.test(v)) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const targets = [];
+  let n;
+  while ((n = walker.nextNode())) targets.push(n);
+  targets.forEach(textNode => {
+    const str = textNode.nodeValue;
+    const frag = document.createDocumentFragment();
+    const re = new RegExp(_READ_PATTERN, 'g');
+    let last = 0, m;
+    while ((m = re.exec(str)) !== null) {
+      if (m.index > last) frag.appendChild(document.createTextNode(str.slice(last, m.index)));
+      const ruby = document.createElement('ruby');
+      ruby.appendChild(document.createTextNode(m[1]));
+      const rt = document.createElement('rt');
+      rt.appendChild(document.createTextNode(m[2]));
+      ruby.appendChild(rt);
+      frag.appendChild(ruby);
+      last = m.index + m[0].length;
+    }
+    if (last < str.length) frag.appendChild(document.createTextNode(str.slice(last)));
+    if (textNode.parentNode) textNode.parentNode.replaceChild(frag, textNode);
+  });
+}
+
+let _furiObserver = null;
+/** #app 等の配下に加わる動的テキストを監視して、随時ふりがなを適用する。elementary のみ・1回だけ設置。 */
+export function installFuriganaObserver(root) {
+  if (LANG !== 'elementary' || _furiObserver || typeof MutationObserver === 'undefined') return;
+  const target = root || document.body;
+  if (!target) return;
+  furiganizeNode(target); // 既存の内容にも1回適用
+  _furiObserver = new MutationObserver(muts => {
+    for (const mut of muts) {
+      mut.addedNodes && mut.addedNodes.forEach(node => {
+        if (node.nodeType === 1) furiganizeNode(node);            // 要素
+        else if (node.nodeType === 3) {                            // 直接追加されたテキスト
+          const p = node.parentNode;
+          if (p && !_SKIP_TAGS[p.nodeName] && node.nodeValue && node.nodeValue.indexOf('（') !== -1) furiganizeNode(p);
+        }
+      });
+    }
+  });
+  _furiObserver.observe(target, { childList: true, subtree: true });
+}
+
 // data-i18n / data-i18n-html / data-i18n-placeholder / data-i18n-title を一括適用
 export function applyI18n(root = document) {
   root.querySelectorAll('[data-i18n]').forEach(el => {

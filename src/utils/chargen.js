@@ -14,12 +14,38 @@ import { makeVocabPicks, VOCAB } from '../data/vocab.js?v=106';
 import { cutoutBackground } from './imagefx.js?v=106';
 import { STATION_NAMES_KANA, STATION_NAMES_EN } from '../data/cities.js?v=106';
 
-// case X 明示メニュー用: ユーザーが選べる語彙（被りにくい user_selectable プール）。
+// case X 明示メニュー用: ユーザーが選べる語彙。
 // 子供向けに軸を絞る＝モチーフ（タイプ的な"なに"）＋ふんいき（"どんな感じ"）。
-export function getUserVocabChoices() {
+//
+// 毎回固定リストだと広がりが無いので、プール（user_selectable ＋ app_auto の既存語彙）から
+// 毎回ランダムに数個だけ提示する。＝開くたびに顔ぶれが変わり、選ぶ楽しさ・多様性が出る。
+// 新語は増やさず既存語彙のみ使用（生成プロンプトの事前検証を崩さないため）。
+const _VOCAB_MENU_COUNT = { motif: 8, atmosphere: 6 };
+
+// フィッシャー–イェーツで n 個サンプリング（非破壊）。
+function _sampleN(arr, n) {
+  const a = (arr || []).slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, Math.max(0, Math.min(n, a.length)));
+}
+
+// 軸の選択プール = user_selectable ＋ app_auto（重複除去）。
+function _vocabPool(axis) {
+  const v = VOCAB[axis] || {};
+  return [...new Set([...(v.user_selectable || []), ...(v.app_auto || [])])];
+}
+
+/** 毎回ランダムに選ばれた語彙メニューを返す。opts.count で軸ごとの提示数を上書き可。 */
+export function getUserVocabChoices(opts) {
+  const o = opts || {};
+  const mN = o.motif || _VOCAB_MENU_COUNT.motif;
+  const aN = o.atmosphere || _VOCAB_MENU_COUNT.atmosphere;
   return {
-    motif:      (VOCAB.motif && VOCAB.motif.user_selectable) || [],
-    atmosphere: (VOCAB.atmosphere && VOCAB.atmosphere.user_selectable) || [],
+    motif:      _sampleN(_vocabPool('motif'), mN),
+    atmosphere: _sampleN(_vocabPool('atmosphere'), aN),
   };
 }
 

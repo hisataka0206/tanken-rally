@@ -116,6 +116,9 @@ function doPost(e) {
     if (action === 'saveIssueReport') {
       return respond(headers, saveIssueReport(body));
     }
+    if (action === 'submitIssueReport') {
+      return respond(headers, submitIssueReport(body));
+    }
     if (action === 'saveRanking') {
       return respond(headers, saveRanking(body));
     }
@@ -515,6 +518,117 @@ function saveIssueReport(body) {
 }
 
 /** 写真をDriveに保存（撮影時刻・アップロード時刻・GPS座標を保存） */
+// ===== 画像付き不具合報告（ログイン不要）=====
+// フロント → GAS：画像は base64 で受け取り Drive に保存（誰でも閲覧可リンク）。
+// 報告内容は Sheet 'issue_reports' に記録し、さらに Google フォームが設定済みなら
+// UrlFetchApp で formResponse に POST（＝フォーム回答として集約。回答者ログイン不要）。
+//
+// ── Google フォーム連携の設定（任意・未設定でも Sheet 保存は動く）──
+// ここに直接貼るだけでOK（秘密情報ではない：値は公開フォームから誰でも分かる／gas/ はサイトに配信されない）。
+// gas/create_contact_form.gs の createContactForm（または upgradeExistingForm）の実行ログに出た値を貼る。
+//   ・ISSUE_FORM_RESPONSE_URL … フォームの formResponse URL（viewform を formResponse に変えたもの）
+//   ・ISSUE_ENTRY_* … 各設問の「entry.xxxx」の xxxx（数字だけ）
+// 空文字のままなら Google フォーム送信はスキップし、スプレッドシート保存のみ行う。
+const ISSUE_FORM_RESPONSE_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfcufcYpsQLROQ5_4gK68ShGg1r_FJKSn8NU8i2-3yKehytnw/formResponse';
+const ISSUE_ENTRY_TYPE        = '1791177409';   // 種類（お問い合わせの種類）
+const ISSUE_ENTRY_DETAIL      = '568180281';    // 内容（お問い合わせ内容）
+const ISSUE_ENTRY_CONTACT     = '91089252';     // 連絡先
+const ISSUE_ENTRY_NAME        = '536533188';    // なまえ
+const ISSUE_ENTRY_IMAGE       = '2056396193';   // 画像URL
+
+const SHEET_TAB_ISSUE_REPORTS = 'issue_reports';
+const SHEET_HEADERS_ISSUE_REPORTS = ['日時', '種類', '詳細', '連絡先', 'なまえ', '画像URL', 'sessionId', '駅名', 'ステップ', 'userAgent', 'URL', 'フォーム送信'];
+
+/** 生成キャラ画像や不具合画像を入れる Drive フォルダ（ROOT 直下 'issue_reports'）。無ければ作る。 */
+function getIssueFolder_() {
+  const root = getRootFolder();
+  const it = root.getFoldersByName('issue_reports');
+  return it.hasNext() ? it.next() : root.createFolder('issue_reports');
+}
+
+/** 設定済みなら Google フォームへ回答を POST する。戻り値: 'sent' / 'skip(未設定)' / 'error:...' */
+function postIssueToForm_(fields) {
+  try {
+    if (!ISSUE_FORM_RESPONSE_URL) return 'skip(未設定)';
+    const pairs = [
+      [ISSUE_ENTRY_TYPE,    fields.type],
+      [ISSUE_ENTRY_DETAIL,  fields.detail],
+      [ISSUE_ENTRY_CONTACT, fields.contact],
+      [ISSUE_ENTRY_NAME,    fields.name],
+      [ISSUE_ENTRY_IMAGE,   fields.imageUrl],
+    ];
+    const payload = {};
+    pairs.forEach(function (p) {
+      const id = p[0], val = p[1];
+      if (id && val) payload['entry.' + id] = val;
+    });
+    if (!Object.keys(payload).length) return 'skip(entry未設定)';
+    const res = UrlFetchApp.fetch(ISSUE_FORM_RESPONSE_URL, { method: 'post', payload: payload, muteHttpExceptions: true });
+    const code = res.getResponseCode();
+    return (code === 200 || code === 302) ? 'sent' : ('error:http ' + code);
+  } catch (e) {
+    return 'error:' + (e.message || String(e));
+  }
+}
+
+/** 画像付き不具合報告を受け取る。
+ *  body: { types:[], detail, contact, name, imageBase64?, imageMime?, imageName?, context:{} } */
+function submitIssueReport(body) {
+  try {
+    const types   = (body && body.types)   || [];
+    const detail  = (body && body.detail)  || '';
+    const contact = (body && body.contact) || '';
+    const name    = (body && body.name)    || '';
+    const context = (body && body.context) || {};
+
+    if ((!types || !types.length) && !String(detail).trim() && !(body && body.imageBase64)) {
+      return { ok: false, error: '種類・詳細・画像のいずれかが必要です' };
+    }
+
+    // 1) 画像を Drive に保存（あれば）。ログイン不要・誰でも閲覧可リンク。
+    let imageUrl = '', thumbnailUrl = '';
+    if (body && body.imageBase64) {
+      const folder = getIssueFolder_();
+      const mime = body.imageMime || 'image/jpeg';
+      const ext = mime.indexOf('png') >= 0 ? 'png' : 'jpg';
+      const fname = (body.imageName || ('issue_' + Date.now())) + '.' + ext;
+      const blob = Utilities.newBlob(Utilities.base64Decode(body.imageBase64), mime, fname);
+      const file = folder.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      imageUrl = 'https://drive.google.com/uc?id=' + file.getId();
+      thumbnailUrl = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w400';
+    }
+
+    // 2) Google フォームへ送信（設定済みのときだけ）。
+    //    フォームの「内容」は必須なので、空なら画像のみの旨を入れて弾かれないようにする。
+    const formDetail = String(detail).trim() || (imageUrl ? '（画像のみ）' : '（内容なし）');
+    const formStatus = postIssueToForm_({
+      type: types.join(','), detail: formDetail, contact: contact, name: name, imageUrl: imageUrl,
+    });
+
+    // 3) スプレッドシートにも必ず記録（バックアップ／フォーム未設定でも残る）。
+    const sheet = getLogSheet(SHEET_TAB_ISSUE_REPORTS, SHEET_HEADERS_ISSUE_REPORTS);
+    sheet.appendRow([
+      new Date().toISOString(),
+      types.join(','),
+      detail,
+      contact,
+      name,
+      imageUrl,
+      context.sessionId   || '',
+      context.stationName || '',
+      context.currentStep || '',
+      context.ua   || '',
+      context.href || '',
+      formStatus,
+    ]);
+
+    return { ok: true, imageUrl: imageUrl, thumbnailUrl: thumbnailUrl, form: formStatus };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
 function uploadPhoto(body) {
   const { folderId, fileName, base64Data, mimeType, takenAt, uploadedAt, spotName, lat, lng } = body;
   if (!folderId || !base64Data) return { ok: false, error: 'folderId と base64Data が必要です' };

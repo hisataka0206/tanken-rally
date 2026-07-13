@@ -46,8 +46,89 @@ function createContactForm() {
     .setTitle('お問い合わせ内容')
     .setRequired(true);
 
+  // アプリから自動で入る画像リンク（ユーザーは記入不要）。
+  // 画像そのものはアプリ内で Drive にアップロードし、その共有URLがここに入る（＝ログイン不要）。
+  form.addTextItem()
+    .setTitle('画像URL（アプリが自動で添付・記入不要）')
+    .setRequired(false);
+
   var pub = form.getPublishedUrl();
-  Logger.log('■ 公開URL（policy.html に貼る）: ' + pub);
+  Logger.log('■ 公開URL（policy.html / config.js の CONTACT_FORM_URL に貼る）: ' + pub);
   Logger.log('■ 編集/回答確認URL（管理用・非公開）: ' + form.getEditUrl());
+  logFormEntryIds_(form);   // ↓ GAS スクリプトプロパティに貼る値を出力
   return pub;
+}
+
+// 既存フォームに「画像URL」欄が無ければ追加し、entry ID 一式を出力する。
+// 使い方: この関数を選び、引数の formId（編集URL /d/●●●/edit の ●●● 部分）を books で渡すか、
+//         下の DEFAULT_FORM_ID に貼って実行する。現在のフォームURLを変えずに連携できる。
+var DEFAULT_FORM_ID = '';   // ←編集URLのファイルID（任意）
+function upgradeExistingForm(formId) {
+  var id = formId || DEFAULT_FORM_ID;
+  if (!id) { Logger.log('formId を渡すか DEFAULT_FORM_ID を設定してください（編集URLのファイルID）'); return; }
+  var form = FormApp.openById(id);
+  var hasImage = form.getItems(FormApp.ItemType.TEXT).some(function (it) {
+    return it.getTitle().indexOf('画像URL') === 0;
+  });
+  if (!hasImage) {
+    form.addTextItem().setTitle('画像URL（アプリが自動で添付・記入不要）').setRequired(false);
+    Logger.log('「画像URL」欄を追加しました。');
+  } else {
+    Logger.log('「画像URL」欄は既にあります。');
+  }
+  Logger.log('■ 公開URL: ' + form.getPublishedUrl());
+  logFormEntryIds_(form);
+}
+
+// 各設問の entry ID と formResponse URL を出力する。ここに出た値を
+// 本番 GAS の Code.gs 先頭の定数へ貼る：
+//   ISSUE_FORM_RESPONSE_URL / ISSUE_ENTRY_TYPE / ISSUE_ENTRY_DETAIL /
+//   ISSUE_ENTRY_CONTACT / ISSUE_ENTRY_NAME / ISSUE_ENTRY_IMAGE
+// entry ID は getId() とは別物なので、ダミー値を入れた prefilled URL から確実に割り出す。
+function logFormEntryIds_(form) {
+  var respUrl = form.getPublishedUrl().replace('/viewform', '/formResponse');
+  Logger.log('==== Google フォーム連携用の値（Code.gs 先頭の定数へ貼る）====');
+  Logger.log('ISSUE_FORM_RESPONSE_URL = ' + respUrl);
+
+  // 各設問に一意なマーカー値を入れて prefilled URL を生成 → entry.xxxx=マーカー を逆引き。
+  var resp = form.createResponse();
+  var byMarker = {};
+  form.getItems().forEach(function (item) {
+    var t = item.getType();
+    var marker = 'MARK' + item.getId();
+    try {
+      if (t === FormApp.ItemType.TEXT) {
+        resp.withItemResponse(item.asTextItem().createResponse(marker));
+      } else if (t === FormApp.ItemType.PARAGRAPH_TEXT) {
+        resp.withItemResponse(item.asParagraphTextItem().createResponse(marker));
+      } else if (t === FormApp.ItemType.MULTIPLE_CHOICE) {
+        var ch = item.asMultipleChoiceItem().getChoices();
+        if (!ch.length) return;
+        marker = ch[0].getValue();
+        resp.withItemResponse(item.asMultipleChoiceItem().createResponse(marker));
+      } else {
+        return;
+      }
+      byMarker[marker] = item.getTitle();
+    } catch (e) { /* skip */ }
+  });
+
+  var pre = form.getPublishedUrl();
+  try { pre = resp.toPrefilledUrl(); } catch (e) { Logger.log('prefill 生成に失敗: ' + e); }
+  var q = (pre.split('?')[1] || '');
+  q.split('&').forEach(function (kv) {
+    var m = kv.match(/^entry\.(\d+)=(.*)$/);
+    if (!m) return;
+    var entryId = m[1];
+    var val = decodeURIComponent(m[2].replace(/\+/g, ' '));
+    var title = byMarker[val] || '(不明)';
+    var hint = '';
+    if (title.indexOf('種類') >= 0) hint = ' → ISSUE_ENTRY_TYPE';
+    else if (title.indexOf('内容') >= 0) hint = ' → ISSUE_ENTRY_DETAIL';
+    else if (title.indexOf('連絡先') >= 0) hint = ' → ISSUE_ENTRY_CONTACT';
+    else if (title.indexOf('なまえ') >= 0) hint = ' → ISSUE_ENTRY_NAME';
+    else if (title.indexOf('画像URL') >= 0) hint = ' → ISSUE_ENTRY_IMAGE';
+    Logger.log('entry.' + entryId + '  「' + title + '」' + hint);
+  });
+  Logger.log('※ 各 ISSUE_ENTRY_* には entry. の後ろの数字だけを Code.gs の定数に入れる。');
 }

@@ -26,7 +26,7 @@ const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
 // お問い合わせ／キャラ報告フォームの公開URL。
 // ここに Google フォームの公開URLを貼る（policy.html の [お問い合わせフォームURL] と同じもの）。
 // 空のままなら報告リンクは policy.html を開く。
-const CONTACT_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdbzVYXHy_E8_0CWehcy8i8YIihFv5_3Fyych4eOpStO4yeXA/viewform';
+const CONTACT_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfcufcYpsQLROQ5_4gK68ShGg1r_FJKSn8NU8i2-3yKehytnw/viewform';
 
 // キャラ自動生成のバックエンドとして drive を登録（GAS側に GEMINI_API_KEY が
 // 設定されていれば実API生成、無ければ chargen 側が自動でモックにフォールバック）。
@@ -814,7 +814,7 @@ function showGeneratedDetail(genId) {
         <div class="zukan-detail-name">${escapeHtml(rec.name || '')} <span class="zukan-detail-rarity">${'★'.repeat(rar.stars || 1)}</span></div>
         <div class="zukan-detail-personality">${escapeHtml(generatedPersonality(rec, LANG))}</div>
         <p class="zukan-detail-story">${escapeHtml(story)}</p>
-        <a class="gen-report" href="${escapeHtml(CONTACT_FORM_URL || 'policy.html')}" target="_blank" rel="noopener">${escapeHtml(t('genReport', '⚠️ このキャラを報告'))}</a>
+        <button type="button" class="gen-report" data-report-char="1">${escapeHtml(t('genReport', 'このキャラを報告'))}</button>
       </div>
     </div>`;
   detail.classList.remove('hidden');
@@ -4191,6 +4191,128 @@ function openGrowTeaser() {
 // 予告モーダルを閉じる（✕・背景・ボタン共通）
 document.getElementById('grow-modal').addEventListener('click', (e) => {
   if (e.target.dataset.action === 'grow-close') $('grow-modal').classList.add('hidden');
+});
+
+// ===== 不具合・お問い合わせ報告（画像添付・ログイン不要）=====
+let _reportImage = null; // { base64, mime, name }
+
+async function fileToResizedBase64(file, maxDim = 1280, quality = 0.82) {
+  // 画像を canvas で縮小し JPEG base64（data: なし）に。送信サイズと GAS 負荷を抑える。
+  const dataUrl = await new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = rej;
+    fr.readAsDataURL(file);
+  });
+  const img = await new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = rej;
+    im.src = dataUrl;
+  });
+  let { width: w, height: h } = img;
+  if (Math.max(w, h) > maxDim) {
+    const s = maxDim / Math.max(w, h);
+    w = Math.round(w * s); h = Math.round(h * s);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+  const out = canvas.toDataURL('image/jpeg', quality);
+  return { base64: out.split(',')[1], mime: 'image/jpeg', name: (file.name || 'issue').replace(/\.[^.]+$/, ''), previewUrl: out };
+}
+
+function openReportIssue(presetType) {
+  $('report-issue-detail').value = '';
+  $('report-issue-contact').value = '';
+  $('report-issue-image').value = '';
+  _reportImage = null;
+  $('report-issue-preview').classList.add('hidden');
+  const status = $('report-issue-status');
+  status.classList.add('hidden');
+  status.textContent = '';
+  if (presetType) $('report-issue-type').value = presetType;
+  const btn = $('report-issue-send');
+  btn.disabled = false;
+  btn.textContent = t('reportIssueSend', 'おくる →');
+  $('report-issue-modal').classList.remove('hidden');
+}
+
+$('report-issue-image').addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) { _reportImage = null; $('report-issue-preview').classList.add('hidden'); return; }
+  try {
+    const r = await fileToResizedBase64(file);
+    _reportImage = { base64: r.base64, mime: r.mime, name: r.name };
+    $('report-issue-preview-img').src = r.previewUrl;
+    $('report-issue-preview').classList.remove('hidden');
+  } catch (_) {
+    _reportImage = null;
+    $('report-issue-preview').classList.add('hidden');
+  }
+});
+
+async function onReportIssueSend() {
+  const btn = $('report-issue-send');
+  const status = $('report-issue-status');
+  const type = $('report-issue-type').value;
+  const detail = $('report-issue-detail').value.trim();
+  const contact = $('report-issue-contact').value.trim();
+
+  if (!detail && !_reportImage) {
+    status.textContent = t('reportIssueNeedInput', 'ないよう か がぞうを 入れてね。');
+    status.className = 'report-issue-status is-error';
+    return;
+  }
+  if (!drive) {
+    status.textContent = t('reportIssueNoServer', 'いまは おくれないよ（せつぞくなし）。');
+    status.className = 'report-issue-status is-error';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = t('reportIssueSending', 'おくっているよ…');
+  status.classList.add('hidden');
+  try {
+    const auth = getStoredAuth();
+    await drive.submitIssueReport({
+      types: [type],
+      detail,
+      contact,
+      name: (auth && auth.name) || '',
+      imageBase64: _reportImage ? _reportImage.base64 : '',
+      imageMime: _reportImage ? _reportImage.mime : '',
+      imageName: _reportImage ? _reportImage.name : '',
+      context: {
+        sessionId: state.sessionId || '',
+        stationName: state.stationName || '',
+        currentStep: (document.querySelector('.step:not(.hidden)') || {}).id || '',
+        ua: navigator.userAgent,
+        href: location.href,
+      },
+    });
+    status.textContent = t('reportIssueThanks', 'おくったよ！ ありがとう。');
+    status.className = 'report-issue-status is-ok';
+    setTimeout(() => $('report-issue-modal').classList.add('hidden'), 1400);
+  } catch (err) {
+    console.warn('[report-issue] failed:', err);
+    status.textContent = t('reportIssueFailed', 'おくれなかったよ。あとで もういちど ためしてね。');
+    status.className = 'report-issue-status is-error';
+    btn.disabled = false;
+    btn.textContent = t('reportIssueSend', 'おくる →');
+  }
+}
+
+$('report-issue-send').addEventListener('click', onReportIssueSend);
+document.getElementById('report-issue-modal').addEventListener('click', (e) => {
+  if (e.target.dataset.action === 'report-issue-close') $('report-issue-modal').classList.add('hidden');
+});
+const _homeReportBtn = document.getElementById('home-report');
+if (_homeReportBtn) _homeReportBtn.addEventListener('click', () => openReportIssue());
+// 生成キャラ詳細の「このキャラを報告」→ 種類を「キャラ報告」にして開く
+document.addEventListener('click', (e) => {
+  const t2 = e.target.closest && e.target.closest('.gen-report');
+  if (t2) { e.preventDefault(); openReportIssue('キャラクターの報告（不適切など）'); }
 });
 
 // キャラずかん

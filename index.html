@@ -115,6 +115,7 @@
         </button>
         <button id="home-logout" class="home-logout" type="button" data-i18n="btnLogout">ログアウト</button>
         <a class="home-policy" href="policy.html" target="_blank" rel="noopener" data-i18n="homePolicy">利用規約・プライバシー</a>
+        <button type="button" id="home-report" class="home-policy home-report-link" data-i18n="homeReport">ふぐあい・おといあわせ</button>
       </div>
     </section>
 
@@ -528,6 +529,47 @@
 
         <div class="modal-actions">
           <button type="button" class="btn-primary" data-action="grow-close" data-i18n="growClose">たのしみに まってるね！</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 不具合・お問い合わせ報告（画像添付できる・ログイン不要でDriveへ→Googleフォームに集約） -->
+    <div id="report-issue-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="report-issue-title">
+      <div class="modal-backdrop" data-action="report-issue-close"></div>
+      <div class="modal-content report-issue-content">
+        <button type="button" class="modal-x" data-action="report-issue-close" aria-label="close">✕</button>
+        <h3 id="report-issue-title" data-i18n="reportIssueTitle">ほうこく・おといあわせ</h3>
+        <p class="report-issue-lead" data-i18n="reportIssueLead">こまったこと・へんなキャラ・けしてほしいことを おしえてね。</p>
+
+        <label class="report-issue-field">
+          <span data-i18n="reportIssueType">しゅるい</span>
+          <select id="report-issue-type">
+            <option value="不具合の報告" data-i18n="reportIssueTypeBug">ふぐあいの ほうこく</option>
+            <option value="キャラクターの報告（不適切など）" data-i18n="reportIssueTypeChar">キャラの ほうこく</option>
+            <option value="写真・データの削除依頼" data-i18n="reportIssueTypeDelete">しゃしん・データの さくじょ</option>
+            <option value="その他" data-i18n="reportIssueTypeOther">そのほか</option>
+          </select>
+        </label>
+
+        <label class="report-issue-field">
+          <span data-i18n="reportIssueDetail">ないよう</span>
+          <textarea id="report-issue-detail" rows="4" data-i18n-placeholder="reportIssueDetailPh" placeholder="くわしく おしえてね"></textarea>
+        </label>
+
+        <label class="report-issue-field">
+          <span data-i18n="reportIssueImage">がぞう（あれば・にんい）</span>
+          <input id="report-issue-image" type="file" accept="image/*" />
+        </label>
+        <div id="report-issue-preview" class="report-issue-preview hidden"><img id="report-issue-preview-img" src="" alt="" /></div>
+
+        <label class="report-issue-field">
+          <span data-i18n="reportIssueContact">れんらくさき（にんい）</span>
+          <input id="report-issue-contact" type="text" autocomplete="off" data-i18n-placeholder="reportIssueContactPh" placeholder="メールなど（へんしんがひつような ばあい）" />
+        </label>
+
+        <p id="report-issue-status" class="report-issue-status hidden"></p>
+        <div class="modal-actions">
+          <button id="report-issue-send" type="button" class="btn-primary" data-i18n="reportIssueSend">おくる →</button>
         </div>
       </div>
     </div>

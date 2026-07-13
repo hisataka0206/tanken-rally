@@ -91,6 +91,25 @@ export class DriveClient {
     return data;
   }
 
+  /** 画像付き不具合報告を送る（ログイン不要）。
+   *  画像は base64（リサイズ済み）で渡す。GAS が Drive 保存＋Sheet 記録＋（設定時）Google フォーム送信を行う。
+   *  戻り値: { ok, imageUrl?, form } */
+  async submitIssueReport({ types, detail, contact, name, imageBase64, imageMime, imageName, context }) {
+    const data = await this._post({
+      action: 'submitIssueReport',
+      types: types || [],
+      detail: detail || '',
+      contact: contact || '',
+      name: name || '',
+      imageBase64: imageBase64 || '',
+      imageMime: imageMime || '',
+      imageName: imageName || '',
+      context: context || {},
+    });
+    if (!data || !data.ok) throw new Error((data && data.error) || 'submitIssueReport failed');
+    return data;
+  }
+
   /** 写真をアップロード
    *   - takenAt: EXIF DateTimeOriginal（取れない場合は null）
    *   - uploadedAt: アップロード時のクライアント時刻（常に記録）

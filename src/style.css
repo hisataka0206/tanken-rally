@@ -3147,6 +3147,37 @@ ruby rt {
 }
 body.lang-elementary { line-height: 1.85; }
 
+/* ===== 不具合・お問い合わせ報告モーダル ===== */
+.report-issue-lead { font-size: 13px; color: var(--muted, #6f6a60); margin: 4px 2px 12px; line-height: 1.7; }
+.report-issue-field { display: block; margin: 10px 0; text-align: left; }
+.report-issue-field > span { display: block; font-size: 13px; font-weight: 700; color: var(--text, #444); margin-bottom: 4px; }
+.report-issue-field select,
+.report-issue-field textarea,
+.report-issue-field input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 2px solid var(--green-light, #8FD6A3);
+  border-radius: 12px;
+  font-size: 15px;
+  font-family: inherit;
+  background: #fff;
+}
+.report-issue-field textarea { resize: vertical; min-height: 72px; }
+.report-issue-field input[type="file"] { font-size: 13px; }
+.report-issue-preview { margin: 8px 0; }
+.report-issue-preview img {
+  max-width: 100%;
+  max-height: 180px;
+  border-radius: 12px;
+  border: 2px solid #eaddbb;
+  display: block;
+}
+.report-issue-status { margin: 10px 2px 0; font-size: 14px; font-weight: 700; }
+.report-issue-status.is-ok { color: #157a45; }
+.report-issue-status.is-error { color: #c0480f; }
+.home-report-link { background: transparent; border: 0; cursor: pointer; }
+
 /* ===== オリジナルアイコン（絵文字の置き換え）===== */
 /* インライン用（見出し・ロゴ・ボタンの文字と並べる） */
 .ui-icon {

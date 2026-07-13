@@ -37,7 +37,7 @@
     <!-- 起動時ログインゲート（なまえ＋あいことば）。未ログイン時のみ表示してアプリを覆う -->
     <div id="login-gate" class="login-gate hidden" role="dialog" aria-modal="true" aria-labelledby="login-title">
       <div class="login-card">
-        <div class="login-logo">🗺️ <span data-i18n="appTitle">テクタン</span></div>
+        <div class="login-logo"><img src="src/assets/icons/icon-acorn.svg" alt="" aria-hidden="true" class="ui-icon"> <span data-i18n="appTitle">テクタン</span></div>
         <h2 id="login-title" class="login-title" data-i18n="loginTitleRegister">はじめまして！なまえを つくろう</h2>
         <p id="login-lead" class="login-lead" data-i18n="loginLead">なまえと あいことばを きめると、じぶんだけの図鑑ができるよ。</p>
 
@@ -68,7 +68,7 @@
 
     <!-- ヘッダー -->
     <header class="header">
-      <span class="header-icon">🗺️</span>
+      <span class="header-icon"><img src="src/assets/icons/icon-acorn.svg" alt="" aria-hidden="true"></span>
       <div class="header-brand">
         <div class="header-title-row">
           <h1 data-i18n="appTitle">テクタン</h1>
@@ -77,8 +77,8 @@
         <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
       </div>
       <div class="header-actions">
-        <button id="home-btn" class="zukan-btn" type="button" data-i18n-title="btnHome" title="トップにもどる">🏠</button>
-        <button id="admin-btn" class="zukan-btn hidden" type="button" title="マスターモード（admin）">🛠</button>
+        <button id="home-btn" class="zukan-btn" type="button" data-i18n-title="btnHome" title="トップにもどる"><img src="src/assets/icons/icon-home.svg" alt="" aria-hidden="true"></button>
+        <button id="admin-btn" class="zukan-btn hidden" type="button" title="マスターモード（admin）"><img src="src/assets/icons/icon-gear.svg" alt="" aria-hidden="true"></button>
       </div>
     </header>
 
@@ -97,19 +97,19 @@
         </div>
         <p class="home-hello" id="home-hello"></p>
         <button id="home-start" class="home-entry home-entry-primary" type="button">
-          <span class="home-entry-icon">🗺️</span>
+          <span class="home-entry-icon"><img src="src/assets/icons/icon-map.svg" alt="" aria-hidden="true"></span>
           <span class="home-entry-label" data-i18n="homeStart">たんけんを はじめる</span>
         </button>
         <button id="home-history" class="home-entry" type="button">
-          <span class="home-entry-icon">📜</span>
+          <span class="home-entry-icon"><img src="src/assets/icons/icon-scroll.svg" alt="" aria-hidden="true"></span>
           <span class="home-entry-label" data-i18n="homeHistory">いままでの たんけんを 思い出す</span>
         </button>
         <button id="home-zukan" class="home-entry" type="button">
-          <span class="home-entry-icon">📖</span>
+          <span class="home-entry-icon"><img src="src/assets/icons/icon-book.svg" alt="" aria-hidden="true"></span>
           <span class="home-entry-label" data-i18n="homeZukan">ずかんを 見る</span>
         </button>
         <button id="home-grow" class="home-entry home-entry-soon" type="button">
-          <span class="home-entry-icon">🌱</span>
+          <span class="home-entry-icon"><img src="src/assets/icons/icon-sprout.svg" alt="" aria-hidden="true"></span>
           <span class="home-entry-label" data-i18n="homeGrow">育てる（仮）</span>
           <span class="home-entry-badge" data-i18n="homeGrowBadge">作成中</span>
         </button>
@@ -125,13 +125,13 @@
 
         <!-- 免責 -->
         <p class="disclaimer" data-i18n-html="disclaimer">
-          ⚠️ <strong>すべての駅で適切なルートが確保できていることを確約していません。</strong>
+          <strong>すべての駅で適切なルートが確保できていることを確約していません。</strong>
           スポットが少なかったり、目安時間（約60分）に収まらないこともあります。気になったら別の駅も試してみてね。
         </p>
 
         <!-- 前回の続きを開く（セッションID入力） -->
         <details class="resume-section">
-          <summary data-i18n="resumeSummary">🔑 前回のたんけんを開く（パスワード入力）</summary>
+          <summary data-i18n="resumeSummary">前回のたんけんを開く（パスワード入力）</summary>
           <p class="resume-hint" data-i18n-html="resumeHint">
             前回の探検時に Drive 上に作成されたフォルダ名の末尾にあるランダムな文字列（例：<code>lwgvzs6b9k2</code>）を入力すると、
             そのときの写真を読み込んで「たんけんノート」の続きが書けます。
@@ -164,11 +164,11 @@
 
           <!-- 段階タップ式ピッカー（Phase B: selectの代替UI） -->
           <div class="picker-stage">
-            <div class="picker-label" data-i18n="pickerLine">🚃 ろせんをえらぶ</div>
+            <div class="picker-label" data-i18n="pickerLine">ろせんをえらぶ</div>
             <div id="line-chips" class="chip-grid"></div>
           </div>
           <div class="picker-stage">
-            <div class="picker-label" data-i18n="pickerStation">🚉 えきをえらぶ</div>
+            <div class="picker-label" data-i18n="pickerStation">えきをえらぶ</div>
             <div id="station-chips" class="chip-grid chip-grid-scroll"></div>
           </div>
 
@@ -195,20 +195,20 @@
 
         <!-- 詳細絞り込み（任意・日時で営業時間フィルタ） -->
         <details class="filter-section">
-          <summary data-i18n="filterSummary">🔍 詳細絞り込み（任意）</summary>
+          <summary data-i18n="filterSummary">詳細絞り込み（任意）</summary>
           <p class="filter-hint" data-i18n-html="filterHint">
             探検する日時を入れると、<strong>その時間に開いていないお店や施設は結果から自動で除外</strong>します。
           </p>
           <div class="filter-form">
-            <label for="filter-date" data-i18n="filterDate">📅 日にち</label>
+            <label for="filter-date" data-i18n="filterDate">日にち</label>
             <input type="date" id="filter-date" />
-            <label for="filter-start-time" data-i18n="filterStart">⏰ 開始</label>
+            <label for="filter-start-time" data-i18n="filterStart">開始</label>
             <input type="time" id="filter-start-time" value="10:00" />
-            <label for="filter-end-time" data-i18n="filterEnd">⏰ 終了</label>
+            <label for="filter-end-time" data-i18n="filterEnd">終了</label>
             <input type="time" id="filter-end-time" value="17:00" />
           </div>
           <p class="filter-disclaimer" data-i18n-html="filterDisclaimer">
-            ⚠️ 営業時間情報は <strong>Google マップが提供する情報に依存</strong>しており、
+             営業時間情報は<strong>Google マップが提供する情報に依存</strong>しており、
             正確性を保証するものではありません。実際にお出かけする前に、お店や施設の
             公式サイト・電話などで営業時間を必ずご確認ください。
           </p>
@@ -250,30 +250,30 @@
         <div id="photo-wizard" class="photo-wizard">
           <div class="photo-wizard-progress" id="photo-wizard-progress"></div>
           <div class="photo-wizard-card">
-            <div class="photo-wizard-stage-icon" id="photo-wizard-icon">📍</div>
+            <div class="photo-wizard-stage-icon" id="photo-wizard-icon"></div>
             <h3 class="photo-wizard-title" id="photo-wizard-title"></h3>
             <p class="photo-wizard-hint" id="photo-wizard-hint"></p>
             <!-- ガイドキャラ（画面4: カテゴリ連動。main.js の updateWizardGuide が src を設定） -->
             <img id="wizard-guide" class="wizard-guide" alt="" aria-hidden="true" onerror="this.style.display='none'" />
             <div class="photo-upload-row">
               <label for="photo-camera-input" class="photo-upload-btn photo-upload-camera photo-upload-btn-large">
-                <span data-i18n="photoCameraLabel">📷 写真を撮る</span>
+                <span data-i18n="photoCameraLabel">写真を撮る</span>
               </label>
               <label for="photo-input" class="photo-upload-btn photo-upload-gallery photo-upload-btn-large">
-                <span data-i18n="photoGalleryLabel">🖼️ 写真を選ぶ</span>
+                <span data-i18n="photoGalleryLabel">写真を選ぶ</span>
               </label>
             </div>
             <!-- ARキャラ捕獲（スポット/ゴールのステージでのみ表示。main.js が制御） -->
             <button id="ar-hunt-btn" class="ar-hunt-btn hidden" type="button">
-              <span data-i18n="btnArHunt">👀 キャラをさがす</span>
+              <span data-i18n="btnArHunt">キャラをさがす</span>
             </button>
             <!-- いまどこ？：地図で現在地と向いている方角を表示（いつでも） -->
-            <button id="where-btn" class="where-btn" type="button" data-i18n="btnWhere">🧭 まよったら…いまどこ？（点がすこしへる）</button>
+            <button id="where-btn" class="where-btn" type="button" data-i18n="btnWhere">まよったら…いまどこ？（点がすこしへる）</button>
             <div id="photo-wizard-thumbs" class="photo-wizard-thumbs"></div>
           </div>
           <div class="photo-wizard-nav">
             <button id="wizard-prev" class="btn-secondary" data-i18n="btnWizardPrev">← 前へ</button>
-            <button id="wizard-skip" class="btn-secondary" data-i18n="btnWizardSkip" title="一覧画面まで一気に進む">スキップ ↪</button>
+            <button id="wizard-skip" class="btn-secondary" data-i18n="btnWizardSkip" title="一覧画面まで一気に進む">スキップ</button>
             <button id="wizard-next" class="btn-primary" data-i18n="btnWizardNext">次へ →</button>
           </div>
         </div>
@@ -287,16 +287,16 @@
                  iOS Safari は両方とも同じシートを開くので問題なし。 -->
             <div class="photo-upload-row">
               <label for="photo-camera-input" class="photo-upload-btn photo-upload-camera">
-                <span data-i18n="photoCameraLabel">📷 写真を撮る</span>
+                <span data-i18n="photoCameraLabel">写真を撮る</span>
                 <input id="photo-camera-input" type="file" accept="image/*" capture="environment" multiple hidden />
               </label>
               <label for="photo-input" class="photo-upload-btn photo-upload-gallery">
-                <span data-i18n="photoGalleryLabel">🖼️ 写真を選ぶ</span>
+                <span data-i18n="photoGalleryLabel">写真を選ぶ</span>
                 <input id="photo-input" type="file" accept="image/*" multiple hidden />
               </label>
             </div>
-            <button id="wizard-reenter" class="btn-secondary photo-wizard-reenter" data-i18n="btnWizardReenter">🚶 各スポットで写真をとる</button>
-            <p class="photo-hint" data-i18n="photoHint">💡 撮影あとに写真をタップして、場所のタグ（任意）を付けられるよ。</p>
+            <button id="wizard-reenter" class="btn-secondary photo-wizard-reenter" data-i18n="btnWizardReenter">各スポットで写真をとる</button>
+            <p class="photo-hint" data-i18n="photoHint">撮影あとに写真をタップして、場所のタグ（任意）を付けられるよ。</p>
           </div>
           <div id="upload-progress" class="upload-progress hidden"></div>
           <div id="photos-grid" class="photos-grid"></div>
@@ -314,7 +314,7 @@
       <div class="card">
         <h2 class="step-title"><span class="step-num">5</span> <span data-i18n="step5Title">たんけんノートをつくろう</span></h2>
         <p class="report-intro" data-i18n="reportIntro">
-          ✏️ 自分のことばで、感じたこと・見つけたこと・気になったことを書いてみよう。
+           自分のことばで、感じたこと・見つけたこと・気になったことを書いてみよう。
           PDFにして印刷すると、B3ポスターサイズのたんけんノートになるよ。
         </p>
 
@@ -323,18 +323,18 @@
             <header class="report-page-header">
               <!-- 画面6装飾: NUTTY がタイトル帯からぶら下がる（素材未着時は自動非表示） -->
               <img class="report-guide rg-nutty" src="src/assets/characters/guide/oakchap_g6.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
-              <h1 class="report-title" data-i18n="reportTitleH1">🗺 たんけんノート</h1>
+              <h1 class="report-title title-with-icon"><img class="ui-icon" src="src/assets/icons/icon-map.svg" alt="" aria-hidden="true"> <span data-i18n="reportTitleH1">たんけんノート</span></h1>
               <div class="report-meta-row">
                 <div class="report-meta">
-                  <label data-i18n="reportDate">📅 たんけん日</label>
+                  <label data-i18n="reportDate">たんけん日</label>
                   <input type="text" id="report-date" />
                 </div>
                 <div class="report-meta">
-                  <label data-i18n="reportAuthor">✏️ きろくした人</label>
+                  <label data-i18n="reportAuthor">きろくした人</label>
                   <input type="text" id="report-author" data-i18n-placeholder="reportAuthorPh" placeholder="（あなたの名前）" />
                 </div>
                 <div class="report-meta">
-                  <label data-i18n="reportStation">🚉 たんけんした駅</label>
+                  <label data-i18n="reportStation">たんけんした駅</label>
                   <span id="report-station" class="report-meta-static"></span>
                 </div>
               </div>
@@ -343,14 +343,14 @@
             <section class="report-section">
               <!-- 画面6装飾: ZOOMY が見出し横でレンズ拡大 -->
               <img class="report-guide rg-zoomy" src="src/assets/characters/guide/loupe_g6.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
-              <h3 data-i18n="reportSecOverview">🌟 たんけんを終えて思ったこと</h3>
+              <h3 data-i18n="reportSecOverview">たんけんを終えて思ったこと</h3>
               <textarea id="report-overview" rows="5"
                 data-i18n-placeholder="reportOverviewPh"
                 placeholder="ここに自由に感想を書こう。一番たのしかったこと、びっくりしたこと、気になったこと…"></textarea>
             </section>
 
             <section class="report-section">
-              <h3 data-i18n="reportSecPhotos">📷 とった写真と思い出</h3>
+              <h3 data-i18n="reportSecPhotos">とった写真と思い出</h3>
               <p class="report-hint" data-i18n="reportPhotosHint">
                 行った順に並べてあるよ。ノートに載せたくない写真は STEP 4 で外しておこう。
                 写真ごとに思ったこと・気づいたことを書きこめます（任意）。
@@ -360,12 +360,12 @@
 
             <!-- ARキャラ捕獲: 今回であったキャラたち（捕獲0体なら hidden のまま） -->
             <section class="report-section hidden" id="report-characters-section" data-pdf-block>
-              <h3 data-i18n="reportSecCharacters">🎁 今回であったキャラたち</h3>
+              <h3 data-i18n="reportSecCharacters">今回であったキャラたち</h3>
               <div id="report-characters" class="report-characters"></div>
             </section>
 
             <section class="report-section">
-              <h3 data-i18n="reportSecAfterword">✏️ ノートを書いてみて</h3>
+              <h3 data-i18n="reportSecAfterword">ノートを書いてみて</h3>
               <textarea id="report-afterword" rows="4"
                 data-i18n-placeholder="reportAfterwordPh"
                 placeholder="ノートを書いてみて、新しく気づいたことや、もっと知りたくなったことがあれば書こう"></textarea>
@@ -376,10 +376,10 @@
         <div class="step-actions step-actions-report">
           <button id="back-to-photos" class="btn-secondary" data-i18n="btnBackPhotos">← 写真にもどる</button>
           <div class="report-action-group">
-            <button id="tidy-memos-btn" class="btn-secondary" data-i18n="btnTidyMemos" data-i18n-title="tidyMemosTitle" title="写真のひと言メモを整える">✨ メモをすっきり</button>
-            <button id="save-report-btn" class="btn-secondary" data-i18n="btnSaveReport">💾 保存</button>
-            <button id="submit-score-btn" class="btn-secondary" data-i18n="btnSubmitScore">🏆 スコア</button>
-            <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf">📄 PDF出力</button>
+            <button id="tidy-memos-btn" class="btn-secondary" data-i18n="btnTidyMemos" data-i18n-title="tidyMemosTitle" title="写真のひと言メモを整える">メモをすっきり</button>
+            <button id="save-report-btn" class="btn-secondary" data-i18n="btnSaveReport">保存</button>
+            <button id="submit-score-btn" class="btn-secondary title-with-icon"><img class="ui-icon" src="src/assets/icons/icon-trophy.svg" alt="" aria-hidden="true"> <span data-i18n="btnSubmitScore">スコア</span></button>
+            <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf">PDF出力</button>
           </div>
         </div>
       </div>
@@ -389,7 +389,7 @@
     <div id="score-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="score-modal-title">
       <div class="modal-backdrop" data-action="close"></div>
       <div class="modal-content modal-content-wide">
-        <h3 id="score-modal-title" data-i18n="scoreModalTitle">🏆 たんけんスコア</h3>
+        <h3 id="score-modal-title" class="title-with-icon"><img class="ui-icon" src="src/assets/icons/icon-trophy.svg" alt="" aria-hidden="true"> <span data-i18n="scoreModalTitle">たんけんスコア</span></h3>
         <!-- 画面7ガイド: ZOOMY がタイトル左で祝福（素材未着時は自動非表示） -->
         <img class="guide-char g-score-zoomy" src="src/assets/characters/guide/loupe_g7.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
 
@@ -406,27 +406,27 @@
           <!-- 計画点 / 実行点 の2分割表示 -->
           <div id="score-split" class="score-split">
             <div class="score-split-item score-split-plan">
-              <span class="score-split-label" data-i18n="scorePlanLabel">🗺 計画点</span>
+              <span class="score-split-label" data-i18n="scorePlanLabel">計画点</span>
               <span id="score-plan" class="score-split-val">0</span>
             </div>
             <div class="score-split-item score-split-exec">
-              <span class="score-split-label" data-i18n="scoreExecLabel">🚶 実行点</span>
+              <span class="score-split-label" data-i18n="scoreExecLabel">実行点</span>
               <span id="score-exec" class="score-split-val">0</span>
             </div>
           </div>
-          <p class="score-split-note" data-i18n="scoreSplitNote">🗺 計画点＝どんな探検を計画したか（スポット数・距離） / 🚶 実行点＝実際にどれだけ楽しめたか（写真・コメント・ペース・キャラ捕獲など）</p>
+          <p class="score-split-note" data-i18n="scoreSplitNote">計画点＝どんな探検を計画したか（スポット数・距離） / 実行点＝実際にどれだけ楽しめたか（写真・コメント・ペース・キャラ捕獲など）</p>
 
           <!-- スコアの仕組み（簡単な説明・係数は非公開） -->
           <details class="score-howto">
-            <summary data-i18n="scoreHowtoSummary">💡 スコアはどう決まるの？</summary>
+            <summary data-i18n="scoreHowtoSummary">スコアはどう決まるの？</summary>
             <ul class="score-howto-list" data-i18n-html="scoreHowtoList">
-              <li>🚶 たくさん歩く</li>
-              <li>📍 いろんなスポットに行く</li>
-              <li>📷 写真をたくさん撮る</li>
-              <li>🏷️ 写真にスポットのタグを付ける</li>
-              <li>📝 感想や写真コメントを書く</li>
-              <li>⏱️ 1時間以内におわらせる</li>
-              <li>🎯 Googleの所要時間に近いペースで歩く</li>
+              <li>たくさん歩く</li>
+              <li>いろんなスポットに行く</li>
+              <li>写真をたくさん撮る</li>
+              <li>写真にスポットのタグを付ける</li>
+              <li>感想や写真コメントを書く</li>
+              <li>1時間以内におわらせる</li>
+              <li>Googleの所要時間に近いペースで歩く</li>
             </ul>
           </details>
 
@@ -435,12 +435,12 @@
 
           <!-- キャラ自動生成の導線（条件クリア時のみ表示。可否はレポート前に判定し裏で先行生成済み） -->
           <div id="chargen-entry" class="chargen-entry hidden">
-            <p class="chargen-entry-lead" data-i18n="chargenEntryLead">🌟 きょうの たんけんから あたらしい なかまが つくれるよ！</p>
+            <p class="chargen-entry-lead" data-i18n="chargenEntryLead">きょうの たんけんから あたらしい なかまが つくれるよ！</p>
             <button id="chargen-start-btn" type="button" class="btn-primary chargen-start-btn" data-i18n="chargenStart">あたらしい なかまを むかえる →</button>
           </div>
 
           <label class="score-name-label">
-            <span data-i18n="scoreNameLabel">✏️ 名前（ニックネームでもOK）</span>
+            <span data-i18n="scoreNameLabel">名前（ニックネームでもOK）</span>
             <input id="score-player-name" type="text" data-i18n-placeholder="scoreNamePh" placeholder="（探検者の名前）" maxlength="30" />
           </label>
           <p class="modal-desc" data-i18n="scoreDesc">
@@ -455,7 +455,7 @@
         <!-- フェーズ2: 送信後のランキング表示 -->
         <div id="score-phase-ranking" class="hidden">
           <p id="score-rank-message" class="score-rank-message"></p>
-          <h4 class="ranking-title" data-i18n-html="rankingTitle">🏆 <span id="ranking-station-name"></span> ランキング (上位10名)</h4>
+          <h4 class="ranking-title" data-i18n-html="rankingTitle"><span id="ranking-station-name"></span>ランキング (上位10名)</h4>
           <ol id="ranking-list" class="ranking-list"></ol>
           <div class="modal-actions">
             <button class="btn-primary" data-action="close" data-i18n="btnClose">閉じる</button>
@@ -499,7 +499,7 @@
 
         <!-- フェーズ: 完了 -->
         <div id="chargen-phase-done" class="chargen-phase hidden">
-          <div class="chargen-done-emoji" aria-hidden="true">🎉</div>
+          <div class="chargen-done-emoji" aria-hidden="true"><img src="src/assets/icons/icon-sparkle.svg" alt=""></div>
           <p id="chargen-done-msg" class="chargen-lead"></p>
           <div class="modal-actions">
             <button type="button" class="btn-primary" data-action="chargen-close" data-i18n="btnClose">閉じる</button>
@@ -513,13 +513,13 @@
       <div class="modal-backdrop" data-action="grow-close"></div>
       <div class="modal-content grow-content">
         <button type="button" class="modal-x" data-action="grow-close" aria-label="close">✕</button>
-        <div class="grow-emoji" aria-hidden="true">🌱</div>
+        <div class="grow-emoji" aria-hidden="true"><img src="src/assets/icons/icon-sprout.svg" alt=""></div>
         <h3 id="grow-modal-title" class="grow-title" data-i18n="growTitle">育てる（仮）</h3>
         <span class="grow-badge" data-i18n="growBadge">作成中</span>
         <p class="grow-lead" data-i18n="growLead">つかまえた なかまを おうちで そだてられる、あたらしい あそびを じゅんびしているよ。</p>
 
         <!-- 目標（100人）。進捗ゲージではなく、目標として表示するだけ -->
-        <p class="grow-goal" data-i18n="growGoal">🎯 目標は 100人！ みんなで あそべる日を めざしてるよ。</p>
+        <p class="grow-goal" data-i18n="growGoal">目標は 100人！ みんなで あそべる日を めざしてるよ。</p>
 
         <!-- 残り人数の告知バナー（50人・10人のタイミングだけ表示） -->
         <div id="grow-milestone" class="grow-milestone hidden"></div>
@@ -539,11 +539,11 @@
         <h3 id="chargen-var-title" class="chargen-title" data-i18n="chargenVarTitle">あたらしい なかまが つくれそう！</h3>
         <p class="chargen-lead" data-i18n="chargenVarSub">どんなのが すき？ えらぶと その子に ちかづくよ（あとで つくれるよ）</p>
         <div class="chargen-var-group">
-          <div class="chargen-var-label" data-i18n="chargenVarMotif">🧩 タイプ</div>
+          <div class="chargen-var-label" data-i18n="chargenVarMotif">タイプ</div>
           <div id="chargen-var-motif" class="chargen-var-chips"></div>
         </div>
         <div class="chargen-var-group">
-          <div class="chargen-var-label" data-i18n="chargenVarAtmo">✨ ふんいき</div>
+          <div class="chargen-var-label" data-i18n="chargenVarAtmo">ふんいき</div>
           <div id="chargen-var-atmo" class="chargen-var-chips"></div>
         </div>
         <div class="modal-actions">
@@ -558,7 +558,7 @@
       <div class="modal-backdrop" data-action="where-close"></div>
       <div class="modal-content where-content">
         <button type="button" class="modal-x" data-action="where-close" aria-label="close">✕</button>
-        <h3 id="where-title" class="chargen-title" data-i18n="whereTitle">🧭 いまどこ？</h3>
+        <h3 id="where-title" class="chargen-title" data-i18n="whereTitle">いまどこ？</h3>
         <p id="where-status" class="where-status" data-i18n="whereLocating">いまの場所をさがしているよ…</p>
         <div id="where-map" class="where-map"></div>
         <p class="where-hint" data-i18n="whereHint">青い矢印が「あなた」だよ。矢印のむきが、いま向いている方向。</p>
@@ -569,7 +569,7 @@
     <div id="tag-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="tag-modal-title">
       <div class="modal-backdrop" data-action="close"></div>
       <div class="modal-content">
-        <h3 id="tag-modal-title" data-i18n="tagModalTitle">📍 タグをつける</h3>
+        <h3 id="tag-modal-title" data-i18n="tagModalTitle">タグをつける</h3>
         <p class="modal-desc" data-i18n="tagModalDesc">この写真を撮った場所を選んでね（任意）。</p>
         <select id="tag-modal-select" class="spot-select">
           <option value="" data-i18n="tagModalEmpty">── タグなし ──</option>
@@ -585,7 +585,7 @@
     <div id="voice-memo-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="voice-memo-title">
       <div class="modal-backdrop" data-action="close"></div>
       <div class="modal-content">
-        <h3 id="voice-memo-title" data-i18n="voiceMemoTitle">📝 この写真にひと言メモ</h3>
+        <h3 id="voice-memo-title" data-i18n="voiceMemoTitle">この写真にひと言メモ</h3>
         <p class="modal-desc" data-i18n="voiceMemoDesc">マイクボタンを押して、気づいたことを声で話してみよう。あとから書き直してもOK。</p>
 
         <div class="voice-memo-photo">
@@ -607,7 +607,7 @@
         <p id="voice-method-note" class="voice-method-note hidden"></p>
 
         <button id="voice-mic-btn" class="voice-mic-btn" type="button">
-          <span id="voice-mic-label" data-i18n="voiceMicStart">🎤 おして話す</span>
+          <span id="voice-mic-label" data-i18n="voiceMicStart">おして話す</span>
         </button>
         <p id="voice-status" class="voice-status" aria-live="polite"></p>
 
@@ -632,8 +632,8 @@
         <div class="step-actions">
           <button id="back-to-spots" class="btn-secondary" data-i18n="btnBackSpots">← スポットを変える</button>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button id="reverse-route-btn" class="btn-secondary" data-i18n="btnReverseRoute" title="ルートの順番を逆にします">🔄 逆順にする</button>
-            <button id="download-pdf-btn" class="btn-secondary" data-i18n="btnDownloadPdf">📄 地図PDFをダウンロード</button>
+            <button id="reverse-route-btn" class="btn-secondary" data-i18n="btnReverseRoute" title="ルートの順番を逆にします">逆順にする</button>
+            <button id="download-pdf-btn" class="btn-secondary" data-i18n="btnDownloadPdf">地図PDFをダウンロード</button>
             <button id="start-explore-btn" class="btn-primary" data-i18n="btnStartExplore">探検スタート！ →</button>
           </div>
         </div>
@@ -647,7 +647,7 @@
         <div id="ar-target-name" class="ar-target-name"></div>
         <div id="ar-distance" class="ar-distance"></div>
       </div>
-      <div class="ar-caution" data-i18n="arCaution">⚠️ まわりに ちゅうい！</div>
+      <div class="ar-caution" data-i18n="arCaution">まわりに ちゅうい！</div>
       <!-- スポット方向ガイド（コンパスと方位角から回転） -->
       <div id="ar-guide" class="ar-guide hidden">
         <span id="ar-guide-arrow" class="ar-guide-arrow">➤</span>
@@ -659,9 +659,9 @@
       </div>
       <div id="ar-status" class="ar-status"></div>
       <div class="ar-actions">
-        <button id="ar-call-btn" class="btn-secondary ar-call-btn hidden" type="button" data-i18n="btnArCall">🔔 キャラをよぶ</button>
+        <button id="ar-call-btn" class="btn-secondary ar-call-btn hidden" type="button" data-i18n="btnArCall">キャラをよぶ</button>
         <button id="ar-shutter-btn" class="ar-shutter" type="button" aria-label="シャッター"></button>
-        <button id="ar-close-btn" class="btn-secondary ar-close-btn" type="button" data-i18n="btnArClose">✖ とじる</button>
+        <button id="ar-close-btn" class="btn-secondary ar-close-btn" type="button" data-i18n="btnArClose">とじる</button>
       </div>
     </div>
 
@@ -669,7 +669,7 @@
     <div id="zukan-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="zukan-title">
       <div class="modal-backdrop" data-action="close"></div>
       <div class="modal-content modal-content-wide">
-        <h3 id="zukan-title" data-i18n="zukanTitle">📖 キャラずかん</h3>
+        <h3 id="zukan-title" class="title-with-icon"><img class="ui-icon" src="src/assets/icons/icon-book.svg" alt="" aria-hidden="true"> <span data-i18n="zukanTitle">キャラずかん</span></h3>
         <p class="modal-desc" data-i18n="zukanDesc">たんけん中にARカメラでつかまえたキャラのコレクションだよ。つかまえたキャラをタップすると、ひみつのストーリーが読めるよ！</p>
         <div class="zukan-account">
           <span id="zukan-account-name" class="zukan-account-name"></span>
@@ -679,7 +679,7 @@
         <div id="zukan-detail" class="zukan-detail hidden"></div>
         <div id="zukan-grid" class="zukan-grid"></div>
         <div class="modal-actions">
-          <button class="btn-secondary" data-action="close" data-i18n="btnArClose">✖ とじる</button>
+          <button class="btn-secondary" data-action="close" data-i18n="btnArClose">とじる</button>
         </div>
       </div>
     </div>
@@ -688,7 +688,7 @@
     <div id="history-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="history-title">
       <div class="modal-backdrop" data-action="close"></div>
       <div class="modal-content modal-content-wide">
-        <h3 id="history-title" data-i18n="historyTitle">📜 ぼうけんの履歴</h3>
+        <h3 id="history-title" class="title-with-icon"><img class="ui-icon" src="src/assets/icons/icon-scroll.svg" alt="" aria-hidden="true"> <span data-i18n="historyTitle">ぼうけんの履歴</span></h3>
         <p class="modal-desc" data-i18n="historyDesc">これまでに探検した記録だよ。「ひらく」で写真フォルダを開いたり、「つづき」でノートの続きが書けるよ。</p>
         <p id="history-security-note" class="history-security-note"></p>
         <div class="zukan-account">
@@ -696,7 +696,7 @@
         </div>
         <div id="history-list" class="history-list"></div>
         <div class="modal-actions">
-          <button class="btn-secondary" data-action="close" data-i18n="btnArClose">✖ とじる</button>
+          <button class="btn-secondary" data-action="close" data-i18n="btnArClose">とじる</button>
         </div>
       </div>
     </div>
@@ -705,7 +705,7 @@
     <div id="admin-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="admin-title">
       <div class="modal-backdrop" data-action="close"></div>
       <div class="modal-content modal-content-wide">
-        <h3 id="admin-title">🛠 マスターモード（admin）</h3>
+        <h3 id="admin-title">マスターモード（admin）</h3>
         <p class="modal-desc">確率で決まる要素を固定してチェックできます。設定はこの端末に保存され、adminアカウントでのみ有効です。</p>
         <label class="admin-row">
           <span>出すキャラ</span>

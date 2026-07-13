@@ -4,7 +4,7 @@
 // 地図は Google Maps Static API で取得して画像化（html2canvas で Maps タイルが
 // CORS の関係で空白になる問題を回避）。
 
-import { toLatLngLiteral } from './maps.js?v=106';
+import { toLatLngLiteral, staticMapStyleParams } from './maps.js?v=106';
 import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=106';
 import { localizeStationName } from '../data/cities.js?v=106';
 import { randomFunCharacterImage } from './characters.js?v=106';
@@ -565,7 +565,7 @@ function buildTurnCard({ label, labelColor, title, subtitle, icon, lat, lng, hea
   //   - source=outdoor で屋外のみを対象（地下道・屋内の謎SVを除外）
   const sv = `https://maps.googleapis.com/maps/api/streetview?size=480x320&location=${lat},${lng}&heading=${Math.round(heading)}&fov=90&pitch=0&radius=100&source=outdoor&key=${apiKey}`;
   // フォールバック：SV取得失敗時に表示する Static Map（地点中心、ズーム18、マーカー付き）
-  const fallback = `https://maps.googleapis.com/maps/api/staticmap?size=480x320&scale=2&center=${lat},${lng}&zoom=18&markers=color:red%7Csize:mid%7C${lat},${lng}&maptype=roadmap&language=${apiLang()}&key=${apiKey}`;
+  const fallback = `https://maps.googleapis.com/maps/api/staticmap?size=480x320&scale=2&center=${lat},${lng}&zoom=18&markers=color:red%7Csize:mid%7C${lat},${lng}&maptype=roadmap&language=${apiLang()}&${staticMapStyleParams().join('&')}&key=${apiKey}`;
   // お楽しみ要素: たまにキャラクターが写真の隅に紛れ込む（get以外のポーズ）。
   // キャラPNGは同一オリジンなので html2canvas がそのまま扱える（別ドメイン画像の固まり問題とは無関係）。
   let eggHtml = '';
@@ -670,6 +670,8 @@ function buildStaticMapUrl({ origin, orderedSpots, directions, apiKey }) {
     `language=${apiLang()}`,
     // zoom / center は markers / path から auto-fit で算出させる
   ];
+  // 絵本風スタイル（interactive map と統一）
+  staticMapStyleParams().forEach(s => params.push(s));
   // 駅マーカー
   if (o) params.push(`markers=color:0x004029|label:S|${o.lat},${o.lng}`);
   // 各スポット（A,B,C... のアルファベット表記、最大26件）

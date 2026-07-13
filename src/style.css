@@ -3132,6 +3132,44 @@ body.ar-open { overflow: hidden; }
 
 .grow-unlock { margin: 12px 6px 2px; font-size: 13px; line-height: 1.7; color: var(--muted, #6f6a60); }
 
+/* ===== ふりがな（ルビ）===== */
+/* 「漢字（かな）」を文字の上に小さく表示（i18n の furiganize が <ruby> を生成）。
+   ふりがな行のぶん行間を少し広げ、詰まって見えないようにする。 */
+ruby { ruby-align: center; }
+ruby rt {
+  font-size: 0.5em;
+  color: inherit;
+  opacity: 0.85;
+  font-weight: 400;
+  letter-spacing: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+body.lang-elementary { line-height: 1.85; }
+
+/* ===== オリジナルアイコン（絵文字の置き換え）===== */
+/* インライン用（見出し・ロゴ・ボタンの文字と並べる） */
+.ui-icon {
+  height: 1.15em;
+  width: auto;
+  vertical-align: -0.18em;
+}
+/* 見出し＋アイコンを中央そろえで横並び */
+.title-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.title-with-icon .ui-icon { height: 1.25em; }
+/* ホームの導線ボタンのアイコン（旧・絵文字30px相当） */
+.home-entry-icon img { width: 34px; height: 34px; display: block; }
+/* ヘッダーのブランド／ホーム／管理ボタン */
+.header-icon img { width: 30px; height: 30px; display: block; }
+.zukan-btn img { width: 22px; height: 22px; display: block; }
+/* 予告モーダルの大アイコン・お祝いアイコン */
+.grow-emoji img { width: 48px; height: 48px; }
+.chargen-done-emoji img { width: 52px; height: 52px; }
+
 /* トップ画面のログアウト（控えめなテキストボタン） */
 .home-logout {
   align-self: center;

@@ -3,6 +3,53 @@ import { apiLang } from './i18n.js?v=106';
 
 let mapsLoaded = false;
 
+// ===== 絵本風マップスタイル =====
+// キャラクターの世界観（やわらかいパステル・焦茶アウトライン・自然）に寄せた styled map。
+// 若草色の地面／クリーム色の道／やわらかい水色の川、文字は焦茶。
+// POIアイコン・店舗・交通のラベルは雑音になるので落とし、絵本のような静かな地図にする。
+// interactive map（new google.maps.Map の styles:）と Static Map（style= パラメータ）の両方で使う。
+export const MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#eaf4d8' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#6b5a43' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#fffdf5' }, { weight: 3 }] },
+  { featureType: 'administrative', elementType: 'geometry', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative.land_parcel', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi.attraction', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#cfe8a6' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#4e7a2f' }] },
+  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#e2f0c6' }] },
+  { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#f4eeda' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#fdf6e3' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#eaddbb' }] },
+  { featureType: 'road', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#fdefc8' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#f7d9a0' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#e6bd78' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#bfe3ea' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#5b8fa3' }] },
+];
+
+// Static Maps API 用に MAP_STYLE を style= パラメータ列へ変換する。
+// 形式: style=feature:xxx|element:yyy|color:0xRRGGBB|visibility:on/off|weight:N
+export function staticMapStyleParams() {
+  const toHex = (c) => '0x' + String(c).replace('#', '');
+  return MAP_STYLE.map(rule => {
+    const parts = [];
+    if (rule.featureType) parts.push('feature:' + rule.featureType);
+    if (rule.elementType) parts.push('element:' + rule.elementType);
+    (rule.stylers || []).forEach(s => {
+      Object.keys(s).forEach(k => {
+        const v = s[k];
+        parts.push(k + ':' + (k === 'color' ? toHex(v) : v));
+      });
+    });
+    return 'style=' + parts.map(encodeURIComponent).join('%7C');
+  });
+}
+
 export function loadGoogleMaps(apiKey) {
   if (mapsLoaded) return Promise.resolve();
   return new Promise((resolve, reject) => {

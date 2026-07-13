@@ -1,5 +1,5 @@
 import { CONFIG } from '../config.js?v=106';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow } from './utils/maps.js?v=106';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow, MAP_STYLE } from './utils/maps.js?v=106';
 import { fetchOriginStory, tidyMemo, transcribeAudio, setAiBackend } from './utils/ai.js?v=106';
 import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=106';
 import { generateMapPdf } from './utils/pdf.js?v=106';
@@ -7,7 +7,7 @@ import { DriveClient, generateSessionId } from './utils/drive.js?v=106';
 import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=106';
 import { CITIES, localizeStationName } from './data/cities.js?v=106';
 import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=106';
-import { applyI18n, LANG, t, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=106';
+import { applyI18n, LANG, t, furiganize, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=106';
 import { APP_VERSION, RELEASE_LABEL } from './version.js?v=106';
 import { FEATURES } from './config-features.js?v=106';
 import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=106';
@@ -237,6 +237,7 @@ async function openWhereModal() {
       _whereMap = new google.maps.Map($('where-map'), {
         center: toLL(state.stationLocation) || { lat: 35.681, lng: 139.767 },
         zoom: 17, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy',
+        styles: MAP_STYLE,
       });
       drawWhereContext();
     } else {
@@ -1037,21 +1038,21 @@ function renderHistory(items) {
     const scoreStr = (it.score != null) ? `${it.score}${t('suffPoints')}` : '';
     // 計画のみ / 写真あり をバッジで区別
     const badge = hasPhotos
-      ? `<span class="history-badge history-badge-photo">📷 ${photoN}${t('suffPhotos', '枚')}</span>`
+      ? `<span class="history-badge history-badge-photo">${photoN}${t('suffPhotos', '枚')}</span>`
       : `<span class="history-badge history-badge-plan">${escapeHtml(t('historyPlanOnly', '📝 計画のみ'))}</span>`;
     // 訪れたスポット名（距離・時間は表示しない）
     const spotsHtml = (it.spots && it.spots.length)
-      ? `<div class="history-spots">📍 ${escapeHtml(it.spots.join(' / '))}</div>`
-      : (it.spotCount ? `<div class="history-spots">📍 ${Number(it.spotCount)}</div>` : '');
+      ? `<div class="history-spots">${escapeHtml(it.spots.join(' / '))}</div>`
+      : (it.spotCount ? `<div class="history-spots">${Number(it.spotCount)}</div>` : '');
     const item = document.createElement('div');
     item.className = `history-item ${hasPhotos ? 'history-item-photos' : 'history-item-plan'}`;
     item.innerHTML = `
       <div class="history-main">
         <div class="history-top">
-          <span class="history-station">🚉 ${escapeHtml(it.stationName || '')}</span>
+          <span class="history-station">${escapeHtml(it.stationName || '')}</span>
           ${badge}
         </div>
-        <div class="history-meta">🕒 ${escapeHtml(dateStr)}${scoreStr ? ` ・ 🏆 ${escapeHtml(scoreStr)}` : ''}</div>
+        <div class="history-meta">${escapeHtml(dateStr)}${scoreStr ? ` ・ ${escapeHtml(scoreStr)}` : ''}</div>
         ${spotsHtml}
       </div>
       <div class="history-actions">
@@ -1562,6 +1563,7 @@ async function onSearchStation(context) {
       zoom: 15,
       mapTypeControl: false,
       streetViewControl: false,
+      styles: MAP_STYLE,
     });
     state.mapInstances.spots = map;
 
@@ -1643,7 +1645,7 @@ function renderSpotsList(map) {
       <div class="spot-info">
         <div class="spot-name">${spot.name}${spot.recommended ? ` <span class="spot-badge">${escapeHtml(t('badgeRequired'))}</span>` : ''}</div>
         <span class="spot-category ${cat.cls}">${cat.icon} ${escapeHtml(catLabel(spot.category))}</span>
-        <div class="spot-desc">📏 ${t('distanceFromStation')} ${distLabel} ・ ${spot.address || ''}</div>
+        <div class="spot-desc">${t('distanceFromStation')} ${distLabel} ・ ${spot.address || ''}</div>
       </div>
       <button class="spot-delete" type="button" title="${escapeHtml(t('spotDeleteTitle'))}" aria-label="${escapeHtml(t('spotDeleteLabel'))}">🗑</button>
     `;
@@ -1836,6 +1838,7 @@ function renderRouteStepUI() {
     zoom: 15,
     mapTypeControl: false,
     streetViewControl: false,
+    styles: MAP_STYLE,
   });
   state.mapInstances.route = routeMap;
   fitMapToSpots(routeMap, state.stationLocation, state.orderedSpots);
@@ -2244,7 +2247,7 @@ function buildPhotoItem(photo) {
   const item = document.createElement('div');
   item.className = `photo-item${photo.uploading ? ' photo-uploading' : ''}${excluded ? ' photo-excluded' : ''}`;
   item.dataset.fileId = photo.fileId;
-  const tagText = photo.spotName ? `📍 ${photoTagDisplayLabel(photo.spotName)}` : t('photoTagAdd');
+  const tagText = photo.spotName ? `${photoTagDisplayLabel(photo.spotName)}` : t('photoTagAdd');
   const toggleIcon = excluded ? '⬜' : '✅';
   const toggleTitle = excluded ? t('photoTagInclude') : t('photoTagExclude');
   item.innerHTML = `
@@ -2286,7 +2289,7 @@ function updatePhotoItemTag(fileId) {
   if (!item) return;
   const overlay = item.querySelector('.photo-overlay');
   if (overlay) {
-    overlay.textContent = photo.spotName ? `📍 ${photoTagDisplayLabel(photo.spotName)}` : t('photoTagAdd');
+    overlay.textContent = photo.spotName ? `${photoTagDisplayLabel(photo.spotName)}` : t('photoTagAdd');
   }
 }
 
@@ -3591,7 +3594,7 @@ function renderReportPhotos() {
     item.dataset.fileId = photo.fileId;
     // タグなし時は判別できる class を付ける（CSS で PDF時のみ非表示にする）
     const tagHtml = photo.spotName
-      ? `<span class="report-photo-tag">📍 ${escapeHtml(photoTagDisplayLabel(photo.spotName))}</span>`
+      ? `<span class="report-photo-tag">${escapeHtml(photoTagDisplayLabel(photo.spotName))}</span>`
       : `<span class="report-photo-tag report-photo-tag-empty">${escapeHtml(t('photoTagless'))}</span>`;
     // 捕獲写真には「つかまえた！」バッジを付ける
     const capChar = captureCharForPhoto(photo.fileId);
@@ -4165,11 +4168,13 @@ function openGrowTeaser() {
     : '';
 
   if (GROW_MILESTONE === GROW_MILESTONE_LAST) {
-    banner.textContent = t('growMilestoneLastFmt', '🔥 ラストスパート！ のこり {n}人！').replace('{n}', GROW_MILESTONE_LAST) + dateSuffix;
+    const s = t('growMilestoneLastFmt', 'ラストスパート！ のこり {n}人！').replace('{n}', GROW_MILESTONE_LAST) + dateSuffix;
+    banner.innerHTML = furiganize(s) || s;
     banner.classList.add('is-last');
     banner.classList.remove('hidden');
   } else if (GROW_MILESTONE === GROW_MILESTONE_NEAR) {
-    banner.textContent = t('growMilestoneNearFmt', '🎉 のこり {n}人！ もうすぐ解放だよ！').replace('{n}', GROW_MILESTONE_NEAR) + dateSuffix;
+    const s = t('growMilestoneNearFmt', 'のこり {n}人！ もうすぐ解放だよ！').replace('{n}', GROW_MILESTONE_NEAR) + dateSuffix;
+    banner.innerHTML = furiganize(s) || s;
     banner.classList.add('is-near');
     banner.classList.remove('hidden');
   } else {

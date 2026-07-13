@@ -556,6 +556,25 @@ body {
   color: #888 !important;
 }
 .cat-chip:active { transform: scale(.96); }
+.category-filter { align-items: center; }
+
+/* ルビ（ふりがな）の有無でチップの高さ・文字位置がずれる「段差」を防ぐ。
+   rt を絶対配置で基準文字の上に乗せ、チップの高さには影響させない。
+   → ふりがなの有無に関わらず同じ高さ・同じベースラインで揃う。 */
+.cat-chip ruby { position: relative; display: inline-block; line-height: 1.15; }
+.cat-chip rt {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-bottom: -0.12em;
+  font-size: 0.5em;
+  line-height: 1;
+  white-space: nowrap;
+  font-weight: 400;
+  opacity: .85;
+  pointer-events: none;
+}
 
 /* ===== 地図 ===== */
 .map-container {
@@ -2781,9 +2800,10 @@ body.ar-open { overflow: hidden; }
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
+  overflow-y: visible;
   gap: 6px;
   margin: 0 -16px 10px;
-  padding: 8px 16px;
+  padding: 15px 16px 8px;   /* 上を広めに: 絶対配置のふりがなが切れないように */
   background: transparent;
   border-radius: 0;
   scrollbar-width: none;

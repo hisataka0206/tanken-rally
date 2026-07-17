@@ -6,16 +6,50 @@ export class DriveClient {
     this.secret = secret;
   }
 
-  async _post(body) {
-    const res = await fetch(this.gasUrl, {
-      method: 'POST',
-      // GAS は no-cors だと JSON が読めないため redirect で対処
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain' }, // GAS の CORS 制限を回避
-      body: JSON.stringify({ ...body, secret: this.secret }),
-    });
-    if (!res.ok) throw new Error(`GAS API エラー: ${res.status}`);
-    return res.json();
+  // リトライすると二重作成になりうる action（写真=別ファイル増殖 / フォルダ・送信・登録=重複）は
+  // 自動リトライの対象外にする。それ以外（読み取り系・sessionId等で重複集約される保存系）は
+  // モバイル回線の瞬断に強くするため自動リトライする。
+  static NON_RETRY_ACTIONS = new Set([
+    'uploadPhoto', 'createSession', 'saveRanking',
+    'saveIssueReport', 'submitIssueReport', 'registerUser',
+  ]);
+
+  async _post(body, { timeoutMs = 45000, retries } = {}) {
+    // リトライ回数：明示指定が無ければ action に応じて自動決定
+    const canRetry = !DriveClient.NON_RETRY_ACTIONS.has(body && body.action);
+    const maxRetries = (typeof retries === 'number') ? retries : (canRetry ? 2 : 0);
+    const payload = JSON.stringify({ ...body, secret: this.secret });
+
+    let lastErr;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+      try {
+        const res = await fetch(this.gasUrl, {
+          method: 'POST',
+          // GAS は no-cors だと JSON が読めないため redirect で対処
+          redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain' }, // GAS の CORS 制限を回避
+          body: payload,
+          signal: ctrl ? ctrl.signal : undefined,
+        });
+        if (!res.ok) throw new Error(`GAS API エラー: ${res.status}`);
+        return await res.json();
+      } catch (e) {
+        lastErr = e;
+        // 通信レベルの失敗（fetch 失敗＝応答が返っていない / タイムアウト中断）だけ再試行する。
+        // HTTP エラー（res.ok=false）はサーバに届いているので再試行しない。
+        const isNetwork = (e && (e.name === 'TypeError' || e.name === 'AbortError'));
+        if (attempt < maxRetries && isNetwork) {
+          await new Promise(r => setTimeout(r, 600 * Math.pow(2, attempt))); // 600ms, 1200ms…
+          continue;
+        }
+        throw e;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }
+    throw lastErr;
   }
 
   /** 探検セッション用フォルダを作成 */

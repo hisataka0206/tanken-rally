@@ -10,3 +10,7 @@ img/
 cm/
 src/assets/characters/others/
 dist/
+
+# ポケモン分析用にDLしたスプライト（重い・ローカルのみ。ツールと役割マップは tools/ にコミット）
+gen1/
+gen1_metrics.csv

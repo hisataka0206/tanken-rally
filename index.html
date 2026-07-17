@@ -555,10 +555,10 @@
         </label>
 
         <label class="report-issue-field">
-          <span data-i18n="reportIssueImage">がぞう（あれば・にんい）</span>
-          <input id="report-issue-image" type="file" accept="image/*" />
+          <span data-i18n="reportIssueImage">がぞう（あれば・にんい・なんまいでも）</span>
+          <input id="report-issue-image" type="file" accept="image/*" multiple />
         </label>
-        <div id="report-issue-preview" class="report-issue-preview hidden"><img id="report-issue-preview-img" src="" alt="" /></div>
+        <div id="report-issue-preview" class="report-issue-preview hidden"></div>
 
         <label class="report-issue-field">
           <span data-i18n="reportIssueContact">れんらくさき（にんい）</span>
@@ -767,7 +767,29 @@
         </label>
         <p class="admin-note">※「出すキャラ／すがた」を指定すると、次にARで探すとき必ずそれが出ます。「（ステージ通常）／（ランダム）」で通常に戻ります。</p>
         <div class="modal-actions">
+          <button id="admin-testmode-btn" class="btn-primary" type="button">🧪 テストモードを開始</button>
           <button class="btn-secondary" data-action="close">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- テストモード（admin専用）: E2Eチェックリストを順番に実施して最終テストを完了する -->
+    <div id="test-mode-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="test-mode-title">
+      <div class="modal-backdrop" data-action="testmode-close"></div>
+      <div class="modal-content modal-content-wide test-mode-content">
+        <button type="button" class="modal-x" data-action="testmode-close" aria-label="close">✕</button>
+        <h3 id="test-mode-title">🧪 最終テスト（順番チェックリスト）</h3>
+        <p class="modal-desc">上から順番に「やること」を実施し、「確認」を見て OK / NG を付けてください。全項目を判定すると最終テスト完了です。進捗はこの端末に保存されます。</p>
+        <div class="test-mode-progress">
+          <div class="test-mode-bar"><div id="test-mode-bar-fill" class="test-mode-bar-fill"></div></div>
+          <div id="test-mode-progress-text" class="test-mode-progress-text"></div>
+        </div>
+        <div id="test-mode-list" class="test-mode-list"></div>
+        <div class="modal-actions test-mode-actions">
+          <button class="btn-secondary" data-action="testmode-reset" type="button">リセット</button>
+          <button class="btn-secondary" data-action="testmode-copy" type="button">サマリをコピー</button>
+          <button class="btn-secondary" data-action="testmode-send" type="button">報告に送る</button>
+          <button class="btn-primary" data-action="testmode-close" type="button">閉じる</button>
         </div>
       </div>
     </div>

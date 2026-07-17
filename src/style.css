@@ -1257,6 +1257,39 @@ body {
 .admin-check input { margin-top: 2px; width: 18px; height: 18px; }
 .admin-note { font-size: 11px; color: #999; line-height: 1.6; margin: 4px 0 0; }
 
+/* ===== テストモード（admin E2E チェックリスト） ===== */
+.test-mode-content { max-height: 88vh; display: flex; flex-direction: column; }
+.test-mode-progress { margin: 6px 0 10px; }
+.test-mode-bar { height: 10px; border-radius: 6px; background: #eee; overflow: hidden; }
+.test-mode-bar-fill { height: 100%; width: 0%; background: var(--green-dark, #2e8b57); transition: width .2s; }
+.test-mode-bar-fill.done { background: #157a45; }
+.test-mode-progress-text { font-size: 13px; font-weight: 700; color: #555; margin-top: 5px; }
+.test-mode-list { overflow-y: auto; flex: 1 1 auto; -webkit-overflow-scrolling: touch; padding-right: 4px; }
+.test-phase-title {
+  font-size: 13px; font-weight: 800; color: #6b4f1d;
+  background: #f6edd4; border-radius: 8px; padding: 6px 10px; margin: 12px 0 6px;
+}
+.test-item { border: 1.5px solid #eaddbb; border-radius: 12px; padding: 9px 10px; margin: 7px 0; background: #fffdf7; }
+.test-item.is-ok { border-color: #9dd6b3; background: #f2fbf5; }
+.test-item.is-ng { border-color: #e6a6a6; background: #fdf3f3; }
+.test-item-num { font-size: 11px; font-weight: 700; color: #b09a63; }
+.test-item-do { font-size: 14px; font-weight: 700; color: #333; margin: 2px 0; }
+.test-item-check { font-size: 13px; color: #666; line-height: 1.5; }
+.test-item-controls { display: flex; gap: 6px; margin: 8px 0 0; }
+.test-item-controls button {
+  border: 1.5px solid #d8cba5; background: #fff; color: #666;
+  border-radius: 999px; padding: 4px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.test-item-controls button.tact-ok.active { background: #2e8b57; border-color: #2e8b57; color: #fff; }
+.test-item-controls button.tact-ng.active { background: #d64545; border-color: #d64545; color: #fff; }
+.test-item-controls button.tact-clear.active { background: #eee; }
+.test-item-memo {
+  width: 100%; margin-top: 8px; border: 1.5px solid #e2d6b4; border-radius: 8px;
+  padding: 6px 8px; font-size: 13px; box-sizing: border-box; display: none;
+}
+.test-item.is-ng .test-item-memo, .test-item.has-memo .test-item-memo { display: block; }
+.test-mode-actions { flex-wrap: wrap; }
+
 .score-name-label {
   display: flex;
   flex-direction: column;
@@ -3189,13 +3222,31 @@ body.lang-elementary { line-height: 1.85; }
 }
 .report-issue-field textarea { resize: vertical; min-height: 72px; }
 .report-issue-field input[type="file"] { font-size: 13px; }
-.report-issue-preview { margin: 8px 0; }
-.report-issue-preview img {
-  max-width: 100%;
-  max-height: 180px;
+.report-issue-preview { margin: 8px 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.report-issue-thumb { position: relative; }
+.report-issue-thumb img {
+  width: 92px;
+  height: 92px;
+  object-fit: cover;
   border-radius: 12px;
   border: 2px solid #eaddbb;
   display: block;
+}
+.report-issue-thumb-x {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: #d64545;
+  color: #fff;
+  font-size: 13px;
+  line-height: 24px;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
 }
 .report-issue-status { margin: 10px 2px 0; font-size: 14px; font-weight: 700; }
 .report-issue-status.is-ok { color: #157a45; }

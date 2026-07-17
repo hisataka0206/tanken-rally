@@ -4583,7 +4583,7 @@ document.getElementById('grow-modal').addEventListener('click', (e) => {
 });
 
 // ===== 不具合・お問い合わせ報告（画像添付・ログイン不要）=====
-let _reportImage = null; // { base64, mime, name }
+let _reportImages = []; // [{ base64, mime, name, previewUrl }]
 
 async function fileToResizedBase64(file, maxDim = 1280, quality = 0.82) {
   // 画像を canvas で縮小し JPEG base64（data: なし）に。送信サイズと GAS 負荷を抑える。
@@ -4615,8 +4615,8 @@ function openReportIssue(presetType) {
   $('report-issue-detail').value = '';
   $('report-issue-contact').value = '';
   $('report-issue-image').value = '';
-  _reportImage = null;
-  $('report-issue-preview').classList.add('hidden');
+  _reportImages = [];
+  renderReportImagePreviews();
   const status = $('report-issue-status');
   status.classList.add('hidden');
   status.textContent = '';
@@ -4627,19 +4627,41 @@ function openReportIssue(presetType) {
   $('report-issue-modal').classList.remove('hidden');
 }
 
+// 複数画像対応：選ぶたびに追記（置き換えない）。各画像は縮小してbase64＋プレビュー保持。
 $('report-issue-image').addEventListener('change', async (e) => {
-  const file = e.target.files && e.target.files[0];
-  if (!file) { _reportImage = null; $('report-issue-preview').classList.add('hidden'); return; }
-  try {
-    const r = await fileToResizedBase64(file);
-    _reportImage = { base64: r.base64, mime: r.mime, name: r.name };
-    $('report-issue-preview-img').src = r.previewUrl;
-    $('report-issue-preview').classList.remove('hidden');
-  } catch (_) {
-    _reportImage = null;
-    $('report-issue-preview').classList.add('hidden');
+  const files = Array.from(e.target.files || []);
+  e.target.value = ''; // 同じファイルの再選択や追加選択を可能にする
+  for (const file of files) {
+    try {
+      const r = await fileToResizedBase64(file);
+      _reportImages.push({ base64: r.base64, mime: r.mime, name: r.name, previewUrl: r.previewUrl });
+    } catch (_) { /* 1枚失敗しても続行 */ }
   }
+  renderReportImagePreviews();
 });
+
+// プレビューのサムネイル一覧を描画（各画像に削除ボタン付き）
+function renderReportImagePreviews() {
+  const wrap = $('report-issue-preview');
+  if (!wrap) return;
+  if (!_reportImages.length) {
+    wrap.classList.add('hidden');
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.classList.remove('hidden');
+  wrap.innerHTML = _reportImages.map((im, i) => `
+    <div class="report-issue-thumb">
+      <img src="${im.previewUrl}" alt="" />
+      <button type="button" class="report-issue-thumb-x" data-idx="${i}" aria-label="remove">✕</button>
+    </div>`).join('');
+  wrap.querySelectorAll('.report-issue-thumb-x').forEach(b => {
+    b.addEventListener('click', () => {
+      _reportImages.splice(parseInt(b.dataset.idx, 10), 1);
+      renderReportImagePreviews();
+    });
+  });
+}
 
 async function onReportIssueSend() {
   const btn = $('report-issue-send');
@@ -4648,7 +4670,7 @@ async function onReportIssueSend() {
   const detail = $('report-issue-detail').value.trim();
   const contact = $('report-issue-contact').value.trim();
 
-  if (!detail && !_reportImage) {
+  if (!detail && !_reportImages.length) {
     status.textContent = t('reportIssueNeedInput', 'ないよう か がぞうを 入れてね。');
     status.className = 'report-issue-status is-error';
     return;
@@ -4669,9 +4691,11 @@ async function onReportIssueSend() {
       detail,
       contact,
       name: (auth && auth.name) || '',
-      imageBase64: _reportImage ? _reportImage.base64 : '',
-      imageMime: _reportImage ? _reportImage.mime : '',
-      imageName: _reportImage ? _reportImage.name : '',
+      // 複数画像は images[] で送る。後方互換で先頭1枚を単一フィールドにも入れておく。
+      images: _reportImages.map(im => ({ base64: im.base64, mime: im.mime, name: im.name })),
+      imageBase64: _reportImages[0] ? _reportImages[0].base64 : '',
+      imageMime: _reportImages[0] ? _reportImages[0].mime : '',
+      imageName: _reportImages[0] ? _reportImages[0].name : '',
       context: {
         sessionId: state.sessionId || '',
         stationName: state.stationName || '',
@@ -4726,6 +4750,209 @@ $('admin-zukan-all').addEventListener('change', e => {
 });
 $('zukan-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'close') $('zukan-modal').classList.add('hidden');
+});
+
+// ===== テストモード（admin専用・E2E順番チェックリスト） =====
+// 上から順に「やること→確認→OK/NG」を実施すると最終テストが完了する。
+// 各項目には固定IDを付与（順序を入れ替えても進捗が壊れないように）。
+const TEST_PLAN = [
+  { title: '1. ログイン・ホーム', items: [
+    { id: 't-login',    do: 'アプリを開いてログインする', check: 'ホーム画面が出て、タイトルが「テクタン」になっている' },
+    { id: 't-hometitle',do: 'タイトル「テクタン」をタップ', check: 'ホーム画面に戻る（タイトルがホームボタンとして機能）' },
+    { id: 't-furigana', do: 'こども（elementary）表示にする', check: '漢字にふりがな（ルビ）が付き、カッコ書きになっていない。ローディング画面のヒントもルビ表示' },
+    { id: 't-policy',   do: 'ログアウトの下の「利用規約・プライバシー」を開く', check: 'policyページが開く' },
+  ]},
+  { title: '2. 駅検索', items: [
+    { id: 't-search',   do: '駅名（例：高円寺）を入れて検索する', check: '「駅のまわりをさがす」ローディングが出る' },
+    { id: 't-spots',    do: '検索結果を待つ', check: 'スポット候補が一覧表示される' },
+  ]},
+  { title: '3. スポット選択・ルート', items: [
+    { id: 't-pickspot', do: 'スポットを2つ以上選ぶ', check: '選択が反映される' },
+    { id: 't-route',    do: 'ルートを作成する', check: 'ルート画面が表示される' },
+    { id: 't-routeorder',do: 'ルート画面を上から見る', check: '並び順が「地図→概要→ストリートビュー」になっている' },
+    { id: 't-routedup', do: 'ルート画面を下までスクロールする', check: '地図やスポットが二重表示になっていない' },
+    { id: 't-pdf',      do: '「PDFにする」を押す', check: '従来どおりPDFが出力される' },
+  ]},
+  { title: '4. 探検スタート・現在地', items: [
+    { id: 't-start',    do: '「探検スタート」を押す', check: 'ローディング画面（探検の準備）が出る' },
+    { id: 't-stagemap', do: 'スタート地点の画面を見る', check: '静止地図に現在地（丸と向き）が表示される' },
+    { id: 't-sv',       do: 'ストリートビュー画像を見る', check: '画像が表示され、ピンクの縦線ノイズが無い' },
+    { id: 't-where',    do: '「いまどこ」を押す', check: '地図に現在地と向きが表示される' },
+    { id: 't-historic', do: '史跡系スポットで「いまどこ」を押す', check: 'ストリートビュー写真のヒントが追加され、トーストが出る' },
+  ]},
+  { title: '5. 写真・AR', items: [
+    { id: 't-photobtn', do: '「写真を撮る」を押す', check: 'カメラ/ARが起動する（「キャラを探す」が統合されている）' },
+    { id: 't-photo',    do: '写真を撮る/選ぶ', check: 'プレビューがグリッドに表示される' },
+    { id: 't-memo',     do: '写真にひと言メモ/音声メモを付ける', check: 'メモが保存される' },
+    { id: 't-nextspot', do: '次のスポットへ進む', check: '前→次スポットの道筋とストリート画像が表示される' },
+    { id: 't-finishphotos',do: '全スポットの写真を撮り終える', check: '最後まで進めて接続エラーが出ない（特にモバイル）' },
+  ]},
+  { title: '6. ノート', items: [
+    { id: 't-note',     do: 'ノート画面を開く', check: '「保存」ボタンが無い（自動保存になっている）' },
+    { id: 't-autosave', do: 'メモを編集して別画面へ移動→戻る', check: '内容が自動保存されている' },
+    { id: 't-trail',    do: '進捗トレイル（駅→場所→…）のノードをタップ', check: '前の画面に戻れる' },
+  ]},
+  { title: '7. スコア・発見', items: [
+    { id: 't-score',    do: '探検を終えてスコアを見る', check: 'スコア画面が表示される' },
+    { id: 't-discover', do: '「なかまを発見」ボタンを探す', check: 'ノート/スコアに並び、文言が「生成」でなく「発見」になっている' },
+    { id: 't-savechar', do: 'キャラを発見して名前を選ぶ', check: '図鑑に自動保存される' },
+  ]},
+  { title: '8. 図鑑', items: [
+    { id: 't-zukan',    do: '図鑑を開く', check: '「みつけた なかま」と通常キャラが表示される' },
+    { id: 't-zukanimg', do: '生成キャラの画像を確認する', check: '作った分が全部表示され、欠けていない' },
+    { id: 't-sort',     do: 'ソート（新しい日付/名前/レア度）と逆順トグルを切り替える', check: '並びが正しく変わる' },
+    { id: 't-zukandetail',do: 'キャラの詳細を開く', check: 'キャラ画像が大きい（1.5〜2倍／スマホは横幅6〜7割）' },
+  ]},
+  { title: '9. 報告フォーム', items: [
+    { id: 't-reportopen',do: '「ほうこく・おといあわせ」を開く', check: 'モーダルが表示される' },
+    { id: 't-reportmulti',do: '画像を複数枚アップする', check: '複数のサムネイルが並び、個別に削除できる' },
+    { id: 't-reportsend',do: '送信する', check: '「おくったよ！」と出て、シート/フォームに複数URLが記録される' },
+  ]},
+  { title: '10. その他', items: [
+    { id: 't-logout',   do: 'ログアウトする', check: 'ログイン画面に戻る' },
+  ]},
+];
+const TESTMODE_KEY = 'tanken_testmode';
+function loadTestState() {
+  try { return JSON.parse(localStorage.getItem(TESTMODE_KEY) || '{}') || {}; }
+  catch (_) { return {}; }
+}
+function saveTestState(s) {
+  try { localStorage.setItem(TESTMODE_KEY, JSON.stringify(s)); } catch (_) { /* no-op */ }
+}
+let _testState = loadTestState(); // { [id]: { status:'ok'|'ng'|'', memo:'' } }
+function testEntry(id) { return _testState[id] || (_testState[id] = { status: '', memo: '' }); }
+const _testAllItems = () => TEST_PLAN.flatMap(p => p.items);
+
+function openTestMode() {
+  if (!isAdmin()) return;
+  _testState = loadTestState();
+  renderTestMode();
+  $('test-mode-modal').classList.remove('hidden');
+}
+function renderTestMode() {
+  const list = $('test-mode-list');
+  if (!list) return;
+  let n = 0;
+  list.innerHTML = TEST_PLAN.map(phase => {
+    const rows = phase.items.map(item => {
+      n++;
+      const e = testEntry(item.id);
+      const cls = e.status === 'ok' ? 'is-ok' : (e.status === 'ng' ? 'is-ng' : '');
+      const memoCls = e.memo ? 'has-memo' : '';
+      return `
+        <div class="test-item ${cls} ${memoCls}" data-id="${item.id}">
+          <div class="test-item-num">No.${n}</div>
+          <div class="test-item-do">▶ ${escapeHtml(item.do)}</div>
+          <div class="test-item-check">✓ 確認: ${escapeHtml(item.check)}</div>
+          <div class="test-item-controls">
+            <button type="button" class="tact-ok ${e.status === 'ok' ? 'active' : ''}" data-tact="ok">OK</button>
+            <button type="button" class="tact-ng ${e.status === 'ng' ? 'active' : ''}" data-tact="ng">NG</button>
+            <button type="button" class="tact-clear ${e.status === '' ? 'active' : ''}" data-tact="clear">未</button>
+          </div>
+          <input class="test-item-memo" type="text" placeholder="メモ（NGの内容・気づき）" value="${escapeHtml(e.memo || '')}" />
+        </div>`;
+    }).join('');
+    return `<div class="test-phase-title">${escapeHtml(phase.title)}</div>${rows}`;
+  }).join('');
+  updateTestProgress();
+}
+function updateTestProgress() {
+  const all = _testAllItems();
+  const decided = all.filter(it => { const e = _testState[it.id]; return e && (e.status === 'ok' || e.status === 'ng'); }).length;
+  const ng = all.filter(it => { const e = _testState[it.id]; return e && e.status === 'ng'; }).length;
+  const pct = all.length ? Math.round(decided / all.length * 100) : 0;
+  const fill = $('test-mode-bar-fill');
+  if (fill) { fill.style.width = pct + '%'; fill.classList.toggle('done', decided === all.length); }
+  const txt = $('test-mode-progress-text');
+  if (txt) {
+    txt.textContent = (decided === all.length)
+      ? `✅ 最終テスト完了！（${all.length}項目・NG ${ng}件）`
+      : `進捗 ${decided}/${all.length}（${pct}%）・NG ${ng}件`;
+  }
+}
+function buildTestSummary() {
+  const all = _testAllItems();
+  const decided = all.filter(it => { const e = _testState[it.id]; return e && e.status; }).length;
+  const ng = all.filter(it => { const e = _testState[it.id]; return e && e.status === 'ng'; });
+  const lines = [];
+  lines.push(`# テクタン 最終テスト結果`);
+  lines.push(`日時: ${new Date().toLocaleString('ja-JP')}`);
+  lines.push(`進捗: ${decided}/${all.length}　NG: ${ng.length}件`);
+  lines.push('');
+  let n = 0;
+  TEST_PLAN.forEach(phase => {
+    lines.push(`## ${phase.title}`);
+    phase.items.forEach(item => {
+      n++;
+      const e = _testState[item.id] || {};
+      const mark = e.status === 'ok' ? '✅' : (e.status === 'ng' ? '❌' : '⬜');
+      let line = `${mark} No.${n} ${item.do}`;
+      if (e.memo) line += `　📝${e.memo}`;
+      lines.push(line);
+    });
+    lines.push('');
+  });
+  return lines.join('\n');
+}
+
+$('admin-testmode-btn').addEventListener('click', () => {
+  $('admin-modal').classList.add('hidden');
+  openTestMode();
+});
+$('test-mode-modal').addEventListener('click', e => {
+  const act = e.target.dataset.action;
+  if (act === 'testmode-close') { $('test-mode-modal').classList.add('hidden'); return; }
+  if (act === 'testmode-reset') {
+    if (confirm('チェック内容をすべてリセットしますか？')) { _testState = {}; saveTestState(_testState); renderTestMode(); }
+    return;
+  }
+  if (act === 'testmode-copy') {
+    const text = buildTestSummary();
+    const done = () => showToast('サマリをコピーしたよ', 2000);
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(() => alert(text));
+    else alert(text);
+    return;
+  }
+  if (act === 'testmode-send') {
+    if (!drive) { showToast('サーバー未接続のため送れません', 2500); return; }
+    const btn = e.target;
+    btn.disabled = true;
+    drive.submitIssueReport({
+      types: ['最終テスト結果'],
+      detail: buildTestSummary(),
+      contact: '', name: (getStoredAuth() && getStoredAuth().name) || 'admin',
+      images: [],
+      context: { sessionId: state.sessionId || '', stationName: state.stationName || '', currentStep: 'testmode', ua: navigator.userAgent, href: location.href },
+    }).then(() => showToast('テスト結果を報告に送ったよ', 2500))
+      .catch(() => showToast('送信に失敗しました', 2500))
+      .finally(() => { btn.disabled = false; });
+    return;
+  }
+  // 状態ボタン（OK/NG/未）
+  const tactBtn = e.target.closest && e.target.closest('[data-tact]');
+  if (tactBtn) {
+    const itemEl = tactBtn.closest('.test-item');
+    const id = itemEl && itemEl.dataset.id;
+    if (!id) return;
+    const ent = testEntry(id);
+    ent.status = (tactBtn.dataset.tact === 'clear') ? '' : tactBtn.dataset.tact;
+    saveTestState(_testState);
+    // 該当アイテムだけ表示更新（メモ入力のフォーカスを保つため全再描画はしない）
+    itemEl.classList.toggle('is-ok', ent.status === 'ok');
+    itemEl.classList.toggle('is-ng', ent.status === 'ng');
+    itemEl.querySelectorAll('[data-tact]').forEach(b => b.classList.toggle('active', b.dataset.tact === (ent.status || 'clear')));
+    updateTestProgress();
+  }
+});
+// メモ入力（イベント委譲・保存）
+$('test-mode-list').addEventListener('input', e => {
+  if (!e.target.classList.contains('test-item-memo')) return;
+  const itemEl = e.target.closest('.test-item');
+  const id = itemEl && itemEl.dataset.id;
+  if (!id) return;
+  testEntry(id).memo = e.target.value;
+  saveTestState(_testState);
 });
 
 // ARキャラ捕獲

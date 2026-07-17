@@ -584,29 +584,41 @@ function submitIssueReport(body) {
     const name    = (body && body.name)    || '';
     const context = (body && body.context) || {};
 
-    if ((!types || !types.length) && !String(detail).trim() && !(body && body.imageBase64)) {
+    // 複数画像は images[]（{base64, mime, name}）で受け取る。後方互換で単一 imageBase64 も受ける。
+    const imgList = (body && Array.isArray(body.images) && body.images.length)
+      ? body.images
+      : ((body && body.imageBase64) ? [{ base64: body.imageBase64, mime: body.imageMime, name: body.imageName }] : []);
+
+    if ((!types || !types.length) && !String(detail).trim() && !imgList.length) {
       return { ok: false, error: '種類・詳細・画像のいずれかが必要です' };
     }
 
     // 1) 画像を Drive に保存（あれば）。ログイン不要・誰でも閲覧可リンク。
-    let imageUrl = '', thumbnailUrl = '';
-    if (body && body.imageBase64) {
+    const imageUrls = [], thumbnailUrls = [];
+    if (imgList.length) {
       const folder = getIssueFolder_();
-      const mime = body.imageMime || 'image/jpeg';
-      const ext = mime.indexOf('png') >= 0 ? 'png' : 'jpg';
-      const fname = (body.imageName || ('issue_' + Date.now())) + '.' + ext;
-      const blob = Utilities.newBlob(Utilities.base64Decode(body.imageBase64), mime, fname);
-      const file = folder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      imageUrl = 'https://drive.google.com/uc?id=' + file.getId();
-      thumbnailUrl = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w400';
+      for (let i = 0; i < imgList.length; i++) {
+        const im = imgList[i] || {};
+        if (!im.base64) continue;
+        const mime = im.mime || 'image/jpeg';
+        const ext = mime.indexOf('png') >= 0 ? 'png' : 'jpg';
+        const fname = (im.name || ('issue_' + Date.now())) + '_' + (i + 1) + '.' + ext;
+        const blob = Utilities.newBlob(Utilities.base64Decode(im.base64), mime, fname);
+        const file = folder.createFile(blob);
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        imageUrls.push('https://drive.google.com/uc?id=' + file.getId());
+        thumbnailUrls.push('https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w400');
+      }
     }
+    const imageUrl = imageUrls[0] || '';           // 後方互換（先頭1枚）
+    const thumbnailUrl = thumbnailUrls[0] || '';
+    const imageUrlsJoined = imageUrls.join('\n');  // 全画像URL（シート/フォーム用）
 
     // 2) Google フォームへ送信（設定済みのときだけ）。
     //    フォームの「内容」は必須なので、空なら画像のみの旨を入れて弾かれないようにする。
     const formDetail = String(detail).trim() || (imageUrl ? '（画像のみ）' : '（内容なし）');
     const formStatus = postIssueToForm_({
-      type: types.join(','), detail: formDetail, contact: contact, name: name, imageUrl: imageUrl,
+      type: types.join(','), detail: formDetail, contact: contact, name: name, imageUrl: imageUrlsJoined,
     });
 
     // 3) スプレッドシートにも必ず記録（バックアップ／フォーム未設定でも残る）。
@@ -617,7 +629,7 @@ function submitIssueReport(body) {
       detail,
       contact,
       name,
-      imageUrl,
+      imageUrlsJoined,
       context.sessionId   || '',
       context.stationName || '',
       context.currentStep || '',
@@ -626,7 +638,7 @@ function submitIssueReport(body) {
       formStatus,
     ]);
 
-    return { ok: true, imageUrl: imageUrl, thumbnailUrl: thumbnailUrl, form: formStatus };
+    return { ok: true, imageUrl: imageUrl, thumbnailUrl: thumbnailUrl, imageUrls: imageUrls, thumbnailUrls: thumbnailUrls, form: formStatus };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
   }

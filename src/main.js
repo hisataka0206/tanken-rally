@@ -191,7 +191,7 @@ function maybeShowHistoricHint() {
     `&fov=80&pitch=0&radius=60&source=outdoor&key=${key}`;
   el.innerHTML =
     `<div class="stage-hint-label">🔍 ${escapeHtml(t('whereHistoricHint', 'ヒント：目的地の ようす'))}</div>` +
-    `<img class="stage-hint-img" src="${escapeHtml(sv)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" />`;
+    `<img class="stage-hint-img" src="${escapeHtml(sv)}" alt="" referrerpolicy="no-referrer-when-downgrade" onerror="this.style.display='none'" />`;
   el.classList.remove('hidden');
   showToast(t('whereHistoricHintToast', '🔍 ヒントを 入れたよ！'));
 }

@@ -916,7 +916,7 @@ function renderZukanGrid(collection) {
 
   const { owned, total } = zukanTotals(_zukanCollection);
   const compEl = $('zukan-comp');
-  if (compEl) compEl.textContent = t('zukanCompFmt', 'コンプ {n}/{total}').replace('{n}', String(owned)).replace('{total}', String(total));
+  if (compEl) compEl.textContent = t('zukanCompFmt', 'あつめた なかま {n}').replace('{n}', String(owned)).replace('{total}', String(total));
 
   // レア度が高いものが下（最後）に並ぶよう昇順ソート（通常=1 → レア=2 → エピック=3 → レジェンド=4）
   const orderedChars = [...CHARACTERS].sort((a, b) => charRarityStars(a) - charRarityStars(b));
@@ -931,7 +931,8 @@ function renderZukanGrid(collection) {
       VARIANTS.forEach(v => { if (ownedSet.has(v.id) && (!best || v.stars > best.stars)) best = v; });
       if (best && best.filter !== 'none') filterStyle = ` style="filter:${best.filter}"`;
     }
-    const badge = caught ? `<div class="zukan-count">${ownedSet.size}/${VARIANTS.length}</div>` : '';
+    // すがた（バリエ）の収集数は「分母なし」で見せる（＝"完成"を感じさせない・ValueProposition 6.4）
+    const badge = caught ? `<div class="zukan-count">✨${ownedSet.size}</div>` : '';
     // レア枠（rarity 付き）は★で希少度を示す（未捕獲でも「特別な子」だと分かる）
     const rarityBadge = ch.rarity ? `<div class="zukan-rarity" title="${escapeHtml(ch.rarity)}">${'★'.repeat(charRarityStars(ch))}</div>` : '';
     return `
@@ -1754,7 +1755,7 @@ const LOADING_TIPS = {
     '💡 「いまどこ？」を つかいすぎると スコアが へっちゃう。ここぞ！の ときに つかおう。',
     // ④図鑑・収集・所有感
     '💡 図鑑では、見つけた なかまの なまえや ものがたりが 読めるよ。',
-    '💡 見つかる なかまは 世界に ひとつだけ。きみだけの なかまだよ。',
+    '💡 見つかる なかまは 世界に ひとつだけ。きみが 最初に 見つけた なかまだよ。',
     '💡 なかまを あつめて、じぶんだけの 図鑑を そだてよう！',
     // ⑤地名の由来＝学び
     '💡 「なぜ この なまえ？」を 読むと、街の ひみつが わかるよ。',
@@ -1774,7 +1775,7 @@ const LOADING_TIPS = {
     '💡 Sticking to your plan boosts your score.',
     '💡 Using "Where am I?" too much lowers your score — save it for when you are really stuck.',
     '💡 In the zukan you can read your friends\' names and stories.',
-    '💡 Every friend you find is one-of-a-kind — yours alone.',
+    '💡 Every friend you find is one-of-a-kind — and you discovered it first.',
     '💡 Collect friends and grow your very own zukan!',
     '💡 Read "why is it named this?" to uncover your town\'s secrets.',
     '💡 The "raise your friend" feature is in development. Stay tuned!',
@@ -1791,7 +1792,7 @@ const LOADING_TIPS = {
     '💡 計画（けいかく）どおりに スポットを まわると、スコアが 高（たか）くなるよ。',
     '💡 「いまどこ？」を つかいすぎると スコアが へっちゃう。ここぞ！の ときに つかおう。',
     '💡 図鑑（ずかん）では、見（み）つけた なかまの なまえや ものがたりが 読（よ）めるよ。',
-    '💡 見（み）つかる なかまは 世界（せかい）に ひとつだけ。きみだけの なかまだよ。',
+    '💡 見（み）つかる なかまは 世界（せかい）に ひとつだけ。きみが 最初（さいしょ）に 見（み）つけた なかまだよ。',
     '💡 なかまを あつめて、じぶんだけの 図鑑（ずかん）を そだてよう！',
     '💡 「なぜ この なまえ？」を 読（よ）むと、街（まち）の ひみつが わかるよ。',
     '💡 なかまを「そだてる」きのうは いま 開発中（かいはつちゅう）。おたのしみに！',

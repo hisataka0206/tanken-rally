@@ -395,8 +395,13 @@ function genStoreKey() { return GEN_STORE_KEY + '__' + getExplorerId(); }
 let _serverGenerated = [];
 export function setServerGenerated(list) {
   _serverGenerated = Array.isArray(list)
-    ? list.filter(r => r && r.genId && (r.imageDataUrl || r.baseCharId)).map(normalizeGenRec)
+    ? list.filter(r => r && r.genId && (r.imageDataUrl || r.fileId || r.baseCharId)).map(normalizeGenRec)
     : [];
+}
+// Drive のファイルIDから <img> 表示用のサムネイルURLを作る（base64同梱の代替＝軽量）。
+// ファイルが「リンクを知っている全員が閲覧可」であれば表示できる。
+function driveImageUrl(fileId) {
+  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w512` : null;
 }
 function normalizeGenRec(r) {
   return {
@@ -412,7 +417,8 @@ function normalizeGenRec(r) {
     vocab: r.vocab || null,
     baseCharId: r.baseCharId || null,
     colorFilter: r.colorFilter || 'none',
-    imageDataUrl: r.imageDataUrl || null,
+    imageDataUrl: r.imageDataUrl || null,        // 実API画像(base64)があれば優先
+    imageUrl: driveImageUrl(r.fileId),           // 無ければ Drive のサムネイルURL
     createdAt: r.createdAt || '',
     fromServer: true,
   };
@@ -580,7 +586,8 @@ export function mergeServerGenerated(list) {
 
 /** 生成キャラの表示画像URL（実API画像優先、無ければモックのベース絵） */
 export function generatedImageUrl(rec) {
-  if (rec && rec.imageDataUrl) return rec.imageDataUrl;
+  if (rec && rec.imageDataUrl) return rec.imageDataUrl;   // 実API画像(base64)優先
+  if (rec && rec.imageUrl) return rec.imageUrl;           // 無ければ Drive のサムネイルURL
   if (rec && rec.baseCharId) {
     const ch = CHARACTERS.find(c => c.id === rec.baseCharId);
     if (ch) return characterImageUrl(ch, 'normal');

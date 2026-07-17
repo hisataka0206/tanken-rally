@@ -1020,6 +1020,9 @@ function saveGeneratedCharacter(body) {
     if (m) {
       const blob = Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], genId + '.png');
       const file = getGeneratedFolder_().createFile(blob);
+      // クライアントが thumbnail?id= で表示できるよう「リンクを知っている全員が閲覧可」に設定。
+      // （生成キャラ画像はAIの創作物で個人情報を含まないため許容）
+      try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (_) {}
       fileId = file.getId();
       fileUrl = 'https://drive.google.com/uc?id=' + fileId;
     }
@@ -1041,7 +1044,32 @@ function saveGeneratedCharacter(body) {
   }
 }
 
-/** userId の生成キャラ一覧を返す（画像は base64 dataURL で同梱＝端末を跨いで表示可能）。
+/** 【一度きり】既存の生成キャラ画像を全て「リンク閲覧可」に設定し、Sheet の fileId を
+ *  ファイル名(<genId>.png)から補完する移行スクリプト。GASエディタで手動実行する。 */
+function fixGeneratedCharacters() {
+  const folder = getGeneratedFolder_();
+  // 1) フォルダ内の全画像をリンク閲覧可に
+  let shared = 0;
+  const files = folder.getFiles();
+  while (files.hasNext()) {
+    const f = files.next();
+    try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); shared++; } catch (_) {}
+  }
+  // 2) Sheet の fileId 未記録行を、<genId>.png を名前で探して補完
+  let filled = 0;
+  const sheet = getLogSheet(SHEET_TAB_GENERATED, SHEET_HEADERS_GENERATED);
+  const rows = sheet.getDataRange().getValues();
+  const gi = rows[0].indexOf('genId'), fi = rows[0].indexOf('fileId');
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][fi] || '')) continue;
+    const it = folder.getFilesByName(String(rows[i][gi] || '') + '.png');
+    if (it.hasNext()) { sheet.getRange(i + 1, fi + 1).setValue(it.next().getId()); filled++; }
+  }
+  Logger.log('fixGeneratedCharacters: shared=%s, filled fileId=%s', shared, filled);
+  return { shared: shared, filled: filled };
+}
+
+/** userId の生成キャラ一覧を返す（画像は fileId を返し、クライアントが Drive サムネイルで表示）。
  *  body: { userId } → { ok, characters: [{ genId, name, station, rarityId, vocab, imageDataUrl, createdAt }] } */
 function getGeneratedCharacters(body) {
   try {
@@ -1051,28 +1079,28 @@ function getGeneratedCharacters(body) {
     const rows = sheet.getDataRange().getValues();
     if (rows.length < 2) return { ok: true, characters: [] };
     const col = n => rows[0].indexOf(n);
+    const folder = getGeneratedFolder_(); // 名前で画像を補完するため一度だけ取得
     const out = [];
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][col('userId')]) !== userId) continue;
       let vocab = {};
       try { vocab = JSON.parse(String(rows[i][col('vocabJSON')] || '{}')) || {}; } catch (_) {}
-      let imageDataUrl = null;
-      const fileId = String(rows[i][col('fileId')] || '');
-      if (fileId) {
-        try {
-          const blob = DriveApp.getFileById(fileId).getBlob();
-          imageDataUrl = 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes());
-        } catch (_) { imageDataUrl = null; }
+      const genId = String(rows[i][col('genId')] || '');
+      // 画像は base64 で同梱しない（重い・失敗しやすい）。fileId を返し、クライアントが
+      // Drive のサムネイルURLで表示する。fileId 未記録なら <genId>.png を名前で探して補完。
+      let fileId = String(rows[i][col('fileId')] || '');
+      if (!fileId && genId) {
+        try { const it = folder.getFilesByName(genId + '.png'); if (it.hasNext()) fileId = it.next().getId(); } catch (_) {}
       }
       out.push({
-        genId: String(rows[i][col('genId')] || ''),
+        genId: genId,
         name: String(rows[i][col('name')] || ''),
         station: String(rows[i][col('station')] || ''),
         rarityId: String(rows[i][col('rarityId')] || 'common'),
         vocab: vocab,
         distanceKm: Number(rows[i][col('distanceKm')]) || 0,
         spotCount: Number(rows[i][col('spotCount')]) || 0,
-        imageDataUrl: imageDataUrl,
+        fileId: fileId,
         createdAt: String(rows[i][col('createdAt')] || ''),
       });
     }

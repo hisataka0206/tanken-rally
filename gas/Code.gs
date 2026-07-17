@@ -1086,11 +1086,19 @@ function getGeneratedCharacters(body) {
       let vocab = {};
       try { vocab = JSON.parse(String(rows[i][col('vocabJSON')] || '{}')) || {}; } catch (_) {}
       const genId = String(rows[i][col('genId')] || '');
-      // 画像は base64 で同梱しない（重い・失敗しやすい）。fileId を返し、クライアントが
-      // Drive のサムネイルURLで表示する。fileId 未記録なら <genId>.png を名前で探して補完。
+      // fileId（未記録なら <genId>.png を名前で補完）
       let fileId = String(rows[i][col('fileId')] || '');
       if (!fileId && genId) {
         try { const it = folder.getFilesByName(genId + '.png'); if (it.hasNext()) fileId = it.next().getId(); } catch (_) {}
+      }
+      // 画像は「Driveのサムネイル(getThumbnail)」を小さな base64 dataURL で返す。
+      // 公開共有もCDNも不要でブラウザ埋め込みが確実、かつ軽い（フル画像base64の重さも回避）。
+      let imageDataUrl = null;
+      if (fileId) {
+        try {
+          const th = DriveApp.getFileById(fileId).getThumbnail();
+          if (th) imageDataUrl = 'data:' + th.getContentType() + ';base64,' + Utilities.base64Encode(th.getBytes());
+        } catch (_) { imageDataUrl = null; }
       }
       out.push({
         genId: genId,
@@ -1100,7 +1108,8 @@ function getGeneratedCharacters(body) {
         vocab: vocab,
         distanceKm: Number(rows[i][col('distanceKm')]) || 0,
         spotCount: Number(rows[i][col('spotCount')]) || 0,
-        fileId: fileId,
+        fileId: fileId,                 // クライアントの高解像度フォールバック用に残す
+        imageDataUrl: imageDataUrl,     // サムネイルの base64（主表示）
         createdAt: String(rows[i][col('createdAt')] || ''),
       });
     }

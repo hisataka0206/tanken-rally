@@ -130,9 +130,10 @@ export function buildPrompt({ station, spots, distanceKm, vocab, bodyHint }) {
       'Bold clean dark-brown outlines (never pure black), flat pastel colors with soft glossy white highlights, round pink rosy cheeks, big friendly eyes, and simple short stubby dark-brown limbs, with sticker-like flat shading.',
     ]),
     // 背景は「透明」を要求しても不透明で返るため、抜きやすい単色ベタ背景を明示（クライアントで透過処理する）。
-    'Show only this one character, centered with margin fully inside the frame, isolated on a plain solid pure-white background with no scenery, no shadow, no gradient.',
-    // Gemini が「デザインソフトで開いた様子」を絵として描く事故を防ぐ（Photoshop UI 混入対策）。
-    'Output ONLY the finished character artwork itself as a clean plain illustration. This is NOT a screenshot and NOT a software mockup: absolutely no application window, no Photoshop or image-editor interface, no menu bar, no toolbars, no side panels, no layers panel, no rulers, no canvas checkerboard, no window frame or UI of any kind.',
+    // ★重要（再発防止）: 画像モデルは独立ネガティブ非対応のため、"Photoshop/UI/editor/toolbar/
+    //   checkerboard/screenshot" 等の禁止語を書くと、その概念自体を描いてしまう（negation backfire）。
+    //   → 不要物の名前は一切書かず、望む背景を「ポジティブに」強く指定するだけにする。
+    'The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture.',
     legendary
       ? 'Child-friendly: cool and powerful but not scary, no violence, no weapons.'
       : 'Child-friendly: cute and friendly, not scary, no violence, no weapons.',
@@ -150,8 +151,10 @@ export function buildPrompt({ station, spots, distanceKm, vocab, bodyHint }) {
     spotThemes ? `Subtle motifs from: ${spotThemes}.` : '',
     // === レア度＝格・エフェクト ===
     `Rarity: ${rarity.id}. ${effectByRarity[rarity.id] || effectByRarity.common} Higher rarity looks more elaborate and radiant.`,
-    // === ネガティブ（Gemini は別枠ネガティブ非対応→肯定文の禁止指示として付与）===
-    'Avoid: any software/application UI or screenshot, Photoshop or editor windows, toolbars, menus, panels, rulers, checkerboard; realistic or 3D rendering, photorealism, gradient or realistic shading, any humans or human-like hands, fingers or toes, any text, letters, numbers, signature or watermark, multiple characters, pure-black outlines, and busy or detailed backgrounds.',
+    // === 最小限の否定（Gemini は別枠ネガティブ非対応）===
+    // ここでも UI/editor/Photoshop/toolbar/checkerboard 等の語は書かない（書くと逆に描かれるため）。
+    // 望む状態を肯定形で言い切り、避けたいのは画風レベル（写実・3D）と構図（複数体）だけに絞る。
+    'Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.',
   ].filter(Boolean).join(' ');
 }
 

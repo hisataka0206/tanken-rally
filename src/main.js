@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js?v=106';
 import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow, MAP_STYLE } from './utils/maps.js?v=106';
-import { fetchOriginStory, fetchSpotStory, tidyMemo, transcribeAudio, setAiBackend } from './utils/ai.js?v=106';
+import { fetchOriginStory, fetchSpotFacts, generateCharacterBlurb, tidyMemo, transcribeAudio, setAiBackend } from './utils/ai.js?v=106';
 import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=106';
 import { generateMapPdf, renderMapPreview, buildStageMedia } from './utils/pdf.js?v=106';
 import { DriveClient, generateSessionId } from './utils/drive.js?v=106';
@@ -1042,20 +1042,34 @@ function showGeneratedDetail(genId) {
   const detail = $('zukan-detail');
   if (!rec || !detail) return;
   const rar = rarityById(rec.rarityId);
-  const story = buildGeneratedStory(rec, LANG);
-  // 生成時に紐づけた「行ったスポットの史跡」＋その物語（vocab に同梱）
   const gv = rec.vocab || {};
+  // 融合説明文（素材①×素材②）があれば、それを本文にする（史実はこの中に溶け込んでいる）。
+  // 無い（旧キャラ／史実なし）場合は従来テンプレ＋別枠の史跡ブロックにフォールバック。
+  const merged = gv.description ? String(gv.description) : '';
+  const story = merged || buildGeneratedStory(rec, LANG);
+  const spotSource = gv.spotSource ? String(gv.spotSource) : '';
   const histSpot = gv.historicSpot ? String(gv.historicSpot) : '';
   const histStory = gv.historicStory ? String(gv.historicStory) : '';
-  const histLabel = (LANG === 'en')
-    ? (histStory ? `Leapt out of the story of ${histSpot}` : `Visited: ${histSpot}`)
-    : (histStory ? `${histSpot}の 物語から とびだした！` : `たずねた 史跡：${histSpot}`);
-  const histHtml = histSpot
-    ? `<div class="zukan-detail-historic">
+  let histHtml = '';
+  if (merged) {
+    // 融合済み: 本文の下に控えめな出典＋紐づいた史跡名だけ添える
+    const srcLine = spotSource ? `（${LANG === 'en' ? 'Source' : '出典'}：${escapeHtml(spotSource)}）` : '';
+    if (histSpot || srcLine) {
+      histHtml = `<div class="zukan-detail-historic">
+         <div class="zukan-historic-label">🏛 ${escapeHtml(histSpot)}</div>
+         ${srcLine ? `<p class="zukan-historic-text">${srcLine}</p>` : ''}
+       </div>`;
+    }
+  } else if (histSpot) {
+    // 旧キャラ（別枠の史跡ストーリー方式）
+    const histLabel = (LANG === 'en')
+      ? (histStory ? `Leapt out of the story of ${histSpot}` : `Visited: ${histSpot}`)
+      : (histStory ? `${histSpot}の 物語から とびだした！` : `たずねた 史跡：${histSpot}`);
+    histHtml = `<div class="zukan-detail-historic">
          <div class="zukan-historic-label">🏛 ${escapeHtml(histLabel)}</div>
          ${histStory ? `<p class="zukan-historic-text">${escapeHtml(histStory)}</p>` : ''}
-       </div>`
-    : '';
+       </div>`;
+  }
   // 画像: ローカルbase64 or キャッシュ済みの本体画像があればそれ、無ければ透明→下で遅延取得（genIdで）
   const needsServer = !rec.imageDataUrl && !rec.baseCharId;
   const cached = needsServer ? _genImgCache.get(rec.genId) : null;
@@ -3516,19 +3530,46 @@ function onChargenPick(idx) {
 
 async function onChargenSave() {
   if (!_chargenChosen || !_chargenChosenName) return;
-  // 史跡ストーリーがまだ取得中なら最大2.5秒だけ待って取り込む（間に合わなければ史跡スポット名の紐づけのみ）。
-  if (state.charGen && state.charGen.storyPromise && !state.charGen.historicStory) {
-    try { await Promise.race([state.charGen.storyPromise, new Promise(r => setTimeout(r, 2500))]); } catch (_) { /* no-op */ }
+  // 史実ファクトの取得が間に合っていなければ最大3秒だけ待つ（間に合わなければテンプレ説明へフォールバック）。
+  if (state.charGen && state.charGen.factsPromise && !state.charGen.spotFacts) {
+    try { await Promise.race([state.charGen.factsPromise, new Promise(r => setTimeout(r, 3000))]); } catch (_) { /* no-op */ }
   }
   const p = state.charGen.params || {};
-  // 「行ったスポットの史跡」をキャラに紐づける（vocab に同梱＝ローカル＆サーバ round-trip で保持）。
-  //   historicStory は取得できていれば同梱（未取得＝'' でも、史跡スポット名の紐づけは必ず残す）。
   const hs = (state.charGen && state.charGen.historicSpot) || null;
+  const facts = (state.charGen && state.charGen.spotFacts) || null;
+  const v0 = _chargenChosen.vocab || {};
+
+  // 説明文ジェネレーター: 「素材①キャラ探検データ × 素材②スポット史実」を1つの説明文に融合。
+  //   史実があるときだけ生成（史実を性格・あこがれに溶かし込む）。無ければ '' → 図鑑はテンプレへフォールバック。
+  const core = (s) => String(s || '').split(/[・･]/)[0].trim();
+  let description = '';
+  let spotSource = '';
+  if (facts && facts.facts) {
+    // お祝いの瞬間が固まらないよう最大8秒で打ち切り（間に合わなければテンプレ説明へフォールバック）。
+    description = await Promise.race([
+      generateCharacterBlurb({
+        name: _chargenChosenName,
+        town: String(p.station || '').replace(/駅$/, ''),
+        spotCount: (p.spots || []).length,
+        distanceKm: p.distanceKm,
+        itemHint: core(v0.decoration) || core(v0.motif),
+        animal: core(v0.motif),
+        personality: [core(v0.atmosphere), core(v0.expression)].filter(Boolean).join('・'),
+        spotName: hs ? hs.name : (facts.title || ''),
+        spotFacts: facts.facts,
+        source: facts.source,
+      }),
+      new Promise(r => setTimeout(() => r(''), 8000)),
+    ]);
+    if (description) spotSource = facts.source || '';
+  }
+
   const enrichedVocab = {
-    ...(_chargenChosen.vocab || {}),
+    ...v0,
     historicSpot: hs ? hs.name : '',
     historicSpotCat: hs ? (hs.category || '') : '',
-    historicStory: (state.charGen && state.charGen.historicStory) || '',
+    description: description || '',   // 融合説明文（あれば図鑑の本文に使う）
+    spotSource: spotSource || '',     // 史実の出典（融合できた時のみ）
   };
   const rec = saveGeneratedCharacter({
     name: _chargenChosenName,
@@ -3821,7 +3862,7 @@ function buildGenSummary() {
   };
 }
 function maybeStartCharGen() {
-  state.charGen = { eligible: false, consumed: false, result: null, promise: null, params: null, summary: null, rarityId: 'common', userPicks: null, historicSpot: null, historicStory: '', storyPromise: null };
+  state.charGen = { eligible: false, consumed: false, result: null, promise: null, params: null, summary: null, rarityId: 'common', userPicks: null, historicSpot: null, spotFacts: null, factsPromise: null };
   if (!FEATURES.scoringEnabled) return; // Phase 1 はスコア有効言語のみ
   const summary = buildGenSummary();
   const elig = evaluateEligibility(summary);
@@ -3849,14 +3890,13 @@ function startCharGenBg() {
   state.charGen.promise = startGeneration(state.charGen.params)
     .then(r => { state.charGen.result = r; return r; })
     .catch(e => { console.warn('[chargen] 先行生成失敗', e); return null; });
-  // 史跡ストーリーは「このキャラが とびだしてきた 物語」。キャラごとに新規生成し、
-  // 生成後はそのキャラに保存して固定する（＝同じキャラは毎回同じ物語）。
-  // 史跡単位のキャッシュはしない（同じ史跡でも探検・キャラごとに別の物語になってよい）。
+  // 紐づけたスポットの「史実（Wikipedia事実）」を並行取得しておく。
+  // これは説明文ジェネレーター（素材②）の材料。実際の融合説明文は命名確定時（onChargenSave）に生成する。
   const hs = state.charGen.historicSpot;
-  if (hs && hs.name && !state.charGen.storyPromise) {
-    state.charGen.storyPromise = fetchSpotStory(hs.name, hs.category, { station: state.stationName })
-      .then(txt => { state.charGen.historicStory = txt || ''; return txt; })
-      .catch(() => { state.charGen.historicStory = ''; return ''; });
+  if (hs && hs.name && !state.charGen.factsPromise) {
+    state.charGen.factsPromise = fetchSpotFacts(hs.name, { station: state.stationName })
+      .then(f => { state.charGen.spotFacts = f || null; return f; })
+      .catch(() => { state.charGen.spotFacts = null; return null; });
   }
 }
 

@@ -160,6 +160,79 @@ Strict rules:
   } catch (_) { return ''; }
 }
 
+// スポットの史実「事実」を Wikipedia から取得する（子ども向けに整形はしない・素の抜粋＋出典）。
+// 説明文ジェネレーターの素材②として使う。戻り値: { facts, source, title } または null。
+export async function fetchSpotFacts(spotName, opts = {}) {
+  if (!spotName) return null;
+  const wikiLang = (LANG === 'en') ? 'en' : 'ja';
+  const station = String((opts && opts.station) || '').replace(/駅$|\s*Station$/i, '').trim();
+  const query = station ? `${spotName} ${station}` : String(spotName);
+  const wiki = await fetchWikipediaExtract(query, spotName, wikiLang);
+  if (!wiki || !wiki.extract) return null;
+  return { facts: wiki.extract, source: (wikiLang === 'en' ? 'Wikipedia' : 'ウィキペディア'), title: wiki.title };
+}
+
+// 「素材①キャラの探検データ × 素材②スポットの史実」を1つの子ども向け説明文へ融合生成する。
+// 史実は"解説"として並べず、キャラの性格・好き・あこがれ・とくいに溶かし込む（handoff指示書準拠）。
+// 史実(spotFacts)が無ければ融合できないので '' を返し、呼び出し側は従来テンプレへフォールバックする。
+export async function generateCharacterBlurb(data = {}) {
+  const d = data || {};
+  const facts = String(d.spotFacts || '').trim();
+  if (!facts) return '';
+  const km = Math.max(0, Math.round((Number(d.distanceKm) || 0) * 10) / 10);
+  let systemPrompt, userPrompt;
+  if (LANG === 'en') {
+    systemPrompt = `You are the field-guide writer for a kids' town-exploration game. Mix the two materials below into ONE character blurb.
+Rules:
+1. Do NOT list the history as an explanation. Dissolve it into the character's personality, likes, longing, or talent (e.g. "a mystery writer lived there" -> "loves solving mysteries", "looks up to that writer").
+2. Kid-friendly. Plain words, 3-4 short sentences, about 220-300 characters.
+3. No meta/behind-the-scenes wording (no "rises as", "parallel world", etc.). Never explain from outside the story.
+4. Start with: "Born on an adventure that wandered {spots} spots and walked {km} km around {town}, a friend shaped like {animal}."
+5. End with one sentence about what the character does for the person who walked with it.
+6. Use ONLY facts present in Material 2. Do not add or invent anything not written there.
+Output: the blurb text only (no headings or notes).`;
+    userPrompt = `Material 1 (character):
+- Name: ${d.name || ''}
+- Adventure: walked around ${d.town || ''}, ${d.spotCount || 0} spots, ${km} km
+- Look / item: ${d.itemHint || '-'}
+- Animal / form: ${d.animal || 'a little creature'}
+- Personality: ${d.personality || '-'}
+
+Material 2 (real history of the spot):
+- Place: ${d.spotName || ''}
+- Facts (use only these): ${facts}
+- Source: ${d.source || 'Wikipedia'}`;
+  } else {
+    systemPrompt = `あなたは子ども向けまち探検ゲームのキャラ図鑑ライターです。以下の2つの素材を混ぜて、キャラクターの説明文を1つ作ってください。
+ルール：
+1. 史実は「解説」として並べず、キャラの性格・好き・あこがれ・とくいとして溶かし込む（例：探偵小説家がいた→「なぞときが大すき」「その人にあこがれている」）。
+2. 子どもが読む文章。やさしい言葉で3〜4文、100〜130字程度。
+3. 「〜として立ち上がる」「パラレルワールド」など種明かし・メタな表現は禁止。物語の外から説明しない。
+4. 冒頭は必ず「{町名}の町を{スポット数}か所めぐって、{km}km歩いた探検の中で生まれた、{動物}の仲間。」の形から始める。
+5. 最後は、いっしょに歩いた人にキャラが何かしてくれる一文で締める。
+6. 史実は素材②に書かれた事実だけを使い、書かれていないことは足さない・創作しない。
+出力：説明文の本文のみ（見出しや注釈は不要）。`;
+    userPrompt = `素材① キャラの探検データ
+- 名前：${d.name || ''}
+- 生まれた場所／歩いた探検：${d.town || ''}の町を${d.spotCount || 0}か所めぐって、${km}km歩いた探検
+- 見た目の特徴やアイテム：${d.itemHint || '（とくになし）'}
+- 動物・すがた：${d.animal || 'ふしぎな生きもの'}
+- 性格タグ：${d.personality || '（とくになし）'}
+
+素材② スポットの史実
+- 場所の名前：${d.spotName || ''}
+- 史実の要点（この範囲だけを使う）：${facts}
+- 出典：${d.source || 'ウィキペディア'}`;
+  }
+  try {
+    const out = await chat(
+      [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+      { max_tokens: 400, temperature: 0.6 }
+    );
+    return String(out || '').trim();
+  } catch (_) { return ''; }
+}
+
 export async function enrichSpotDescription(spotName, category) {
   const catLabel = { historic: '史跡・文化財', sweets: 'スイーツ・お菓子', nature: '自然・公園', toy: '玩具屋', museum: '美術館・博物館', science: '科学館', dagashi: '駄菓子屋' }[category] || 'スポット';
   const prompt = `「${spotName}」（${catLabel}）について、小学生が行きたくなるような紹介文を2文で書いてください。`;

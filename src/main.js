@@ -178,10 +178,33 @@ function updateWizardGuide(info) {
 }
 // ステージの静止画（探検開始時に buildStageMedia で一括生成）を表示。
 // 地図（そのステージの位置/レッグ）＋そのレッグの曲がり角ストリートビュー。
+// 史跡系スポットのステージで「今どこ」を押した時だけ、目的地のストリートビューをヒント表示。
+// 史跡は見つけにくいので「このあたり・こんな見た目」を写真で示す。
+function maybeShowHistoricHint() {
+  const el = $('stage-hint');
+  if (!el) return;
+  const info = getWizardStageInfo(state.photoWizardStage);
+  const spot = info.type === 'spot' ? state.orderedSpots[state.photoWizardStage - 1] : null;
+  if (!spot || spot.category !== 'historic' || spot.lat == null) return; // 史跡以外は何もしない
+  const key = CONFIG.GOOGLE_MAPS_API_KEY;
+  const sv = `https://maps.googleapis.com/maps/api/streetview?size=480x320&location=${spot.lat},${spot.lng}` +
+    `&fov=80&pitch=0&radius=60&source=outdoor&key=${key}`;
+  el.innerHTML =
+    `<div class="stage-hint-label">🔍 ${escapeHtml(t('whereHistoricHint', 'ヒント：目的地の ようす'))}</div>` +
+    `<img class="stage-hint-img" src="${escapeHtml(sv)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" />`;
+  el.classList.remove('hidden');
+  showToast(t('whereHistoricHintToast', '🔍 ヒントを 入れたよ！'));
+}
+function resetStageHint() {
+  const h = $('stage-hint');
+  if (h) { h.classList.add('hidden'); h.innerHTML = ''; }
+}
+
 function renderWizardStageMedia() {
   const el = $('wizard-stage-media');
   if (!el) return;
   stopStageWhere(); // ステージが変わったら現在地オーバーレイの監視を止める
+  resetStageHint(); // ステージが変わったら史跡ヒントも消す
   const media = (state.stageMedia || [])[state.photoWizardStage];
   _stageGeo = (media && media.geo) || null;
   if (!media || (!media.mapUrl && !(media.streetViews || []).length)) {
@@ -4687,6 +4710,7 @@ $('where-btn').addEventListener('click', () => {
   // 無ければ従来のインタラクティブ地図モーダルにフォールバック。
   if (state.photoWizardStage != null && _stageGeo) {
     startStageWhere();
+    maybeShowHistoricHint(); // 史跡系スポットなら目的地SVヒントを追加
   } else {
     openWhereModal();
   }

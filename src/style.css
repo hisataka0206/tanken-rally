@@ -3429,3 +3429,15 @@ body.lang-elementary { line-height: 1.85; }
 /* 進捗トレイル: 通過済み（done）ノードはタップで戻れる */
 .trail-node.done { cursor: pointer; }
 .trail-node.done:hover .trail-dot { transform: scale(1.12); }
+
+/* 史跡ヒント（今どこで史跡系のとき、目的地のストリートビューを追加表示） */
+.stage-hint {
+  margin: 8px 0; padding: 8px;
+  background: #fff8ec; border: 1px solid #e7c86b; border-radius: 12px;
+}
+.stage-hint.hidden { display: none; }
+.stage-hint-label { font-size: 12px; font-weight: 700; color: #8a6d1e; margin-bottom: 6px; }
+.stage-hint-img {
+  display: block; width: 100%; max-width: 480px; margin: 0 auto;
+  border-radius: 10px; aspect-ratio: 3/2; object-fit: cover; background: #eee;
+}

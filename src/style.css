@@ -3404,13 +3404,25 @@ body.lang-elementary { line-height: 1.85; }
 /* ローディング中のヒント（ランダム回転） */
 .loading-overlay-tip {
   max-width: 300px; margin-top: 4px;
-  font-size: 13px; line-height: 1.7; color: #6b6256; text-align: center;
+  font-size: 13px; line-height: 2.2; color: #6b6256; text-align: center;
   background: #fff8ec; border: 1px solid #e7c86b; border-radius: 12px;
-  padding: 12px 16px; min-height: 3.4em;
+  padding: 18px 16px 12px; min-height: 3.4em;
   display: flex; align-items: center; justify-content: center;
   opacity: 1; transition: opacity 0.3s ease;
 }
 .loading-overlay-tip.fading { opacity: 0; }
+
+/* ローディング内の ふりがな（<rt>）は絶対配置で行の上に浮かせ、
+   行の高さを一定に保って「行がガタガタ」になるのを防ぐ。 */
+.loading-overlay-tip ruby,
+.loading-overlay-msg ruby { position: relative; display: inline-block; line-height: 1; }
+.loading-overlay-tip rt,
+.loading-overlay-msg rt {
+  position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%);
+  margin-bottom: -0.08em; font-size: 0.5em; line-height: 1; white-space: nowrap;
+  font-weight: 400; opacity: .85; pointer-events: none;
+}
+.loading-overlay-msg { line-height: 2.1; }
 
 /* ルート画面の地図HTMLプレビュー（PDF化とは別に、まず見る用） */
 /* ルート画面：PDF相当の詳細（地図＋ルート＋ストリートビュー）を常時インライン表示 */

@@ -57,6 +57,109 @@ Tone: friendly, polite English. 3-5 sentences. Vocabulary suitable for an 8-year
   );
 }
 
+// Wikipedia（日本語/英語）から、スポット名に一致する記事の冒頭抜粋を取得する。
+// MediaWiki API は origin=* で匿名CORSに対応するため、ブラウザから直接取得できる（GAS不要）。
+// 戻り値: { title, extract } または null（見つからない/失敗）。
+async function fetchWikipediaExtract(query, spotName, wikiLang) {
+  try {
+    const host = (wikiLang === 'en') ? 'en.wikipedia.org' : 'ja.wikipedia.org';
+    const url = `https://${host}/w/api.php?action=query&format=json&generator=search`
+      + `&gsrsearch=${encodeURIComponent(query)}&gsrlimit=1`
+      + `&prop=extracts&exintro=1&explaintext=1&redirects=1&origin=*`;
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const pages = data && data.query && data.query.pages;
+    if (!pages) return null;
+    const page = Object.values(pages)[0];
+    if (!page || !page.extract) return null;
+    // 別物（同名の別ページ）を掴まないよう、緩い関連チェック
+    const norm = s => String(s || '').replace(/[\s　]/g, '').toLowerCase();
+    const a = norm(spotName), tt = norm(page.title);
+    const shareSub = (x, y) => { for (let i = 0; i + 2 <= x.length; i++) { if (y.includes(x.slice(i, i + 2))) return true; } return false; };
+    const related = a && tt && (tt.includes(a) || a.includes(tt) || shareSub(a, tt) || norm(page.extract).includes(a));
+    if (!related) return null;
+    let extract = String(page.extract).replace(/\s+/g, ' ').trim();
+    if (extract.length > 1000) extract = extract.slice(0, 1000) + '…';
+    return { title: page.title, extract };
+  } catch (_) { return null; }
+}
+
+// 生成キャラに紐づける「スポットの史跡にまつわる短い物語」を作る。
+// ★Wikipedia の抜粋を取得できたら、それ**だけ**を根拠に子ども向けへ書き直す（グラウンディング）。
+//   取れなければ、事実に慎重なフォールバック（モデル知識・諸説あり）で生成する。失敗時は ''。
+export async function fetchSpotStory(spotName, category, opts = {}) {
+  if (!spotName) return '';
+  const isHistoric = category === 'historic';
+  const wikiLang = (LANG === 'en') ? 'en' : 'ja';
+  const station = String((opts && opts.station) || '').replace(/駅$|\s*Station$/i, '').trim();
+  const query = station ? `${spotName} ${station}` : String(spotName);
+  const wiki = await fetchWikipediaExtract(query, spotName, wikiLang);
+
+  let systemPrompt, userPrompt;
+  if (wiki && wiki.extract) {
+    // --- グラウンディング版（Wikipedia抜粋を唯一の根拠に）---
+    if (LANG === 'en') {
+      systemPrompt = `You are "Explorer Doctor" telling children a short story about a Japanese place/historic site.
+Use ONLY the provided Wikipedia excerpt as your source.
+Rules:
+1. Base everything on the excerpt. Do NOT add facts not in it, and do NOT invent.
+2. If the excerpt doesn't clearly say something, don't claim it.
+3. 2-3 sentences, warm and friendly, vocabulary for an 8-year-old.
+4. Distinguish facts from legends if the excerpt does.
+Output only the story text.`;
+      userPrompt = `Historic site / place: "${spotName}"\n\n[Wikipedia excerpt]\n${wiki.extract}\n\nWrite a short kid-friendly story that makes them want to visit.`;
+    } else {
+      systemPrompt = `あなたは子どもに史跡や場所の話を伝える「たんけん博士」です。
+必ず、下の【資料】（ウィキペディアの抜粋）**だけ**を根拠にしてください。
+ルール：
+1. 資料に書かれていることだけを使う。資料に無い事実は足さない・創作しない。
+2. 資料からはっきり読み取れないことは断定しない。
+3. 2〜3文。小学校3年生でも分かる言葉。やさしいですます調で、わくわくする語り口。
+4. 事実と言い伝え・伝説は、資料の書き方に合わせて区別する。
+本文だけを出力してください。`;
+      userPrompt = `史跡・場所：「${spotName}」\n\n【資料（ウィキペディア）】\n${wiki.extract}\n\nこの場所について、子どもが行きたくなる短いお話にしてください。`;
+    }
+    try {
+      const story = await chat(
+        [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+        { max_tokens: 260, temperature: 0.4 }
+      );
+      if (!story) return '';
+      return story + (LANG === 'en' ? '\n\n(Source: Wikipedia)' : '\n\n（出典：ウィキペディア）');
+    } catch (_) { return ''; }
+  }
+
+  // --- フォールバック（Wikipediaに該当なし：モデル知識＋強い慎重ルール）---
+  if (LANG === 'en') {
+    systemPrompt = `You are "Explorer Doctor" telling children a short, real-life story about a place or historic site in Japan.
+Strict rules:
+1. Only share what you are confident about. If details are uncertain or unknown, say so honestly.
+2. Never fabricate or fill in plausible-sounding content.
+3. When theories differ, present them ("one theory says ...") without asserting one as definitive.
+4. Distinguish confirmed facts from folklore/legends.
+5. 2-3 sentences, vocabulary for an 8-year-old, warm and friendly.
+6. If anything is uncertain, end with "※ Details may vary by source."`;
+    userPrompt = `Tell a short kid-friendly story about ${isHistoric ? 'the historic site' : 'the place'} "${spotName}".`;
+  } else {
+    systemPrompt = `あなたは子どもに、日本の実在する史跡や場所の「ちょっとした物語」を伝える「たんけん博士」です。
+以下のルールを厳守してください：
+1. 確実に知っていることだけを書く。あいまい・不明なら「はっきりとはわかっていません」と正直に書く。
+2. 推測で埋めたり、もっともらしい作り話をしたりしない。
+3. 説が複数ある場合は「○○という説があります」のように断定を避ける。
+4. 出典が明確な事実と、言い伝え・伝説を区別する。
+5. 2〜3文。小学校3年生でも分かる言葉。やさしいですます調で、わくわくする語り口。
+6. 不確かさがある場合は文末に必ず「※ 諸説あります」と付ける。`;
+    userPrompt = `${isHistoric ? '史跡' : '場所'}「${spotName}」にまつわる、子ども向けの短いお話を教えてください。`;
+  }
+  try {
+    return await chat(
+      [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+      { max_tokens: 240, temperature: 0.4 }
+    );
+  } catch (_) { return ''; }
+}
+
 export async function enrichSpotDescription(spotName, category) {
   const catLabel = { historic: '史跡・文化財', sweets: 'スイーツ・お菓子', nature: '自然・公園', toy: '玩具屋', museum: '美術館・博物館', science: '科学館', dagashi: '駄菓子屋' }[category] || 'スポット';
   const prompt = `「${spotName}」（${catLabel}）について、小学生が行きたくなるような紹介文を2文で書いてください。`;

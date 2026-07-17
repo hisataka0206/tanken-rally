@@ -2546,6 +2546,28 @@ body.ar-open { overflow: hidden; }
   line-height: 1.7;
   color: #444;
 }
+/* 生成キャラに紐づいた「行ったスポットの史跡」＋その物語 */
+.zukan-detail-historic {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  background: #f6efdd;
+  border: 1px solid #e4d3a0;
+  border-radius: 12px;
+  text-align: left;
+}
+.zukan-historic-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #7a5a1e;
+  margin-bottom: 4px;
+}
+.zukan-historic-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: #4a4033;
+  white-space: pre-line; /* 「※諸説あります」「（出典：ウィキペディア）」を改行付きで見せる */
+}
 @media (max-width: 480px) {
   .zukan-detail-body { flex-direction: column; align-items: center; text-align: center; }
   /* スマホは画面幅の約65%まで使って大きく見せる */

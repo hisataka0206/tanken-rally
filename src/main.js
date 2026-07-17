@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js?v=106';
 import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow, MAP_STYLE } from './utils/maps.js?v=106';
-import { fetchOriginStory, tidyMemo, transcribeAudio, setAiBackend } from './utils/ai.js?v=106';
+import { fetchOriginStory, fetchSpotStory, tidyMemo, transcribeAudio, setAiBackend } from './utils/ai.js?v=106';
 import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=106';
 import { generateMapPdf, renderMapPreview, buildStageMedia } from './utils/pdf.js?v=106';
 import { DriveClient, generateSessionId } from './utils/drive.js?v=106';
@@ -454,6 +454,7 @@ function closeWhereModal() {
 // docs/ar-character-capture-spec.md 参照
 let arSession = null;
 let arCurrent = null;   // { char, tag, targetName, target, latestStatus }
+let _arShutterBusy = false; // シャッター多重発火（連打）ガード
 
 // ===== キャラ出現の仕組み =====
 // GPS有り（通常プレイ）: 今セッションで“いる”ステージ数を
@@ -727,6 +728,16 @@ function updateArUi(status) {
 }
 
 async function onArShutter() {
+  if (!arSession || !arCurrent || _arShutterBusy) return;
+  _arShutterBusy = true;
+  try {
+    await _doArShutter();
+  } finally {
+    _arShutterBusy = false;
+  }
+}
+
+async function _doArShutter() {
   if (!arSession || !arCurrent) return;
   const video = $('ar-video');
   const status = arCurrent.latestStatus || {};
@@ -777,27 +788,28 @@ async function onArShutter() {
     $('ar-captured-modal').classList.remove('hidden');
   }
 
-  // 既存の写真パイプラインへ（プレビュー先行表示 → Drive アップロード）
-  const fileId = await addPhotoAndUpload(file, tag, metaOverride);
-
-  // 捕獲記録（report.json 経由でセッション再開時にも復元される）
+  // ★捕獲判定は「撮った瞬間」に確定させる（アップロード完了を待たない）。
+  //   以前はアップロードの await 後に解決していたため、アップロード中にもう一度撮ると
+  //   同じキャラを二重捕獲できる不具合があった。先に解決＝再捕獲不可にしてから上げる。
+  let captureRec = null;
   if (charVisible) {
     // 図鑑の保存キーは「charId#variant」（ノーマルは charId のまま＝既存データ互換）。
     // ただし state.captures.characterId は従来どおり base id（スコア/レポート/レア判定で使うため）、
     // 変異は variantId として別に持つ。
     const key = collectionKey(char.id, variant.id);
-    state.captures.push({
+    captureRec = {
       characterId: char.id,
       variantId: variant.id,
       spotName: tag,
-      photoFileId: fileId,
+      photoFileId: null,     // アップロード完了後に紐づける
       capturedAt: metaOverride.takenAt,
       lat: metaOverride.lat,
       lng: metaOverride.lng,
-    });
+    };
+    state.captures.push(captureRec);
     // 図鑑（セッション横断）: ローカル即時記録 + Sheets へ fire-and-forget 同期（キーは変異込み）
     recordCapture(key, metaOverride.takenAt);
-    // #4 乱獲防止: 捕獲したステージは解決済みにし「さがす」を非表示＝同じ場所で再捕獲不可。
+    // #4 乱獲防止: 捕獲したステージは即座に解決済みにし「さがす」を非表示＝同じ場所で再捕獲不可。
     // セッションに永続化するので、履歴から再開しても再捕獲できない。
     _resolvedStages.add(state.photoWizardStage);
     persistArState();
@@ -808,6 +820,15 @@ async function onArShutter() {
         records: [{ characterId: key, capturedAt: metaOverride.takenAt }],
       }).catch(e => console.warn('[zukan] Sheets同期失敗（ローカルには保存済）:', e));
     }
+  }
+
+  // 写真パイプライン（プレビュー先行表示 → Drive アップロード）。捕獲確定の後に実行。
+  const fileId = await addPhotoAndUpload(file, tag, metaOverride);
+
+  // アップロード後に写真IDを捕獲記録へ紐づけて保存し直す。
+  if (captureRec) {
+    captureRec.photoFileId = fileId;
+    persistArState();
   }
 }
 
@@ -1021,6 +1042,19 @@ function showGeneratedDetail(genId) {
   if (!rec || !detail) return;
   const rar = rarityById(rec.rarityId);
   const story = buildGeneratedStory(rec, LANG);
+  // 生成時に紐づけた「行ったスポットの史跡」＋その物語（vocab に同梱）
+  const gv = rec.vocab || {};
+  const histSpot = gv.historicSpot ? String(gv.historicSpot) : '';
+  const histStory = gv.historicStory ? String(gv.historicStory) : '';
+  const histLabel = (LANG === 'en')
+    ? (histStory ? `Leapt out of the story of ${histSpot}` : `Visited: ${histSpot}`)
+    : (histStory ? `${histSpot}の 物語から とびだした！` : `たずねた 史跡：${histSpot}`);
+  const histHtml = histSpot
+    ? `<div class="zukan-detail-historic">
+         <div class="zukan-historic-label">🏛 ${escapeHtml(histLabel)}</div>
+         ${histStory ? `<p class="zukan-historic-text">${escapeHtml(histStory)}</p>` : ''}
+       </div>`
+    : '';
   // 画像: ローカルbase64 or キャッシュ済みの本体画像があればそれ、無ければ透明→下で遅延取得（genIdで）
   const needsServer = !rec.imageDataUrl && !rec.baseCharId;
   const cached = needsServer ? _genImgCache.get(rec.genId) : null;
@@ -1033,6 +1067,7 @@ function showGeneratedDetail(genId) {
         <div class="zukan-detail-name">${escapeHtml(rec.name || '')} <span class="zukan-detail-rarity">${'★'.repeat(rar.stars || 1)}</span></div>
         <div class="zukan-detail-personality">${escapeHtml(generatedPersonality(rec, LANG))}</div>
         <p class="zukan-detail-story">${escapeHtml(story)}</p>
+        ${histHtml}
         <button type="button" class="gen-report" data-report-char="1">${escapeHtml(t('genReport', 'このキャラを報告'))}</button>
       </div>
     </div>`;
@@ -1712,14 +1747,14 @@ const LOADING_TIPS = {
     '💡 たくさん あるいて 遠くへ 行くと、でんせつ（レジェンド）の なかまに 会えるかも！',
     // ②生成の条件・多様性
     '💡 じゅうぶん あるいて しゃしんを とると、あたらしい なかまを 発見できるよ。',
-    '💡 おなじ 駅でも、まわりかたで ちがう なかまが 生まれるよ。',
+    '💡 おなじ 駅でも、まわりかたで ちがう なかまが 見つかるよ。',
     // ③スコアの上げ方
     '💡 スポットを たくさん まわって しゃしんを とると、スコアが アップ！',
     '💡 計画どおりに スポットを まわると、スコアが 高くなるよ。',
     '💡 「いまどこ？」を つかいすぎると スコアが へっちゃう。ここぞ！の ときに つかおう。',
     // ④図鑑・収集・所有感
     '💡 図鑑では、見つけた なかまの なまえや ものがたりが 読めるよ。',
-    '💡 生まれる なかまは 世界に ひとつだけ。きみだけの なかまだよ。',
+    '💡 見つかる なかまは 世界に ひとつだけ。きみだけの なかまだよ。',
     '💡 なかまを あつめて、じぶんだけの 図鑑を そだてよう！',
     // ⑤地名の由来＝学び
     '💡 「なぜ この なまえ？」を 読むと、街の ひみつが わかるよ。',
@@ -1733,13 +1768,13 @@ const LOADING_TIPS = {
   en: [
     '💡 Walk to spots farther away to meet rarer friends!',
     '💡 Walk far enough and you might meet a legendary friend!',
-    '💡 Walk enough and take photos to create a brand-new friend.',
-    '💡 Even at the same station, exploring differently creates different friends.',
+    '💡 Walk enough and take photos to discover a brand-new friend.',
+    '💡 Even at the same station, exploring differently reveals different friends.',
     '💡 Visit more spots and take photos to raise your score!',
     '💡 Sticking to your plan boosts your score.',
     '💡 Using "Where am I?" too much lowers your score — save it for when you are really stuck.',
     '💡 In the zukan you can read your friends\' names and stories.',
-    '💡 Every friend you create is one-of-a-kind — yours alone.',
+    '💡 Every friend you find is one-of-a-kind — yours alone.',
     '💡 Collect friends and grow your very own zukan!',
     '💡 Read "why is it named this?" to uncover your town\'s secrets.',
     '💡 The "raise your friend" feature is in development. Stay tuned!',
@@ -1751,12 +1786,12 @@ const LOADING_TIPS = {
     '💡 とおくの スポットまで あるくほど、レアな なかまに 出会（であ）いやすいよ！',
     '💡 たくさん あるいて 遠（とお）くへ 行（い）くと、でんせつ（レジェンド）の なかまに 会（あ）えるかも！',
     '💡 じゅうぶん あるいて しゃしんを とると、あたらしい なかまを 発見（はっけん）できるよ。',
-    '💡 おなじ 駅（えき）でも、まわりかたで ちがう なかまが 生（う）まれるよ。',
+    '💡 おなじ 駅（えき）でも、まわりかたで ちがう なかまが 見（み）つかるよ。',
     '💡 スポットを たくさん まわって しゃしんを とると、スコアが アップ！',
     '💡 計画（けいかく）どおりに スポットを まわると、スコアが 高（たか）くなるよ。',
     '💡 「いまどこ？」を つかいすぎると スコアが へっちゃう。ここぞ！の ときに つかおう。',
     '💡 図鑑（ずかん）では、見（み）つけた なかまの なまえや ものがたりが 読（よ）めるよ。',
-    '💡 生（う）まれる なかまは 世界（せかい）に ひとつだけ。きみだけの なかまだよ。',
+    '💡 見（み）つかる なかまは 世界（せかい）に ひとつだけ。きみだけの なかまだよ。',
     '💡 なかまを あつめて、じぶんだけの 図鑑（ずかん）を そだてよう！',
     '💡 「なぜ この なまえ？」を 読（よ）むと、街（まち）の ひみつが わかるよ。',
     '💡 なかまを「そだてる」きのうは いま 開発中（かいはつちゅう）。おたのしみに！',
@@ -3478,9 +3513,22 @@ function onChargenPick(idx) {
   chargenSetPhase('reveal');
 }
 
-function onChargenSave() {
+async function onChargenSave() {
   if (!_chargenChosen || !_chargenChosenName) return;
+  // 史跡ストーリーがまだ取得中なら最大2.5秒だけ待って取り込む（間に合わなければ史跡スポット名の紐づけのみ）。
+  if (state.charGen && state.charGen.storyPromise && !state.charGen.historicStory) {
+    try { await Promise.race([state.charGen.storyPromise, new Promise(r => setTimeout(r, 2500))]); } catch (_) { /* no-op */ }
+  }
   const p = state.charGen.params || {};
+  // 「行ったスポットの史跡」をキャラに紐づける（vocab に同梱＝ローカル＆サーバ round-trip で保持）。
+  //   historicStory は取得できていれば同梱（未取得＝'' でも、史跡スポット名の紐づけは必ず残す）。
+  const hs = (state.charGen && state.charGen.historicSpot) || null;
+  const enrichedVocab = {
+    ...(_chargenChosen.vocab || {}),
+    historicSpot: hs ? hs.name : '',
+    historicSpotCat: hs ? (hs.category || '') : '',
+    historicStory: (state.charGen && state.charGen.historicStory) || '',
+  };
   const rec = saveGeneratedCharacter({
     name: _chargenChosenName,
     station: p.station,
@@ -3489,7 +3537,7 @@ function onChargenSave() {
     rarityId: _chargenChosen.rarityId,
     bodyId: _chargenChosen.bodyId,
     impressionId: _chargenChosen.impressionId,
-    vocab: _chargenChosen.vocab,
+    vocab: enrichedVocab,
     baseCharId: _chargenChosen.baseCharId,
     colorFilter: _chargenChosen.colorFilter,
     imageDataUrl: _chargenChosen.imageDataUrl,
@@ -3772,7 +3820,7 @@ function buildGenSummary() {
   };
 }
 function maybeStartCharGen() {
-  state.charGen = { eligible: false, consumed: false, result: null, promise: null, params: null, summary: null, rarityId: 'common', userPicks: null };
+  state.charGen = { eligible: false, consumed: false, result: null, promise: null, params: null, summary: null, rarityId: 'common', userPicks: null, historicSpot: null, historicStory: '', storyPromise: null };
   if (!FEATURES.scoringEnabled) return; // Phase 1 はスコア有効言語のみ
   const summary = buildGenSummary();
   const elig = evaluateEligibility(summary);
@@ -3787,6 +3835,10 @@ function maybeStartCharGen() {
   const spots = (state.orderedSpots || []).map(s => s.name);
   const spotCats = (state.orderedSpots || []).map(s => s.category).filter(Boolean); // 提案A: スポット連動モチーフ用
   state.charGen.params = { station: state.stationName, spots, spotCats, distanceKm: summary.distanceKm, userPicks: null };
+  // このキャラに「行ったスポットの史跡」を1つ紐づける（史跡カテゴリ優先・無ければ先頭のスポット）。
+  // 実際の史跡ストーリー取得は startCharGenBg で非同期に行う。
+  const linkedSpot = (state.orderedSpots || []).find(s => s.category === 'historic') || (state.orderedSpots || [])[0] || null;
+  state.charGen.historicSpot = linkedSpot ? { name: linkedSpot.name, category: linkedSpot.category || '' } : null;
   // ※生成の開始は case X の変数選択（openChargenPickModal → finalizeChargenPick）確定後。
 }
 
@@ -3796,6 +3848,15 @@ function startCharGenBg() {
   state.charGen.promise = startGeneration(state.charGen.params)
     .then(r => { state.charGen.result = r; return r; })
     .catch(e => { console.warn('[chargen] 先行生成失敗', e); return null; });
+  // 史跡ストーリーは「このキャラが とびだしてきた 物語」。キャラごとに新規生成し、
+  // 生成後はそのキャラに保存して固定する（＝同じキャラは毎回同じ物語）。
+  // 史跡単位のキャッシュはしない（同じ史跡でも探検・キャラごとに別の物語になってよい）。
+  const hs = state.charGen.historicSpot;
+  if (hs && hs.name && !state.charGen.storyPromise) {
+    state.charGen.storyPromise = fetchSpotStory(hs.name, hs.category, { station: state.stationName })
+      .then(txt => { state.charGen.historicStory = txt || ''; return txt; })
+      .catch(() => { state.charGen.historicStory = ''; return ''; });
+  }
 }
 
 // case X: 変数選択ティーザー（探検おわり時に すき を選ぶ）

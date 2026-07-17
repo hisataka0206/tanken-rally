@@ -419,8 +419,31 @@ export function saveGeneratedCharacter(def) {
     createdAt: def.createdAt || new Date().toISOString(),
   };
   obj[genId] = record;
-  try { localStorage.setItem(genStoreKey(), JSON.stringify(obj)); } catch (_) {}
+  persistGenStore(obj, genId); // 容量オーバーでも新キャラは必ず残す（古い画像を退避してリトライ）
   return record;
+}
+
+// 生成ストアを localStorage に保存。容量オーバー時は「今回のキャラ(keepId)以外」の
+// 古い画像(base64)から順に退避（imageDataUrl=null, imageEvicted=true）して空きを作りリトライする。
+// 退避した実API画像はサーバ(Drive)にもあるため、次に図鑑を開いた時に mergeServerGenerated が復元する。
+function persistGenStore(obj, keepId) {
+  const key = genStoreKey();
+  try { localStorage.setItem(key, JSON.stringify(obj)); return true; } catch (_) {}
+  const byOld = Object.keys(obj).sort((a, b) => (obj[a].createdAt || '').localeCompare(obj[b].createdAt || ''));
+  // 1) 古い順に画像(base64)だけ退避して空ける
+  for (const id of byOld) {
+    if (id === keepId || !obj[id].imageDataUrl) continue;
+    obj[id].imageDataUrl = null; obj[id].imageEvicted = true;
+    try { localStorage.setItem(key, JSON.stringify(obj)); return true; } catch (_) {}
+  }
+  // 2) それでも入らなければ最古の生成キャラを丸ごと削除して再試行
+  for (const id of byOld) {
+    if (id === keepId) continue;
+    delete obj[id];
+    try { localStorage.setItem(key, JSON.stringify(obj)); return true; } catch (_) {}
+  }
+  console.warn('[chargen] localStorage 容量が足りず生成キャラを保存できませんでした');
+  return false;
 }
 
 /** 生成キャラの性格（とくちょう）を語彙から作る（図鑑詳細で表示）。 */
@@ -481,7 +504,16 @@ export function mergeServerGenerated(list) {
   let added = 0;
   list.forEach(r => {
     const genId = r && r.genId;
-    if (!genId || obj[genId]) return;
+    if (!genId) return;
+    if (obj[genId]) {
+      // 既存レコード: ローカルで容量退避された画像を、サーバの画像で復元する
+      if (!obj[genId].imageDataUrl && r.imageDataUrl) {
+        obj[genId].imageDataUrl = r.imageDataUrl;
+        obj[genId].imageEvicted = false;
+        added++;
+      }
+      return;
+    }
     // 画像もベース絵も無いレコードは描画できない（壊れ画像になる）のでマージしない。
     // GAS再設定中などに画像保存が間に合わずメタだけ残った行を弾く。
     if (!r.imageDataUrl && !r.baseCharId) return;
@@ -504,7 +536,8 @@ export function mergeServerGenerated(list) {
     };
     added++;
   });
-  if (added) { try { localStorage.setItem(genStoreKey(), JSON.stringify(obj)); } catch (_) {} }
+  // 容量オーバー時も古い画像を退避しつつ保存（新しいものを優先して残す）
+  if (added) persistGenStore(obj, null);
   return added;
 }
 

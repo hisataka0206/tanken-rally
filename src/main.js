@@ -5314,6 +5314,85 @@ function enterApp() {
   showStep('step-home');
 }
 
+// ===== アプリ内ブラウザ（WebView）検知 → 外部ブラウザ誘導 =====
+// LINE/Messenger/Instagram/Facebook/X などのアプリ内ブラウザは、カメラ・位置情報・
+// クリップボード等がうまく動かないことがある。検知したら「閉じる帯」で外部ブラウザへ誘導する。
+function detectInAppBrowser() {
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const isAndroid = /Android/i.test(ua);
+  let app = null;
+  if (/\bLine\//i.test(ua)) app = 'line';
+  else if (/FBAN|FBAV|FB_IAB|FBIOS|Messenger/i.test(ua)) app = 'facebook';
+  else if (/Instagram/i.test(ua)) app = 'instagram';
+  else if (/Twitter/i.test(ua)) app = 'twitter';
+  else if (isAndroid && /;\s*wv\)/i.test(ua)) app = 'webview'; // 汎用Android WebView
+  if (!app) return null;
+  return { app, isIOS, isAndroid };
+}
+
+function openExternalBrowser(info) {
+  // LINE は公式仕様: openExternalBrowser=1 を付けて開き直すと既定ブラウザで開く（iOS/Android両対応）
+  if (info.app === 'line') {
+    try {
+      const u = new URL(location.href);
+      u.searchParams.set('openExternalBrowser', '1');
+      location.href = u.toString();
+      return;
+    } catch (_) { /* フォールバックへ */ }
+  }
+  // Android: Chrome を intent で直接起動（未インストール時は fallback URL）
+  if (info.isAndroid) {
+    const rest = location.host + location.pathname + location.search + location.hash;
+    const fallback = encodeURIComponent(location.href);
+    location.href = `intent://${rest}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${fallback};end`;
+    return;
+  }
+  // それ以外（iOSの他アプリ）は強制起動できない → リンクコピーにフォールバック
+  copyCurrentLink();
+}
+
+function copyCurrentLink() {
+  const url = location.href;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => showToast(t('inappCopied'), 3200)).catch(() => showToast(url, 4000));
+  } else {
+    showToast(url, 4000);
+  }
+}
+
+function showInAppBanner() {
+  let dismissed = false;
+  try { dismissed = sessionStorage.getItem('inapp_dismissed') === '1'; } catch (_) {}
+  if (dismissed) return;
+  const info = detectInAppBrowser();
+  if (!info) return;
+  const banner = $('inapp-banner');
+  if (!banner) return;
+
+  const msgEl = $('inapp-banner-msg');
+  const openBtn = $('inapp-open-btn');
+  const dismissBtn = $('inapp-dismiss-btn');
+  const hintEl = $('inapp-banner-hint');
+  if (msgEl) msgEl.innerHTML = furiganize(t('inappMsg')) || t('inappMsg');
+  if (dismissBtn) dismissBtn.textContent = t('inappDismiss');
+
+  // LINEは両OS、その他は Android のみ自動で外部化できる。iOSの他アプリは手動案内。
+  const canAuto = (info.app === 'line') || info.isAndroid;
+  if (canAuto) {
+    if (openBtn) { openBtn.textContent = t('inappOpenBtn'); openBtn.onclick = () => openExternalBrowser(info); }
+    if (hintEl) hintEl.textContent = '';
+  } else {
+    if (openBtn) { openBtn.textContent = t('inappCopyBtn'); openBtn.onclick = copyCurrentLink; }
+    if (hintEl) hintEl.innerHTML = furiganize(t('inappIosHint')) || t('inappIosHint');
+  }
+  if (dismissBtn) dismissBtn.onclick = () => {
+    banner.classList.add('hidden');
+    try { sessionStorage.setItem('inapp_dismissed', '1'); } catch (_) {}
+  };
+  banner.classList.remove('hidden');
+}
+
 // ===== 初期表示 =====
 // バージョン表示・言語切替を最初に適用
 applyI18n();
@@ -5331,6 +5410,9 @@ if (versionEl) {
   versionEl.title = `${RELEASE_LABEL} v${APP_VERSION} / lang=${LANG}`;
 }
 console.info(`[tanken-rally] v${APP_VERSION} (${RELEASE_LABEL}) — lang=${LANG}`);
+
+// アプリ内ブラウザ（LINE/Messenger等）なら外部ブラウザ誘導バナーを表示
+showInAppBanner();
 
 // ログインゲートを準備し、未ログインならゲート表示・ログイン済みならそのまま入場
 initLoginGate();

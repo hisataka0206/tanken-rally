@@ -34,6 +34,18 @@
 
   <div id="app">
 
+    <!-- アプリ内ブラウザ（LINE/Messenger/Instagram等）検知バナー：外部ブラウザ誘導。JSで表示制御 -->
+    <div id="inapp-banner" class="inapp-banner hidden" role="region" aria-live="polite">
+      <div class="inapp-banner-inner">
+        <span class="inapp-banner-msg" id="inapp-banner-msg"></span>
+        <div class="inapp-banner-actions">
+          <button type="button" id="inapp-open-btn" class="inapp-open-btn"></button>
+          <button type="button" id="inapp-dismiss-btn" class="inapp-dismiss-btn"></button>
+        </div>
+      </div>
+      <div class="inapp-banner-hint" id="inapp-banner-hint"></div>
+    </div>
+
     <!-- 起動時ログインゲート（なまえ＋あいことば）。未ログイン時のみ表示してアプリを覆う -->
     <div id="login-gate" class="login-gate hidden" role="dialog" aria-modal="true" aria-labelledby="login-title">
       <div class="login-card">

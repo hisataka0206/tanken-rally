@@ -1257,6 +1257,39 @@ body {
 .admin-check input { margin-top: 2px; width: 18px; height: 18px; }
 .admin-note { font-size: 11px; color: #999; line-height: 1.6; margin: 4px 0 0; }
 
+/* ===== アプリ内ブラウザ検知バナー（外部ブラウザ誘導） ===== */
+.inapp-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 9500;
+  background: #2b2b33;
+  color: #fff;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.inapp-banner.hidden { display: none; }
+.inapp-banner-inner {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  max-width: 640px; margin: 0 auto;
+}
+.inapp-banner-msg { flex: 1 1 180px; min-width: 160px; }
+.inapp-banner-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.inapp-open-btn {
+  background: #ffd54a; color: #333; border: none; border-radius: 999px;
+  padding: 7px 14px; font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap;
+}
+.inapp-dismiss-btn {
+  background: transparent; color: #cfcfd6; border: 1px solid #6a6a75; border-radius: 999px;
+  padding: 7px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.inapp-banner-hint {
+  max-width: 640px; margin: 6px auto 0; font-size: 12px; color: #ffe08a; line-height: 1.6;
+}
+.inapp-banner-hint:empty { display: none; }
+
 /* ===== テストモード（admin E2E チェックリスト） ===== */
 .test-mode-content { max-height: 88vh; display: flex; flex-direction: column; }
 .test-mode-progress { margin: 6px 0 10px; }

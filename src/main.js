@@ -2394,6 +2394,7 @@ async function onStartExplore() {
   const btn = $('start-explore-btn');
   btn.textContent = t('statusReady');
   btn.disabled = true;
+  showLoadingOverlay(t('startExploreLoading', '探検の じゅんびを しているよ…')); // 準備に時間がかかるのでローディング表示
   _hitStages = null; _searchUsed = false; _resolvedStages = new Set(); // 新しい探検＝抽選・救済・チェック済みをリセット
 
   try {
@@ -2461,6 +2462,7 @@ async function onStartExplore() {
   } catch (e) {
     alert(t('errStartFailedFmt').replace('{err}', e.message));
   } finally {
+    hideLoadingOverlay();
     btn.textContent = t('btnStartExploreIdle');
     btn.disabled = false;
   }

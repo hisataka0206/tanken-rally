@@ -867,9 +867,11 @@ function revealHintText(baseCount) {
 
 // 「みつけた なかま」の並び順（date=新しい順[既定] / name=名前 / rarity=レア度）。端末に保存。
 let _genSort = (() => { try { return localStorage.getItem('tanken_gen_sort') || 'date'; } catch (_) { return 'date'; } })();
+let _genRev = (() => { try { return localStorage.getItem('tanken_gen_rev') === '1'; } catch (_) { return false; } })();
 let _lastZukanCollection = null;
 function sortGeneratedRecs(recs) {
   const arr = [...recs];
+  // 既定の並び（date=新しい順 / name=あ→ん / rarity=高→低）。逆順ボタンで反転する。
   if (_genSort === 'name') {
     arr.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ja'));
   } else if (_genSort === 'rarity') {
@@ -878,6 +880,7 @@ function sortGeneratedRecs(recs) {
   } else { // date（新しい順）
     arr.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   }
+  if (_genRev) arr.reverse();
   return arr;
 }
 
@@ -942,8 +945,10 @@ function renderZukanGrid(collection) {
       `<option value="name">${escapeHtml(t('genSortName', '名前順'))}</option>` +
       `<option value="rarity">${escapeHtml(t('genSortRarity', 'レア度順'))}</option>` +
       `</select>`;
+    const revBtn = `<button type="button" id="gen-sort-rev" class="gen-sort-rev" title="${escapeHtml(t('genSortReverse', '逆順'))}" aria-label="${escapeHtml(t('genSortReverse', '逆順'))}">${_genRev ? '▲' : '▼'}</button>`;
     genHtml = `<div class="zukan-section-label zukan-section-gen">` +
-      `<span>${escapeHtml(t('chargenZukanSection', '🌟 みつけた なかま'))}</span>${sortSel}</div>` + genCards.join('');
+      `<span>${escapeHtml(t('chargenZukanSection', '🌟 みつけた なかま'))}</span>` +
+      `<span class="gen-sort-controls">${sortSel}${revBtn}</span></div>` + genCards.join('');
   }
 
   grid.innerHTML = charsHtml + genHtml;
@@ -963,6 +968,12 @@ function renderZukanGrid(collection) {
       renderZukanGrid(_lastZukanCollection); // 画像はキャッシュ済みなので即時
     });
   }
+  const revEl = $('gen-sort-rev');
+  if (revEl) revEl.addEventListener('click', () => {
+    _genRev = !_genRev;
+    try { localStorage.setItem('tanken_gen_rev', _genRev ? '1' : '0'); } catch (_) {}
+    renderZukanGrid(_lastZukanCollection);
+  });
   lazyLoadGeneratedImages(grid); // サーバ分の画像を fileId ごとに Drive本体base64で差し込む
 }
 

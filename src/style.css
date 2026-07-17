@@ -2486,8 +2486,8 @@ body.ar-open { overflow: hidden; }
 }
 .zukan-detail-body img {
   flex-shrink: 0;
-  width: 110px;
-  max-height: 110px;
+  width: 190px;
+  max-height: 190px;
   object-fit: contain;
   filter: drop-shadow(0 2px 5px rgba(0,0,0,0.2));
 }
@@ -2515,6 +2515,8 @@ body.ar-open { overflow: hidden; }
 }
 @media (max-width: 480px) {
   .zukan-detail-body { flex-direction: column; align-items: center; text-align: center; }
+  /* スマホは画面幅の約65%まで使って大きく見せる */
+  .zukan-detail-body img { width: 65%; max-width: 280px; max-height: 55vh; }
 }
 
 /* ===== UIガイドキャラ（受け皿。docs/ui-character-guide-spec.md） ===== */
@@ -3448,3 +3450,11 @@ body.lang-elementary { line-height: 1.85; }
   font-size: 12px; padding: 4px 8px; border-radius: 8px;
   border: 1px solid #e5dcc8; background: #fff; color: #5c554a;
 }
+
+/* 並び替えの逆順ボタン */
+.gen-sort-controls { display: inline-flex; align-items: center; gap: 6px; }
+.gen-sort-rev {
+  font-size: 12px; line-height: 1; padding: 5px 8px; cursor: pointer;
+  border: 1px solid #e5dcc8; border-radius: 8px; background: #fff; color: #5c554a;
+}
+.gen-sort-rev:hover { background: #f4efe3; }

@@ -3413,3 +3413,17 @@ body.lang-elementary { line-height: 1.85; }
 .stage-you.stage-you-off .stage-you-acc,
 .stage-you.stage-you-off .stage-you-beam { display: none; }
 .stage-you.stage-you-off .stage-you-dot { background: #c62828; }
+
+/* タイトル全体をホームボタン化（家アイコンボタンは廃止） */
+.header-home {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1; min-width: 0; cursor: pointer;
+  background: none; border: none; padding: 2px 4px; text-align: left;
+  border-radius: 10px;
+}
+.header-home:hover { opacity: 0.88; }
+.header-home:focus-visible { outline: 2px solid rgba(255,255,255,0.7); outline-offset: 2px; }
+
+/* 進捗トレイル: 通過済み（done）ノードはタップで戻れる */
+.trail-node.done { cursor: pointer; }
+.trail-node.done:hover .trail-dot { transform: scale(1.12); }

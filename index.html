@@ -68,16 +68,18 @@
 
     <!-- ヘッダー -->
     <header class="header">
-      <span class="header-icon"><img src="src/assets/icons/icon-acorn.svg" alt="" aria-hidden="true"></span>
-      <div class="header-brand">
-        <div class="header-title-row">
-          <h1 data-i18n="appTitle">テクタン</h1>
-          <span class="header-version" id="header-version">v1.0.0</span>
+      <!-- タイトル全体がホーム（トップ画面）へ戻るボタン -->
+      <div id="header-home" class="header-home" role="button" tabindex="0" title="トップにもどる" data-i18n-title="btnHome">
+        <span class="header-icon"><img src="src/assets/icons/icon-acorn.svg" alt="" aria-hidden="true"></span>
+        <div class="header-brand">
+          <div class="header-title-row">
+            <h1 data-i18n="appTitle">テクタン</h1>
+            <span class="header-version" id="header-version">v1.0.0</span>
+          </div>
+          <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
         </div>
-        <span class="header-sub" data-i18n="headerSub">駅から街を探検しよう</span>
       </div>
       <div class="header-actions">
-        <button id="home-btn" class="zukan-btn" type="button" data-i18n-title="btnHome" title="トップにもどる"><img src="src/assets/icons/icon-home.svg" alt="" aria-hidden="true"></button>
         <button id="admin-btn" class="zukan-btn hidden" type="button" title="マスターモード（admin）"><img src="src/assets/icons/icon-gear.svg" alt="" aria-hidden="true"></button>
       </div>
     </header>
@@ -377,7 +379,8 @@
           <button id="back-to-photos" class="btn-secondary" data-i18n="btnBackPhotos">← 写真にもどる</button>
           <div class="report-action-group">
             <button id="tidy-memos-btn" class="btn-secondary" data-i18n="btnTidyMemos" data-i18n-title="tidyMemosTitle" title="写真のひと言メモを整える">メモをすっきり</button>
-            <button id="save-report-btn" class="btn-secondary" data-i18n="btnSaveReport">保存</button>
+            <!-- キャラ発見（条件クリア時のみ表示。生成→発見の世界観） -->
+            <button id="chargen-start-btn" type="button" class="btn-secondary chargen-start-btn hidden" data-i18n="chargenStart">✨ なかまを 発見</button>
             <button id="submit-score-btn" class="btn-secondary title-with-icon"><img class="ui-icon" src="src/assets/icons/icon-trophy.svg" alt="" aria-hidden="true"> <span data-i18n="btnSubmitScore">スコア</span></button>
             <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf">PDF出力</button>
           </div>
@@ -432,12 +435,6 @@
 
           <!-- 個別アドバイス（弱点ピックアップ） -->
           <div id="score-advice" class="score-advice hidden"></div>
-
-          <!-- キャラ自動生成の導線（条件クリア時のみ表示。可否はレポート前に判定し裏で先行生成済み） -->
-          <div id="chargen-entry" class="chargen-entry hidden">
-            <p class="chargen-entry-lead" data-i18n="chargenEntryLead">きょうの たんけんから あたらしい なかまが つくれるよ！</p>
-            <button id="chargen-start-btn" type="button" class="btn-primary chargen-start-btn" data-i18n="chargenStart">あたらしい なかまを むかえる →</button>
-          </div>
 
           <label class="score-name-label">
             <span data-i18n="scoreNameLabel">名前（ニックネームでもOK）</span>
@@ -578,7 +575,7 @@
       <div class="modal-backdrop" data-action="chargen-pick-skip"></div>
       <div class="modal-content chargen-content">
         <h3 id="chargen-var-title" class="chargen-title" data-i18n="chargenVarTitle">あたらしい なかまが つくれそう！</h3>
-        <p class="chargen-lead" data-i18n="chargenVarSub">どんなのが すき？ えらぶと その子に ちかづくよ（あとで つくれるよ）</p>
+        <p class="chargen-lead" data-i18n="chargenVarSub">どんなのが すき？ えらぶと その子に ちかづくよ（あとで 発見できるよ）</p>
         <div class="chargen-var-group">
           <div class="chargen-var-label" data-i18n="chargenVarMotif">タイプ</div>
           <div id="chargen-var-motif" class="chargen-var-chips"></div>

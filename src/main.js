@@ -1594,6 +1594,11 @@ function fitMapToSpots(map, origin, spots) {
 
 function showStep(stepId) {
   if (stepId !== 'step-photos') stopStageWhere(); // 撮影画面を離れたら現在地監視を止める
+  // レポート画面から離れる時は自動保存をフラッシュ（保存漏れ防止）
+  if (stepId !== 'step-report') {
+    const rep = document.getElementById('step-report');
+    if (rep && rep.classList.contains('active')) { clearTimeout(_reportSaveTimer); saveReportToDrive(); }
+  }
   // CSS の `.step.hidden { display:none !important }` がインライン style に
   // 勝ってしまうため、クラス操作で表示切り替えする
   // トップ画面ではすごろくトレイルを隠す（ゲームの進捗ではないため）
@@ -3286,12 +3291,7 @@ function openScoreModal() {
     submitBtn.classList.toggle('hidden', !FEATURES.rankingEnabled);
   }
 
-  // キャラ自動生成の導線（条件クリア＆未消費のときだけ）
-  const genEntry = $('chargen-entry');
-  if (genEntry) {
-    const show = !!(state.charGen && state.charGen.eligible && !state.charGen.consumed);
-    genEntry.classList.toggle('hidden', !show);
-  }
+  // キャラ発見の導線はノート画面のボタンへ移動（ここでは何もしない）
 
   $('score-player-name').value = state.reportData.author || '';
   $('score-phase-input').classList.remove('hidden');
@@ -3309,6 +3309,14 @@ function chargenSetPhase(phase) {
     const el = $('chargen-phase-' + p);
     if (el) el.classList.toggle('hidden', p !== phase);
   });
+}
+
+// ノート画面の「なかまを 発見」ボタンの表示可否（条件クリア＆未消費のときだけ表示）
+function updateChargenEntry() {
+  const btn = $('chargen-start-btn');
+  if (!btn) return;
+  const show = !!(state.charGen && state.charGen.eligible && !state.charGen.consumed);
+  btn.classList.toggle('hidden', !show);
 }
 
 async function openChargen() {
@@ -3412,8 +3420,7 @@ function onChargenSave() {
   }
   $('chargen-done-msg').textContent = t('chargenDoneFmt').replace('{name}', rec.name);
   chargenSetPhase('done');
-  const genEntry = $('chargen-entry');
-  if (genEntry) genEntry.classList.add('hidden');
+  updateChargenEntry(); // 消費済みになったので「発見」ボタンを隠す
   if (!$('zukan-modal').classList.contains('hidden')) renderZukanGrid(loadCollection());
 }
 
@@ -3541,28 +3548,22 @@ function deserializeReportData(obj) {
 }
 
 // ノートの状態を Drive へ保存（手動 + 「ノートを保存」ボタン）
-async function onSaveReportToDrive() {
-  if (!drive || !state.sessionId) {
-    alert(t('errReportDriveDisabled'));
-    return;
-  }
-  const btn = $('save-report-btn');
-  const original = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = t('statusSavingReport');
+// レポートは自動保存（保存ボタンは廃止）。入力のたびにデバウンス＋画面を離れる時にフラッシュ。
+let _reportSaveTimer = null;
+async function saveReportToDrive() {
+  if (!drive || !state.sessionId) return;
   try {
     await drive.saveReportData({
       sessionId: state.sessionId,
       reportData: serializeReportData(state.reportData),
     });
-    btn.textContent = t('statusSavedReport');
-    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
   } catch (e) {
-    console.error(e);
-    alert(t('errReportSaveFailedFmt').replace('{err}', e.message || e));
-    btn.textContent = original;
-    btn.disabled = false;
+    console.warn('[report] 自動保存に失敗（後で再試行）:', e);
   }
+}
+function scheduleReportSave() {
+  clearTimeout(_reportSaveTimer);
+  _reportSaveTimer = setTimeout(saveReportToDrive, 1500);
 }
 
 // 「ひと言メモをすっきり整える」ボタン。
@@ -3764,6 +3765,7 @@ function onStartReport() {
   renderReportCharacters();
   // 整形ボタンの状態を復元（保存セッションで整形済みなら「元に戻す」表示）
   setTidyButtonState(Object.keys(state.reportData.photoCommentsRaw || {}).length > 0);
+  updateChargenEntry(); // 条件クリア時のみ「なかまを 発見」ボタンを表示
   showStep('step-report');
 
   // ステップ表示後（display:none が外れた後）に textarea の高さを再計算する。
@@ -3997,6 +3999,7 @@ function bindReportInputs() {
     el.addEventListener('input', () => {
       const key = id.replace('report-', '');
       state.reportData[key] = el.value;
+      scheduleReportSave(); // 自動保存（デバウンス）
     });
   });
   // overview / afterword は内容に合わせて自動拡張
@@ -4429,7 +4432,25 @@ $('home-start').addEventListener('click', () => showStep('step-station'));
 $('home-history').addEventListener('click', openHistory);
 $('home-zukan').addEventListener('click', openZukan);
 $('home-grow').addEventListener('click', openGrowTeaser);
-$('home-btn').addEventListener('click', () => showStep('step-home'));
+// タイトル（テクタン）をホームへ戻るボタンにする
+{
+  const goHome = () => showStep('step-home');
+  const hh = $('header-home');
+  if (hh) {
+    hh.addEventListener('click', goHome);
+    hh.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goHome(); } });
+  }
+}
+// 進捗トレイル: 通過済み（done）のステップをタップすると、そこまで一気に戻れる（前進は不可）
+{
+  const trail = $('trail');
+  if (trail) trail.addEventListener('click', (e) => {
+    const node = e.target.closest('.trail-node');
+    if (!node || !node.classList.contains('done')) return; // done（現在より前）だけ戻れる
+    const step = node.dataset.step;
+    if (step) showStep(step);
+  });
+}
 $('home-logout').addEventListener('click', onLogout);
 
 // ===== 新機能の予告: 育てる（仮） =====
@@ -4724,7 +4745,6 @@ $('report-pdf-btn').addEventListener('click', onReportPdf);
 $('tidy-memos-btn').addEventListener('click', onTidyMemos);
 
 // ノートを Drive に保存
-$('save-report-btn').addEventListener('click', onSaveReportToDrive);
 
 // スコア＆ランキング
 $('submit-score-btn').addEventListener('click', openScoreModal);

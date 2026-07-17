@@ -16,7 +16,7 @@ import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, lo
 import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout, validateCredentials } from './utils/auth.js?v=106';
 import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
 import { initShell, updateShell } from './utils/shell.js?v=106';
-import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, buildGeneratedStory, generatedPersonality, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, setServerGenerated } from './utils/chargen.js?v=106';
+import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, buildGeneratedStory, generatedPersonality, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, setServerGenerated, driveThumbUrl } from './utils/chargen.js?v=106';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -883,11 +883,13 @@ function renderZukanGrid(collection) {
     const url = generatedImageUrl(rec);
     if (!url) return '';   // 画像もベース絵も無い壊れレコードは表示しない
     const rar = rarityById(rec.rarityId);
-    const style = rec.imageDataUrl ? '' : ` style="filter:${rec.colorFilter || 'none'}"`;
-    // 画像の読み込みに失敗した場合はカードごと隠す（壊れアイコンを出さない）
+    const style = (rec.imageDataUrl || rec.imageUrl) ? '' : ` style="filter:${rec.colorFilter || 'none'}"`;
+    const fb = rec.fileId ? escapeHtml(driveThumbUrl(rec.fileId)) : '';
+    // 画像が読めない時: フォールバックURL(thumbnail)へ切替→それも失敗ならimgだけ隠す。
+    // カード自体は隠さない（名前・レア度は必ず表示する）。referrerpolicy=no-referrer は Google画像の403回避。
     return `
       <div class="zukan-item zukan-generated zukan-clickable" data-gen-id="${escapeHtml(rec.genId || '')}" role="button">
-        <img src="${escapeHtml(url)}" alt=""${style} onerror="this.closest('.zukan-item').style.display='none'" />
+        <img src="${escapeHtml(url)}" alt=""${style} data-fb="${fb}" referrerpolicy="no-referrer" loading="lazy" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.dataset.fb='';}else{this.style.visibility='hidden';}" />
         <div class="zukan-name">${escapeHtml(rec.name || '')}</div>
         <div class="zukan-count">${'★'.repeat(rar.stars || 1)}</div>
       </div>`;
@@ -917,7 +919,7 @@ function showGeneratedDetail(genId) {
   detail.innerHTML = `
     <button class="zukan-detail-close" type="button" aria-label="close">✕</button>
     <div class="zukan-detail-body">
-      <img src="${escapeHtml(generatedImageUrl(rec))}" alt="" />
+      <img src="${escapeHtml(generatedImageUrl(rec))}" alt="" data-fb="${rec.fileId ? escapeHtml(driveThumbUrl(rec.fileId)) : ''}" referrerpolicy="no-referrer" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.dataset.fb='';}" />
       <div class="zukan-detail-text">
         <div class="zukan-detail-name">${escapeHtml(rec.name || '')} <span class="zukan-detail-rarity">${'★'.repeat(rar.stars || 1)}</span></div>
         <div class="zukan-detail-personality">${escapeHtml(generatedPersonality(rec, LANG))}</div>

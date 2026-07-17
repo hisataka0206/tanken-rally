@@ -398,10 +398,15 @@ export function setServerGenerated(list) {
     ? list.filter(r => r && r.genId && (r.imageDataUrl || r.fileId || r.baseCharId)).map(normalizeGenRec)
     : [];
 }
-// Drive のファイルIDから <img> 表示用のサムネイルURLを作る（base64同梱の代替＝軽量）。
+// Drive のファイルIDから <img> 表示用URLを作る（base64同梱の代替＝軽量）。
+// lh3（Googleの画像CDN・最終URLでリダイレクト無し＝埋め込みに強い）を優先。
 // ファイルが「リンクを知っている全員が閲覧可」であれば表示できる。
 function driveImageUrl(fileId) {
-  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w512` : null;
+  return fileId ? `https://lh3.googleusercontent.com/d/${fileId}=w512` : null;
+}
+// フォールバック用の別形式（lh3が失敗したとき用）。
+export function driveThumbUrl(fileId) {
+  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w512` : '';
 }
 function normalizeGenRec(r) {
   return {
@@ -418,7 +423,8 @@ function normalizeGenRec(r) {
     baseCharId: r.baseCharId || null,
     colorFilter: r.colorFilter || 'none',
     imageDataUrl: r.imageDataUrl || null,        // 実API画像(base64)があれば優先
-    imageUrl: driveImageUrl(r.fileId),           // 無ければ Drive のサムネイルURL
+    imageUrl: driveImageUrl(r.fileId),           // 無ければ Drive画像URL(lh3)
+    fileId: r.fileId || null,                    // フォールバックURL構築用
     createdAt: r.createdAt || '',
     fromServer: true,
   };

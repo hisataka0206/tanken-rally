@@ -390,12 +390,49 @@ export function nameCandidates(station, vocab, lang = 'ja') {
 const GEN_STORE_KEY = 'tanken_generated_v1';
 function genStoreKey() { return GEN_STORE_KEY + '__' + getExplorerId(); }
 
+// サーバ（Drive/Sheets）から取得した生成キャラをメモリ保持する。
+// localStorage には積まない（base64画像は大きく、数体で5MB上限を超えるため）。
+let _serverGenerated = [];
+export function setServerGenerated(list) {
+  _serverGenerated = Array.isArray(list)
+    ? list.filter(r => r && r.genId && (r.imageDataUrl || r.baseCharId)).map(normalizeGenRec)
+    : [];
+}
+function normalizeGenRec(r) {
+  return {
+    genId: r.genId,
+    name: r.name || '',
+    station: r.station || '',
+    spots: r.spots || [],
+    spotCount: (r.spotCount != null) ? r.spotCount : ((r.spots || []).length || 0),
+    distanceKm: r.distanceKm || 0,
+    rarityId: r.rarityId || 'common',
+    bodyId: r.bodyId || null,
+    impressionId: r.impressionId || null,
+    vocab: r.vocab || null,
+    baseCharId: r.baseCharId || null,
+    colorFilter: r.colorFilter || 'none',
+    imageDataUrl: r.imageDataUrl || null,
+    createdAt: r.createdAt || '',
+    fromServer: true,
+  };
+}
+
 export function loadGeneratedCharacters() {
+  const byId = {};
+  // 1) サーバ分（同一ユーザーの全生成キャラ・メモリ）を土台に置く
+  _serverGenerated.forEach(r => { byId[r.genId] = { ...r }; });
+  // 2) ローカル分（この端末で作った最近のもの）を重ねる。画像はローカル優先、無ければサーバのbase64。
   try {
     const obj = JSON.parse(localStorage.getItem(genStoreKey()) || '{}') || {};
-    // 新しい順の配列で返す
-    return Object.values(obj).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-  } catch (_) { return []; }
+    Object.values(obj).forEach(r => {
+      if (!r || !r.genId) return;
+      const s = byId[r.genId];
+      byId[r.genId] = { ...(s || {}), ...r, imageDataUrl: r.imageDataUrl || (s && s.imageDataUrl) || null };
+    });
+  } catch (_) { /* localStorage 読めなくてもサーバ分は表示 */ }
+  // 新しい順の配列で返す
+  return Object.values(byId).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 }
 
 /** 生成キャラ1体を保存して def を返す */
@@ -425,7 +462,7 @@ export function saveGeneratedCharacter(def) {
 
 // 生成ストアを localStorage に保存。容量オーバー時は「今回のキャラ(keepId)以外」の
 // 古い画像(base64)から順に退避（imageDataUrl=null, imageEvicted=true）して空きを作りリトライする。
-// 退避した実API画像はサーバ(Drive)にもあるため、次に図鑑を開いた時に mergeServerGenerated が復元する。
+// 退避した実API画像はサーバ(Drive)にもあるため、図鑑を開いた時に setServerGenerated＋loadGeneratedCharacters が供給する。
 function persistGenStore(obj, keepId) {
   const key = genStoreKey();
   try { localStorage.setItem(key, JSON.stringify(obj)); return true; } catch (_) {}

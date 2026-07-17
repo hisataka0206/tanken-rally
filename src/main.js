@@ -16,7 +16,7 @@ import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, lo
 import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout, validateCredentials } from './utils/auth.js?v=106';
 import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
 import { initShell, updateShell } from './utils/shell.js?v=106';
-import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, buildGeneratedStory, generatedPersonality, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, mergeServerGenerated } from './utils/chargen.js?v=106';
+import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, buildGeneratedStory, generatedPersonality, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, setServerGenerated } from './utils/chargen.js?v=106';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -995,7 +995,8 @@ async function openZukan() {
       drive.getGeneratedCharacters({ userId: uid }),
     ]);
     if (genRes.status === 'fulfilled') {
-      try { mergeServerGenerated(genRes.value); } catch (_) {}
+      // サーバの全生成キャラをメモリに保持（localStorageには積まない＝容量に依存せず全部表示）
+      try { setServerGenerated(genRes.value); } catch (_) {}
     } else {
       console.warn('[zukan] 生成キャラのサーバ取得失敗（ローカル表示を継続）:', genRes.reason);
     }

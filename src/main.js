@@ -189,9 +189,12 @@ function maybeShowHistoricHint() {
   const key = CONFIG.GOOGLE_MAPS_API_KEY;
   const sv = `https://maps.googleapis.com/maps/api/streetview?size=480x320&location=${spot.lat},${spot.lng}` +
     `&fov=80&pitch=0&radius=60&source=outdoor&key=${key}`;
+  // SVが無い史跡地点向けフォールバック: その場所のStatic Map（赤マーカー）。
+  const fb = `https://maps.googleapis.com/maps/api/staticmap?size=480x320&scale=2&zoom=18` +
+    `&center=${spot.lat},${spot.lng}&markers=color:red%7C${spot.lat},${spot.lng}&maptype=roadmap&key=${key}`;
   el.innerHTML =
     `<div class="stage-hint-label">🔍 ${escapeHtml(t('whereHistoricHint', 'ヒント：目的地の ようす'))}</div>` +
-    `<img class="stage-hint-img" src="${escapeHtml(sv)}" alt="" referrerpolicy="no-referrer-when-downgrade" onerror="this.style.display='none'" />`;
+    `<img class="stage-hint-img" src="${escapeHtml(sv)}" alt="" data-fb="${escapeHtml(fb)}" referrerpolicy="no-referrer-when-downgrade" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.dataset.fb='';}else{this.style.display='none';}" />`;
   el.classList.remove('hidden');
   showToast(t('whereHistoricHintToast', '🔍 ヒントを 入れたよ！'));
 }
@@ -1708,14 +1711,14 @@ const LOADING_TIPS = {
     '💡 とおくの スポットまで あるくほど、レアな なかまに 出会いやすいよ！',
     '💡 たくさん あるいて 遠くへ 行くと、でんせつ（レジェンド）の なかまに 会えるかも！',
     // ②生成の条件・多様性
-    '💡 じゅうぶん あるいて しゃしんを とると、あたらしい なかまを 作れるよ。',
+    '💡 じゅうぶん あるいて しゃしんを とると、あたらしい なかまを 発見できるよ。',
     '💡 おなじ 駅でも、まわりかたで ちがう なかまが 生まれるよ。',
     // ③スコアの上げ方
     '💡 スポットを たくさん まわって しゃしんを とると、スコアが アップ！',
     '💡 計画どおりに スポットを まわると、スコアが 高くなるよ。',
     '💡 「いまどこ？」を つかいすぎると スコアが へっちゃう。ここぞ！の ときに つかおう。',
     // ④図鑑・収集・所有感
-    '💡 図鑑では、作った なかまの なまえや ものがたりが 読めるよ。',
+    '💡 図鑑では、見つけた なかまの なまえや ものがたりが 読めるよ。',
     '💡 生まれる なかまは 世界に ひとつだけ。きみだけの なかまだよ。',
     '💡 なかまを あつめて、じぶんだけの 図鑑を そだてよう！',
     // ⑤地名の由来＝学び
@@ -1744,6 +1747,23 @@ const LOADING_TIPS = {
     '💡 Continue a past adventure from "History".',
     '💡 Walking together with family or friends makes it even more fun!',
   ],
+  elementary: [
+    '💡 とおくの スポットまで あるくほど、レアな なかまに 出会（であ）いやすいよ！',
+    '💡 たくさん あるいて 遠（とお）くへ 行（い）くと、でんせつ（レジェンド）の なかまに 会（あ）えるかも！',
+    '💡 じゅうぶん あるいて しゃしんを とると、あたらしい なかまを 発見（はっけん）できるよ。',
+    '💡 おなじ 駅（えき）でも、まわりかたで ちがう なかまが 生（う）まれるよ。',
+    '💡 スポットを たくさん まわって しゃしんを とると、スコアが アップ！',
+    '💡 計画（けいかく）どおりに スポットを まわると、スコアが 高（たか）くなるよ。',
+    '💡 「いまどこ？」を つかいすぎると スコアが へっちゃう。ここぞ！の ときに つかおう。',
+    '💡 図鑑（ずかん）では、見（み）つけた なかまの なまえや ものがたりが 読（よ）めるよ。',
+    '💡 生（う）まれる なかまは 世界（せかい）に ひとつだけ。きみだけの なかまだよ。',
+    '💡 なかまを あつめて、じぶんだけの 図鑑（ずかん）を そだてよう！',
+    '💡 「なぜ この なまえ？」を 読（よ）むと、街（まち）の ひみつが わかるよ。',
+    '💡 なかまを「そだてる」きのうは いま 開発中（かいはつちゅう）。おたのしみに！',
+    '💡 いろんな 駅（えき）で たんけんすると、いろんな なかまが 集（あつ）まるよ！',
+    '💡 まえの たんけんは「りれき」から つづきが できるよ。',
+    '💡 おうちの人（ひと）や 友（とも）だちと いっしょに あるくと、もっと たのしいよ！',
+  ],
 };
 let _loadingTipTimer = null;
 let _loadingTipIdx = -1;
@@ -1751,7 +1771,7 @@ let _loadingTipIdx = -1;
 function _renderLoadingTip() {
   const tipEl = $('loading-overlay-tip');
   if (!tipEl) return;
-  const tips = LOADING_TIPS[LANG === 'en' ? 'en' : 'ja'];
+  const tips = LOADING_TIPS[LANG] || LOADING_TIPS.ja; // elementary/ja/en に対応
   if (!tips || !tips.length) return;
   // 直前と違うヒントをランダムに選ぶ
   let i = Math.floor(Math.random() * tips.length);

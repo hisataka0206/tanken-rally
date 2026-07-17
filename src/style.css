@@ -2907,7 +2907,9 @@ body.ar-open { overflow: hidden; }
 }
 #step-route .route-stats strong { font-size: 15px; }
 #step-route #route-spots { order: 3; margin-top: 8px; }
-#step-route .step-actions { order: 4; }
+/* SV(ストリートビュー)は概要の後ろ。order 未指定だと 0 になり最上部に来てしまうため明示する。 */
+#step-route #route-html-view { order: 4; }
+#step-route .step-actions { order: 5; }
 
 /* --- 下部固定CTA（sticky：スクロールしても親指ゾーンに常駐） --- */
 .step.active .step-actions {

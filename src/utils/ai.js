@@ -190,7 +190,7 @@ Rules:
 2. Use specific facts (people, events, years) ONLY if they appear in Material 2. NEVER invent specific names, dates, or events. If Material 2 has little, color the character with the place's TYPE and mood only (e.g. temple = old, quiet, prayer).
 3. Kid-friendly. Plain words, 3-4 short sentences, about 200-280 characters.
 4. No meta/behind-the-scenes wording ("rises as", "parallel world", etc.). Never explain from outside the story.
-5. Start exactly with: "Born on ${adventure || 'an adventure around town'}, a friend shaped like ${d.animal || 'a little creature'}."
+5. Start exactly with: "A friend shaped like ${d.animal || 'a little creature'}, whom you met on ${adventure || 'an adventure around town'}." (Never say the friend was "born" or "created" — you MEET/FIND it.)
 6. End with one sentence about what the character does for the person who walked with it.
 Output: the blurb text only (no headings or notes).`;
     userPrompt = `Material 1 (character):
@@ -211,7 +211,7 @@ Material 2 (the spot):
 2. 具体的な事実（人名・出来事・年号）は、素材②に書かれている時だけ使う。**書かれていない具体的な事実は絶対に創作しない**。素材②が乏しい時は、場所の種類・雰囲気（例：お寺＝古い・静か・祈り）だけを、ふわっと性格に反映する。
 3. やさしい言葉で、3〜4文、100〜130字程度。
 4. 「〜として立ち上がる」「パラレルワールド」等のメタ表現は禁止。物語の外から説明しない。
-5. 冒頭は必ず「${adventure || 'まちをあるいた探検'}の中で生まれた、${d.animal || 'ふしぎな生きもの'}の仲間。」から始める。
+5. 冒頭は必ず「${adventure || 'まちをあるいた探検'}で であえた、${d.animal || 'ふしぎな生きもの'}の仲間。」から始める。※「生まれた」「作られた」等は使わない（キャラは"生まれる"のではなく"であう／みつける"）。
 6. 最後は、いっしょに歩いた人にキャラが何かしてくれる一文で締める。
 出力：説明文の本文のみ（見出しや注釈は不要）。`;
     userPrompt = `素材① キャラの探検データ

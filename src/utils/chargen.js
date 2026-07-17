@@ -433,6 +433,22 @@ function normalizeGenRec(r) {
   };
 }
 
+// 生成キャラの「作成時刻(ms)」を、形式ゆらぎに強い形で求める。
+//   1) createdAt を Date.parse（ISO も "Fri Jul 17 2026…" も両対応）
+//   2) 壊れている場合は genId 先頭に埋め込んだ Date.now()(base36) から復元
+//   3) それも無理なら 0（＝最古扱い）
+export function genRecTimeMs(rec) {
+  if (!rec) return 0;
+  const t = Date.parse(rec.createdAt);
+  if (!isNaN(t)) return t;
+  const m = String(rec.genId || '').match(/^gen_([0-9a-z]{6,12})/i);
+  if (m) {
+    const ms = parseInt(m[1].slice(0, 8), 36);
+    if (!isNaN(ms) && ms > 1e12 && ms < 4e12) return ms; // 2001〜2096年ごろの妥当域
+  }
+  return 0;
+}
+
 export function loadGeneratedCharacters() {
   const byId = {};
   // 1) サーバ分（同一ユーザーの全生成キャラ・メモリ）を土台に置く
@@ -446,8 +462,8 @@ export function loadGeneratedCharacters() {
       byId[r.genId] = { ...(s || {}), ...r, imageDataUrl: r.imageDataUrl || (s && s.imageDataUrl) || null };
     });
   } catch (_) { /* localStorage 読めなくてもサーバ分は表示 */ }
-  // 新しい順の配列で返す
-  return Object.values(byId).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  // 新しい順の配列で返す（形式ゆらぎに強い数値タイムスタンプで比較）
+  return Object.values(byId).sort((a, b) => genRecTimeMs(b) - genRecTimeMs(a));
 }
 
 /** 生成キャラ1体を保存して def を返す */
@@ -527,7 +543,7 @@ export function buildGeneratedStory(rec, lang = 'ja') {
     const rareLine = legendary
       ? 'It only shows itself to explorers who have walked a very long way.'
       : 'The more you walk together, the more it opens up its heart.';
-    return `Born during an adventure that wandered ${spotN} spots and walked ${km} km around ${st}, this is a companion shaped like ${motif}. ${atmoLine}${rareLine}`;
+    return `A companion shaped like ${motif}, whom you met on an adventure that wandered ${spotN} spots and walked ${km} km around ${st}. ${atmoLine}${rareLine}`;
   }
 
   const st = String(r.station || '').replace(/駅$/, '') || 'どこかの町';
@@ -535,7 +551,7 @@ export function buildGeneratedStory(rec, lang = 'ja') {
   const tanken = fu ? '探検（たんけん）' : '探検';
   const machi  = fu ? '町（まち）' : '町';
   const aruita = fu ? '歩（ある）いた' : '歩いた';
-  const umareta = fu ? '生（う）まれた' : '生まれた';
+  const deaeta = 'であえた'; // ※「生まれた」は使わない（キャラは"であう／みつける"／ValueProposition準拠）
   const nakama = fu ? '仲間（なかま）' : '仲間';
   const sugata = fu ? '姿（すがた）' : '姿';
   const tooku  = fu ? '遠（とお）く' : '遠く';
@@ -544,7 +560,7 @@ export function buildGeneratedStory(rec, lang = 'ja') {
   const rareLine = legendary
     ? `その${sugata}を見せるのは、うんと${tooku}まで${aruita}探検家の前だけ。`
     : `いっしょに${aruita}ぶんだけ、すこしずつ${kokoro}をひらいてくれる。`;
-  return `${st}の${machi}を ${spotN}か所 めぐって、${km}km ${aruita}${tanken}の中で ${umareta}、${motif}の${nakama}。${atmoLine}${rareLine}`;
+  return `${st}の${machi}を ${spotN}か所 めぐって、${km}km ${aruita}${tanken}で ${deaeta}、${motif}の${nakama}。${atmoLine}${rareLine}`;
 }
 
 /** サーバ（GAS）から取得した生成キャラ一覧をローカルストアへマージ（#10 端末間同期）。

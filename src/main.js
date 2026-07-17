@@ -16,7 +16,7 @@ import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, lo
 import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout, validateCredentials } from './utils/auth.js?v=106';
 import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
 import { initShell, updateShell } from './utils/shell.js?v=106';
-import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, generatedImageUrl, buildGeneratedStory, generatedPersonality, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, setServerGenerated, driveThumbUrl } from './utils/chargen.js?v=106';
+import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, genRecTimeMs, generatedImageUrl, buildGeneratedStory, generatedPersonality, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, setServerGenerated, driveThumbUrl } from './utils/chargen.js?v=106';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -900,9 +900,10 @@ function sortGeneratedRecs(recs) {
     arr.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ja'));
   } else if (_genSort === 'rarity') {
     const stars = r => (rarityById(r.rarityId).stars || 1);
-    arr.sort((a, b) => (stars(b) - stars(a)) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-  } else { // date（新しい順）
-    arr.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    // レア度が同じなら新しい順（数値タイムスタンプで比較）
+    arr.sort((a, b) => (stars(b) - stars(a)) || (genRecTimeMs(b) - genRecTimeMs(a)));
+  } else { // date（新しい順）＝作成時刻の数値で比較（ISO/日付文字列の混在に強い）
+    arr.sort((a, b) => genRecTimeMs(b) - genRecTimeMs(a));
   }
   if (_genRev) arr.reverse();
   return arr;

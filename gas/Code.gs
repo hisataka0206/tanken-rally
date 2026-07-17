@@ -1145,7 +1145,8 @@ function getGeneratedCharacters(body) {
         spotCount: Number(rows[i][col('spotCount')]) || 0,
         fileId: fileId,                 // クライアントの高解像度フォールバック用に残す
         imageDataUrl: imageDataUrl,     // サムネイルの base64（主表示）
-        createdAt: String(rows[i][col('createdAt')] || ''),
+        // createdAt は Sheets が日付型に自動変換していることがあるので ISO 文字列へ正規化して返す
+        createdAt: ((function (v) { return (v instanceof Date) ? v.toISOString() : String(v || ''); })(rows[i][col('createdAt')])),
       });
     }
     return { ok: true, characters: out };

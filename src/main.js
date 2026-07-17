@@ -1778,7 +1778,7 @@ function _renderLoadingTip() {
   if (tips.length > 1 && i === _loadingTipIdx) i = (i + 1) % tips.length;
   _loadingTipIdx = i;
   tipEl.classList.add('fading');
-  setTimeout(() => { tipEl.textContent = tips[i]; tipEl.classList.remove('fading'); }, 200);
+  setTimeout(() => { tipEl.innerHTML = furiganize(tips[i]) || tips[i]; tipEl.classList.remove('fading'); }, 200);
 }
 
 // 全画面ローディング（重い遷移中に表示）
@@ -1786,7 +1786,7 @@ function showLoadingOverlay(msg) {
   const el = $('loading-overlay');
   if (!el) return;
   const m = $('loading-overlay-msg');
-  if (m && msg) m.textContent = msg;
+  if (m && msg) m.innerHTML = furiganize(msg) || msg;
   el.classList.remove('hidden');
   // ヒントを即表示＋約2.8秒ごとにランダム切替
   _loadingTipIdx = -1;

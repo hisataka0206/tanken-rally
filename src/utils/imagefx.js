@@ -76,6 +76,34 @@ export function cutoutBackground(dataUrl, opts = {}) {
             if (y < h - 1) stack.push(idx + w);
           }
 
+          // ★B: 本体から分離した小さな島（キラキラ・粒子・ちぎれた装飾）を除去して"ごちゃつき"を減らす。
+          //   残った不透明画素を連結成分に分け、最大の塊の一定割合未満の島を透過にする。
+          if (opts.removeIslands !== false) {
+            const keepRatio = Number.isFinite(opts.islandKeepRatio) ? opts.islandKeepRatio : 0.10;
+            const seen2 = new Uint8Array(w * h);
+            const opaque = (i) => d[i * 4 + 3] > 0;
+            const comps = [];
+            const st2 = [];
+            for (let i = 0; i < w * h; i++) {
+              if (seen2[i] || !opaque(i)) continue;
+              st2.length = 0; st2.push(i); seen2[i] = 1; const px = [i];
+              while (st2.length) {
+                const idx = st2.pop();
+                const x = idx % w, y = (idx / w) | 0;
+                if (x > 0 && !seen2[idx - 1] && opaque(idx - 1)) { seen2[idx - 1] = 1; st2.push(idx - 1); px.push(idx - 1); }
+                if (x < w - 1 && !seen2[idx + 1] && opaque(idx + 1)) { seen2[idx + 1] = 1; st2.push(idx + 1); px.push(idx + 1); }
+                if (y > 0 && !seen2[idx - w] && opaque(idx - w)) { seen2[idx - w] = 1; st2.push(idx - w); px.push(idx - w); }
+                if (y < h - 1 && !seen2[idx + w] && opaque(idx + w)) { seen2[idx + w] = 1; st2.push(idx + w); px.push(idx + w); }
+              }
+              comps.push(px);
+            }
+            if (comps.length > 1) {
+              let maxA = 0; for (const c of comps) if (c.length > maxA) maxA = c.length;
+              const keep = Math.max(1, maxA * keepRatio);
+              for (const c of comps) { if (c.length < keep) { for (const idx of c) d[idx * 4 + 3] = 0; } }
+            }
+          }
+
           ctx.putImageData(id, 0, 0);
           resolve({ url: cv.toDataURL('image/png'), removedRatio: removed / (w * h) });
         } catch (_) { fail(); }

@@ -105,13 +105,10 @@ export function buildPrompt({ station, spots, distanceKm, vocab, bodyHint }) {
   const rarity = rarityForDistance(distanceKm);
   const v = vocab || {};
   const spotThemes = (spots || []).slice(0, 5).map(sanitizeTheme).filter(Boolean).join(', ');
-  // レア度連動エフェクト（共有プロンプト議論の effect 層。Gemini 自然文版）
-  const effectByRarity = {
-    common: 'Keep it plain and clean with no extra effects.',
-    rare:   'Add a few small floating accent shapes around the character.',
-    epic:   'Add floating accent shapes and soft sparkles around the character.',
-    legend: 'Add lively floating accent shapes, glowing sparkles and a subtle radiant aura.',
-  };
+  // ★"ごちゃつき"対策（実測: ポケモンは浮遊物≈1、AIは≈8）。以前はここでレア度ごとに
+  //   「floating accent shapes / sparkles / aura」を足しており、それ自体が散らかりの主因だった。
+  //   → キラキラ・浮遊物の追加は撤去。格の差は「キャラ本体の作り込み（シルエット）」で出す。
+  //   ※ negation backfire を避けるため "no sparkles" とは書かず、望む状態を肯定形で言い切る。
   // ★レア度ごとに「シルエットの複雑さ」を段階化する（Gen1公式アート151枚の実測に基づく）。
   //   実測: 格が上がるほど 輪郭複雑度↑（1.5→3.2）／ソリディティ↓（0.81→0.54）／非対称↑（0.70→0.38）。
   //   ＝ポケモンの"格"はシルエット（形）で作られている。色数ではない。ここを生成に効かせる。
@@ -163,8 +160,10 @@ export function buildPrompt({ station, spots, distanceKm, vocab, bodyHint }) {
     // === 旅のモチーフ ===
     station ? `Gently inspired by the area around ${sanitizeTheme(station)} station.` : '',
     spotThemes ? `Subtle motifs from: ${spotThemes}.` : '',
-    // === レア度＝格・エフェクト ===
-    `Rarity: ${rarity.id}. ${effectByRarity[rarity.id] || effectByRarity.common} Higher rarity looks more elaborate and radiant.`,
+    // === レア度＝格（エフェクトではなくキャラ本体の作り込みで表す）===
+    `Rarity: ${rarity.id}. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects.`,
+    // 単一被写体を強く指定＋大きな平坦色面（"間"）を保つ＝ごちゃつきを抑える（肯定形のみ）。
+    'The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it.',
     // === 最小限の否定（Gemini は別枠ネガティブ非対応）===
     // ここでも UI/editor/Photoshop/toolbar/checkerboard 等の語は書かない（書くと逆に描かれるため）。
     // 望む状態を肯定形で言い切り、避けたいのは画風レベル（写実・3D）と構図（複数体）だけに絞る。

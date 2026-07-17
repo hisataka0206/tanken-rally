@@ -14,3 +14,9 @@ dist/
 # ポケモン分析用にDLしたスプライト（重い・ローカルのみ。ツールと役割マップは tools/ にコミット）
 gen1/
 gen1_metrics.csv
+pokemon_all/
+pokemon_all_metrics.csv
+
+# Python 実行キャッシュ（tools/ のスクリプト実行で生成）
+__pycache__/
+*.pyc

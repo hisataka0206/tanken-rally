@@ -246,6 +246,12 @@ export class DriveClient {
     if (!data || !data.ok) throw new Error((data && data.error) || 'getGeneratedCharacters failed');
     return data.characters || [];
   }
+  // 生成キャラ画像1体の本体（base64 dataURL）を取得。図鑑で1体ずつ遅延読み込みに使う。
+  async getGeneratedImage({ fileId, genId }) {
+    const data = await this._post({ action: 'getGeneratedImage', fileId, genId });
+    if (!data || !data.ok) throw new Error((data && data.error) || 'getGeneratedImage failed');
+    return data.imageDataUrl || '';
+  }
 
   // OpenAI プロキシ（キーは GAS の Script Property OPENAI_API_KEY・ブラウザ非露出）
   async openaiChat(payload) {

@@ -880,16 +880,16 @@ function renderZukanGrid(collection) {
   const genRecs = loadGeneratedCharacters();
   let genHtml = '';
   const genCards = genRecs.map(rec => {
-    const url = generatedImageUrl(rec);
-    if (!url) return '';   // 画像もベース絵も無い壊れレコードは表示しない
+    // ローカルにbase64があればそれを表示。無ければ fileId で Drive本体を遅延取得（下の lazyLoadGeneratedImages）。
+    const needsServer = !rec.imageDataUrl && !!rec.fileId;
+    const url = needsServer ? TRANSPARENT_PX : generatedImageUrl(rec);
+    if (!url) return '';   // 画像もベース絵も fileId も無い壊れレコードは表示しない
     const rar = rarityById(rec.rarityId);
-    const style = (rec.imageDataUrl || rec.imageUrl) ? '' : ` style="filter:${rec.colorFilter || 'none'}"`;
-    const fb = rec.fileId ? escapeHtml(driveThumbUrl(rec.fileId)) : '';
-    // 画像が読めない時: フォールバックURL(thumbnail)へ切替→それも失敗ならimgだけ隠す。
-    // カード自体は隠さない（名前・レア度は必ず表示する）。referrerpolicy=no-referrer は Google画像の403回避。
+    const style = (rec.imageDataUrl || needsServer) ? '' : ` style="filter:${rec.colorFilter || 'none'}"`;
+    const fid = needsServer ? escapeHtml(rec.fileId) : '';
     return `
-      <div class="zukan-item zukan-generated zukan-clickable" data-gen-id="${escapeHtml(rec.genId || '')}" role="button">
-        <img src="${escapeHtml(url)}" alt=""${style} data-fb="${fb}" referrerpolicy="no-referrer" loading="lazy" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.dataset.fb='';}else{this.style.visibility='hidden';}" />
+      <div class="zukan-item zukan-generated zukan-clickable" data-gen-id="${escapeHtml(rec.genId || '')}" data-file-id="${fid}" role="button">
+        <img src="${escapeHtml(url)}" alt=""${style} />
         <div class="zukan-name">${escapeHtml(rec.name || '')}</div>
         <div class="zukan-count">${'★'.repeat(rar.stars || 1)}</div>
       </div>`;
@@ -905,6 +905,29 @@ function renderZukanGrid(collection) {
   grid.querySelectorAll('.zukan-clickable[data-gen-id]').forEach(el => {
     el.addEventListener('click', () => showGeneratedDetail(el.dataset.genId));
   });
+  lazyLoadGeneratedImages(grid); // サーバ分の画像を fileId ごとに Drive本体base64で差し込む
+}
+
+// 1x1 透明PNG（サーバ画像の読み込み前プレースホルダ）
+const TRANSPARENT_PX = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+const _genImgCache = new Map(); // fileId -> dataURL（同一セッション内で再取得しない）
+
+// data-file-id を持つ生成カードに、Drive本体画像(base64)を遅延取得して差し込む。
+// getBlob() は必ず中身を返すので確実（公開URL・サムネイル生成に依存しない）。
+async function lazyLoadGeneratedImages(root) {
+  if (!drive) return;
+  const cards = [...(root || document).querySelectorAll('.zukan-generated[data-file-id]')]
+    .filter(c => c.dataset.fileId);
+  await Promise.allSettled(cards.map(async (card) => {
+    const fileId = card.dataset.fileId;
+    const img = card.querySelector('img');
+    if (!img) return;
+    if (_genImgCache.has(fileId)) { img.src = _genImgCache.get(fileId); return; }
+    try {
+      const dataUrl = await drive.getGeneratedImage({ fileId });
+      if (dataUrl) { _genImgCache.set(fileId, dataUrl); img.src = dataUrl; }
+    } catch (e) { console.warn('[zukan] 生成画像の取得失敗 fileId=' + fileId, e); }
+  }));
 }
 
 // 生成キャラの詳細（つくったなかま）: 性格＋ストーリー。作成者は全文が読める。
@@ -916,10 +939,13 @@ function showGeneratedDetail(genId) {
   if (!rec || !detail) return;
   const rar = rarityById(rec.rarityId);
   const story = buildGeneratedStory(rec, LANG);
+  // 画像: ローカルbase64 or キャッシュ済みの本体画像があればそれ、無ければ透明→下で遅延取得
+  const cached = rec.fileId ? _genImgCache.get(rec.fileId) : null;
+  const detailSrc = rec.imageDataUrl || cached || (rec.fileId ? TRANSPARENT_PX : generatedImageUrl(rec));
   detail.innerHTML = `
     <button class="zukan-detail-close" type="button" aria-label="close">✕</button>
     <div class="zukan-detail-body">
-      <img src="${escapeHtml(generatedImageUrl(rec))}" alt="" data-fb="${rec.fileId ? escapeHtml(driveThumbUrl(rec.fileId)) : ''}" referrerpolicy="no-referrer" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.dataset.fb='';}" />
+      <img id="gen-detail-img" src="${escapeHtml(detailSrc)}" alt="" />
       <div class="zukan-detail-text">
         <div class="zukan-detail-name">${escapeHtml(rec.name || '')} <span class="zukan-detail-rarity">${'★'.repeat(rar.stars || 1)}</span></div>
         <div class="zukan-detail-personality">${escapeHtml(generatedPersonality(rec, LANG))}</div>
@@ -932,6 +958,15 @@ function showGeneratedDetail(genId) {
     detail.classList.add('hidden');
     detail.innerHTML = '';
   });
+  // 本体画像が未取得なら Drive から取得して差し込む
+  if (!rec.imageDataUrl && !cached && rec.fileId && drive) {
+    drive.getGeneratedImage({ fileId: rec.fileId }).then(dataUrl => {
+      if (!dataUrl) return;
+      _genImgCache.set(rec.fileId, dataUrl);
+      const img = detail.querySelector('#gen-detail-img');
+      if (img) img.src = dataUrl;
+    }).catch(() => {});
+  }
 }
 
 // 捕獲済みキャラの詳細：性格＋（捕獲回数で段階解放される）ストーリー＋バリエ収集枠。

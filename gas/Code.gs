@@ -155,6 +155,9 @@ function doPost(e) {
     if (action === 'getGeneratedCharacters') {
       return respond(headers, getGeneratedCharacters(body));
     }
+    if (action === 'getGeneratedImage') {
+      return respond(headers, getGeneratedImage(body));
+    }
     if (action === 'openaiChat') {
       return respond(headers, openaiChat(body));
     }
@@ -1039,6 +1042,23 @@ function saveGeneratedCharacter(body) {
       String((body && body.createdAt) || new Date().toISOString()),
     ]);
     return { ok: true, fileId, fileUrl };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
+/** 生成キャラ画像1体の本体を base64 dataURL で返す（fileId か genId で指定）。
+ *  getBlob() は必ずファイルの中身を返すので確実。クライアントは図鑑表示時に1体ずつ遅延取得する。 */
+function getGeneratedImage(body) {
+  try {
+    let fileId = String((body && body.fileId) || '');
+    const genId = String((body && body.genId) || '');
+    if (!fileId && genId) {
+      try { const it = getGeneratedFolder_().getFilesByName(genId + '.png'); if (it.hasNext()) fileId = it.next().getId(); } catch (_) {}
+    }
+    if (!fileId) return { ok: false, error: 'fileId または genId が必要です' };
+    const blob = DriveApp.getFileById(fileId).getBlob();
+    return { ok: true, imageDataUrl: 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes()) };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
   }

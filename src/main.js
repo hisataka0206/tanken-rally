@@ -865,9 +865,26 @@ function revealHintText(baseCount) {
     .replace('{left}', String(left)).replace('{pct}', String(pct));
 }
 
+// 「みつけた なかま」の並び順（date=新しい順[既定] / name=名前 / rarity=レア度）。端末に保存。
+let _genSort = (() => { try { return localStorage.getItem('tanken_gen_sort') || 'date'; } catch (_) { return 'date'; } })();
+let _lastZukanCollection = null;
+function sortGeneratedRecs(recs) {
+  const arr = [...recs];
+  if (_genSort === 'name') {
+    arr.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ja'));
+  } else if (_genSort === 'rarity') {
+    const stars = r => (rarityById(r.rarityId).stars || 1);
+    arr.sort((a, b) => (stars(b) - stars(a)) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  } else { // date（新しい順）
+    arr.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  }
+  return arr;
+}
+
 function renderZukanGrid(collection) {
   const grid = $('zukan-grid');
   if (!grid) return;
+  _lastZukanCollection = collection; // ソート切替時の再描画用
   _zukanCollection = effectiveCollection(collection);  // adminの「全部プレビュー」対応
 
   const { owned, total } = zukanTotals(_zukanCollection);
@@ -899,8 +916,8 @@ function renderZukanGrid(collection) {
       </div>`;
   }).join('');
 
-  // つくったなかま（キャラ自動生成）: 専用ストアから追記
-  const genRecs = loadGeneratedCharacters();
+  // みつけた なかま（キャラ生成）: 専用ストアから追記。選択中の並び順でソート。
+  const genRecs = sortGeneratedRecs(loadGeneratedCharacters());
   let genHtml = '';
   const genCards = genRecs.map(rec => {
     // 画像を持たないレコード（ローカルbase64もベース絵も無い）は、genId でサーバから本体画像を取得する。
@@ -920,7 +937,13 @@ function renderZukanGrid(collection) {
       </div>`;
   }).filter(Boolean);
   if (genCards.length) {
-    genHtml = `<div class="zukan-section-label">${escapeHtml(t('chargenZukanSection', '🌟 つくった なかま'))}</div>` + genCards.join('');
+    const sortSel = `<select id="gen-sort" class="gen-sort" aria-label="ならびかえ">` +
+      `<option value="date">${escapeHtml(t('genSortDate', '新しい順'))}</option>` +
+      `<option value="name">${escapeHtml(t('genSortName', '名前順'))}</option>` +
+      `<option value="rarity">${escapeHtml(t('genSortRarity', 'レア度順'))}</option>` +
+      `</select>`;
+    genHtml = `<div class="zukan-section-label zukan-section-gen">` +
+      `<span>${escapeHtml(t('chargenZukanSection', '🌟 みつけた なかま'))}</span>${sortSel}</div>` + genCards.join('');
   }
 
   grid.innerHTML = charsHtml + genHtml;
@@ -930,6 +953,16 @@ function renderZukanGrid(collection) {
   grid.querySelectorAll('.zukan-clickable[data-gen-id]').forEach(el => {
     el.addEventListener('click', () => showGeneratedDetail(el.dataset.genId));
   });
+  // 並び替えセレクタ
+  const sortEl = $('gen-sort');
+  if (sortEl) {
+    sortEl.value = _genSort;
+    sortEl.addEventListener('change', () => {
+      _genSort = sortEl.value;
+      try { localStorage.setItem('tanken_gen_sort', _genSort); } catch (_) {}
+      renderZukanGrid(_lastZukanCollection); // 画像はキャッシュ済みなので即時
+    });
+  }
   lazyLoadGeneratedImages(grid); // サーバ分の画像を fileId ごとに Drive本体base64で差し込む
 }
 

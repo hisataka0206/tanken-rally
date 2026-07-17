@@ -3441,3 +3441,10 @@ body.lang-elementary { line-height: 1.85; }
   display: block; width: 100%; max-width: 480px; margin: 0 auto;
   border-radius: 10px; aspect-ratio: 3/2; object-fit: cover; background: #eee;
 }
+
+/* 「みつけた なかま」の並び替えセレクタ */
+.zukan-section-gen { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.gen-sort {
+  font-size: 12px; padding: 4px 8px; border-radius: 8px;
+  border: 1px solid #e5dcc8; background: #fff; color: #5c554a;
+}

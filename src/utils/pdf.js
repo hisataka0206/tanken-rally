@@ -312,15 +312,21 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
 export function renderMapPreview(targetEl, opts) {
   if (!targetEl) return;
   targetEl.innerHTML = '';
-  const wrap = buildPdfHtml(opts);
+  // 地図＋S/スポット/G の一覧はルート画面上部のインタラクティブ地図と重複するため、
+  // ここでは出さない。曲がり角の「ストリートビュー」だけを表示する。
+  const wrap = document.createElement('div');
   wrap.id = 'map-preview-root';
-  wrap.style.position = 'static';
-  wrap.style.top = 'auto';
-  wrap.style.left = 'auto';
-  wrap.style.width = '100%';
-  wrap.style.maxWidth = '794px';
-  wrap.style.margin = '0 auto';
-  wrap.style.padding = '16px';
+  wrap.style.cssText = "width:100%;max-width:794px;margin:0 auto;padding:8px;" +
+    "font-family:'Hiragino Kaku Gothic ProN','Yu Gothic','Meiryo',sans-serif;" +
+    "display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;align-items:start;";
+  wrap.innerHTML = buildTurnPointsHtml({
+    stationName: opts.stationName,
+    localStation: localizeStationName(opts.stationName, LANG),
+    origin: opts.origin,
+    orderedSpots: opts.orderedSpots,
+    directions: opts.directions,
+    apiKey: opts.apiKey,
+  });
   targetEl.appendChild(wrap);
 }
 
@@ -365,23 +371,32 @@ export function buildStageMedia({ orderedSpots, origin, directions, apiKey }) {
     ...staticMapStyleParams(), ...markers, ...(path ? [path] : []), `key=${apiKey}`,
   ].join('&');
 
-  const pointMap = (ll) => {
-    const geo = { center: { lat: ll.lat, lng: ll.lng }, zoom: 17, w: W, h: H };
-    return { url: mapUrlFor(geo, [`markers=color:0x2e7d32%7Csize:mid%7C${ll.lat},${ll.lng}`]), geo };
-  };
+  // 全ステージ共通の表示（ルート全体＝駅＋全スポットを収める単一の center+zoom）。
+  // 拡大率・上下左右の表示範囲をステージ間で固定し、分かりやすくする。
+  const routePts = [];
+  if (o) routePts.push({ lat: o.lat, lng: o.lng });
+  (orderedSpots || []).forEach(s => { const ll = toLatLngLiteral(s); if (ll) routePts.push(ll); });
+  const routeGeo = routePts.length >= 2
+    ? fitCenterZoom(routePts)
+    : { center: o || { lat: 35.681, lng: 139.767 }, zoom: 15, w: W, h: H };
+
+  const pointMap = (ll) => ({
+    url: mapUrlFor(routeGeo, [`markers=color:0x2e7d32%7Csize:mid%7C${ll.lat},${ll.lng}`]),
+    geo: routeGeo,
+  });
   const legMap = (fromLL, toLL, leg) => {
     const pts = [{ lat: fromLL.lat, lng: fromLL.lng }];
     (leg?.steps || []).forEach(s => { const a = toLatLngLiteral(s.start_location); if (a) pts.push(a); });
     const lastEnd = toLatLngLiteral(leg?.steps?.[leg.steps.length - 1]?.end_location);
     if (lastEnd) pts.push(lastEnd);
     pts.push({ lat: toLL.lat, lng: toLL.lng });
-    const geo = fitCenterZoom(pts);
     const path = `path=color:0x004029c8%7Cweight:5%7C${pts.map(p => `${p.lat},${p.lng}`).join('%7C')}`;
     const markers = [
       `markers=color:0x2e7d32%7Clabel:S%7Csize:mid%7C${fromLL.lat},${fromLL.lng}`,
       `markers=color:0xc62828%7Clabel:G%7Csize:mid%7C${toLL.lat},${toLL.lng}`,
     ];
-    return { url: mapUrlFor(geo, markers, path), geo };
+    // 表示範囲は routeGeo（ルート全体）で固定。各ステージはレッグの線とS/Gを重ねるだけ。
+    return { url: mapUrlFor(routeGeo, markers, path), geo: routeGeo };
   };
 
   const legTurnSVs = (leg) => {

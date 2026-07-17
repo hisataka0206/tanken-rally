@@ -3413,13 +3413,15 @@ body.lang-elementary { line-height: 1.85; }
 .loading-overlay-tip.fading { opacity: 0; }
 
 /* ローディング内の ふりがな（<rt>）は絶対配置で行の上に浮かせ、
-   行の高さを一定に保って「行がガタガタ」になるのを防ぐ。 */
+   行の高さを一定に保って「行がガタガタ」になるのを防ぐ。
+   ruby 自体は inline のまま（position:relative だけ）にして、
+   土台の漢字が行からずり落ちないようにする。 */
 .loading-overlay-tip ruby,
-.loading-overlay-msg ruby { position: relative; display: inline-block; line-height: 1; }
+.loading-overlay-msg ruby { position: relative; }
 .loading-overlay-tip rt,
 .loading-overlay-msg rt {
   position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%);
-  margin-bottom: -0.08em; font-size: 0.5em; line-height: 1; white-space: nowrap;
+  margin-bottom: -0.05em; font-size: 0.5em; line-height: 1; white-space: nowrap;
   font-weight: 400; opacity: .85; pointer-events: none;
 }
 .loading-overlay-msg { line-height: 2.1; }

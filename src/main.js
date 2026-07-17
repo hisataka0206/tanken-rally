@@ -2,7 +2,7 @@ import { CONFIG } from '../config.js?v=106';
 import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow, MAP_STYLE } from './utils/maps.js?v=106';
 import { fetchOriginStory, tidyMemo, transcribeAudio, setAiBackend } from './utils/ai.js?v=106';
 import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=106';
-import { generateMapPdf } from './utils/pdf.js?v=106';
+import { generateMapPdf, renderMapPreview } from './utils/pdf.js?v=106';
 import { DriveClient, generateSessionId } from './utils/drive.js?v=106';
 import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=106';
 import { CITIES, localizeStationName } from './data/cities.js?v=106';
@@ -1465,30 +1465,45 @@ function clearError() {
 // ローディング中に出すヒント（ゲームのコツ・機能紹介）。数秒ごとにランダム表示。
 const LOADING_TIPS = {
   ja: [
+    // ①歩行→レア度
     '💡 とおくの スポットまで あるくほど、レアな なかまに 出会いやすいよ！',
     '💡 たくさん あるいて 遠くへ 行くと、でんせつ（レジェンド）の なかまに 会えるかも！',
-    '💡 スポットを たくさん まわって しゃしんを とると、スコアが アップ！',
+    // ②生成の条件・多様性
     '💡 じゅうぶん あるいて しゃしんを とると、あたらしい なかまを 作れるよ。',
-    '💡 「いまどこ？」を つかいすぎると スコアが へっちゃう。ここぞ！の ときに つかおう。',
+    '💡 おなじ 駅でも、まわりかたで ちがう なかまが 生まれるよ。',
+    // ③スコアの上げ方
+    '💡 スポットを たくさん まわって しゃしんを とると、スコアが アップ！',
     '💡 計画どおりに スポットを まわると、スコアが 高くなるよ。',
+    '💡 「いまどこ？」を つかいすぎると スコアが へっちゃう。ここぞ！の ときに つかおう。',
+    // ④図鑑・収集・所有感
     '💡 図鑑では、作った なかまの なまえや ものがたりが 読めるよ。',
-    '💡 まえの たんけんは「りれき」から つづきが できるよ。',
-    '💡 地図は PDFで いんさつできるよ。コンビニで すってから 出発しよう！',
+    '💡 生まれる なかまは 世界に ひとつだけ。きみだけの なかまだよ。',
+    '💡 なかまを あつめて、じぶんだけの 図鑑を そだてよう！',
+    // ⑤地名の由来＝学び
+    '💡 「なぜ この なまえ？」を 読むと、街の ひみつが わかるよ。',
+    // ⑥育てる（開発中）・駅の多様性
     '💡 なかまを「そだてる」きのうは いま 開発中。おたのしみに！',
     '💡 いろんな 駅で たんけんすると、いろんな なかまが 集まるよ！',
+    // ⑦履歴・家族/情緒
+    '💡 まえの たんけんは「りれき」から つづきが できるよ。',
+    '💡 おうちの人や 友だちと いっしょに あるくと、もっと たのしいよ！',
   ],
   en: [
     '💡 Walk to spots farther away to meet rarer friends!',
     '💡 Walk far enough and you might meet a legendary friend!',
-    '💡 Visit more spots and take photos to raise your score!',
     '💡 Walk enough and take photos to create a brand-new friend.',
-    '💡 Using "Where am I?" too much lowers your score — save it for when you are really stuck.',
+    '💡 Even at the same station, exploring differently creates different friends.',
+    '💡 Visit more spots and take photos to raise your score!',
     '💡 Sticking to your plan boosts your score.',
+    '💡 Using "Where am I?" too much lowers your score — save it for when you are really stuck.',
     '💡 In the zukan you can read your friends\' names and stories.',
-    '💡 Continue a past adventure from "History".',
-    '💡 You can print the map as a PDF — print it at a convenience store and go!',
+    '💡 Every friend you create is one-of-a-kind — yours alone.',
+    '💡 Collect friends and grow your very own zukan!',
+    '💡 Read "why is it named this?" to uncover your town\'s secrets.',
     '💡 The "raise your friend" feature is in development. Stay tuned!',
-    '💡 Explore different stations to collect different friends!',
+    '💡 Explore different stations to collect different kinds of friends!',
+    '💡 Continue a past adventure from "History".',
+    '💡 Walking together with family or friends makes it even more fun!',
   ],
 };
 let _loadingTipTimer = null;
@@ -1902,6 +1917,7 @@ function updateMakeRouteBtn() {
 // onMakeRoute（新規ルート作成時）と back-to-route（再開セッションで戻ってきた時）の両方から呼ぶ
 function renderRouteStepUI() {
   if (!state.stationLocation || !state.directionsResult || !state.orderedSpots.length) return;
+  resetMapPreview(); // ルート（再）描画時は古いHTMLプレビューを閉じてリセット
 
   // ルート地図初期化（fitBounds で全スポットが入るよう自動調整）
   const routeMapEl = $('route-map');
@@ -4162,6 +4178,40 @@ async function onReportPdf() {
   }
 }
 
+// ===== 地図をHTMLで画面内表示（PDF化とは別。まず見る用） =====
+function mapPreviewOpts() {
+  return {
+    stationName: state.stationName,
+    orderedSpots: state.orderedSpots,
+    stats: state.routeStats,
+    origin: state.stationLocation,
+    directions: state.directionsResult,
+    apiKey: CONFIG.GOOGLE_MAPS_API_KEY,
+  };
+}
+function resetMapPreview() {
+  const view = $('route-html-view');
+  if (view) { view.classList.add('hidden'); view.innerHTML = ''; }
+  const btn = $('show-map-btn');
+  if (btn) btn.textContent = t('btnShowMap', '地図を見る');
+}
+function onShowMapHtml() {
+  const view = $('route-html-view');
+  const btn = $('show-map-btn');
+  if (!view) return;
+  const isHidden = view.classList.contains('hidden');
+  if (isHidden) {
+    renderMapPreview(view, mapPreviewOpts());
+    view.classList.remove('hidden');
+    if (btn) btn.textContent = t('btnHideMap', '地図をとじる');
+    view.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    view.classList.add('hidden');
+    view.innerHTML = '';
+    if (btn) btn.textContent = t('btnShowMap', '地図を見る');
+  }
+}
+
 // ===== PDF生成 =====
 async function onDownloadPdf() {
   const btn = $('download-pdf-btn');
@@ -4198,6 +4248,7 @@ $('search-btn').addEventListener('click', searchFromInput);
 $('station-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchFromInput(); });
 $('search-by-select-btn').addEventListener('click', onSearchBySelect);
 $('make-route-btn').addEventListener('click', onMakeRoute);
+$('show-map-btn').addEventListener('click', onShowMapHtml);
 $('download-pdf-btn').addEventListener('click', onDownloadPdf);
 $('reverse-route-btn').addEventListener('click', onReverseRoute);
 $('back-to-station').addEventListener('click', () => {

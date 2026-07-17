@@ -302,6 +302,28 @@ export async function generateMapPdf({ stationName, orderedSpots, stats, origin,
 
 // ===== 内部ヘルパー =====
 
+/**
+ * 印刷用HTMLを「画面内プレビュー」として描画する（PDF化はしない・見るだけ）。
+ * PDFと同じ buildPdfHtml を再利用し、隠しfixed配置 → レスポンシブなインライン表示へ上書きする。
+ * 画像（Static Map / Street View）は <img> として通常どおり読み込まれる。
+ * @param {HTMLElement} targetEl 描画先の可視コンテナ
+ * @param {Object} opts generateMapPdf と同じ引数（stationName, orderedSpots, stats, origin, directions, apiKey）
+ */
+export function renderMapPreview(targetEl, opts) {
+  if (!targetEl) return;
+  targetEl.innerHTML = '';
+  const wrap = buildPdfHtml(opts);
+  wrap.id = 'map-preview-root';
+  wrap.style.position = 'static';
+  wrap.style.top = 'auto';
+  wrap.style.left = 'auto';
+  wrap.style.width = '100%';
+  wrap.style.maxWidth = '794px';
+  wrap.style.margin = '0 auto';
+  wrap.style.padding = '16px';
+  targetEl.appendChild(wrap);
+}
+
 function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, apiKey }) {
   const today = new Date().toLocaleDateString(LANG === 'en' ? 'en-US' : 'ja-JP');
   const localStation = localizeStationName(stationName, LANG);

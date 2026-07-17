@@ -3356,3 +3356,12 @@ body.lang-elementary { line-height: 1.85; }
   opacity: 1; transition: opacity 0.3s ease;
 }
 .loading-overlay-tip.fading { opacity: 0; }
+
+/* ルート画面の地図HTMLプレビュー（PDF化とは別に、まず見る用） */
+.route-html-view {
+  margin: 14px 0;
+  max-height: 70vh; overflow: auto;
+  background: #f4efe3; border: 1px solid #e5dcc8; border-radius: 12px;
+  padding: 8px;
+}
+.route-html-view.hidden { display: none; }

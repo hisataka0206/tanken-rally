@@ -56,7 +56,9 @@ const TRANSLATIONS = {
 
     // STEP 3
     btnBackSpots: '← スポットを変える',
-    btnDownloadPdf: '地図PDFをダウンロード',
+    btnDownloadPdf: 'PDFにする',
+    btnShowMap: '地図を見る',
+    btnHideMap: '地図をとじる',
     btnReverseRoute: '逆順にする',
     btnReverseRouteCalc: '入れ替え中…',
     btnStartExplore: '探検スタート！ →',
@@ -530,7 +532,9 @@ const TRANSLATIONS = {
     btnMakeRoute: 'Make route →',
 
     btnBackSpots: '← Change spots',
-    btnDownloadPdf: 'Download map PDF',
+    btnDownloadPdf: 'Save as PDF',
+    btnShowMap: 'View map',
+    btnHideMap: 'Hide map',
     btnReverseRoute: 'Reverse route',
     btnReverseRouteCalc: 'Reversing…',
     btnStartExplore: 'Start exploring! →',
@@ -990,7 +994,9 @@ const TRANSLATIONS = {
     btnMakeRoute: 'ルートを作（つく）る →',
 
     btnBackSpots: '← スポットを変（か）える',
-    btnDownloadPdf: '地図（ちず）PDFをダウンロード',
+    btnDownloadPdf: 'PDFにする',
+    btnShowMap: '地図（ちず）を見（み）る',
+    btnHideMap: '地図（ちず）をとじる',
     btnReverseRoute: '逆（ぎゃく）の順（じゅん）にする',
     btnReverseRouteCalc: '入（い）れかえ中（ちゅう）…',
     btnStartExplore: '探検（たんけん）スタート！ →',

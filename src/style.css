@@ -3323,3 +3323,36 @@ body.lang-elementary { line-height: 1.85; }
   display: inline-block; margin-top: 10px;
   font-size: 11px; color: #b0a89c; text-decoration: underline;
 }
+
+/* 全画面ローディング（駅検索など重い遷移中に表示） */
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(253, 250, 243, 0.86);
+  backdrop-filter: blur(2px);
+}
+.loading-overlay.hidden { display: none; }
+.loading-overlay-card {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 26px 30px;
+}
+.loading-spinner {
+  width: 54px; height: 54px; border-radius: 50%;
+  border: 5px solid #e5dcc8; border-top-color: #0F7A4D;
+  animation: loading-spin 0.9s linear infinite;
+}
+@keyframes loading-spin { to { transform: rotate(360deg); } }
+.loading-overlay-msg {
+  font-size: 15px; font-weight: 700; color: #0F7A4D; text-align: center;
+}
+
+/* ローディング中のヒント（ランダム回転） */
+.loading-overlay-tip {
+  max-width: 300px; margin-top: 4px;
+  font-size: 13px; line-height: 1.7; color: #6b6256; text-align: center;
+  background: #fff8ec; border: 1px solid #e7c86b; border-radius: 12px;
+  padding: 12px 16px; min-height: 3.4em;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 1; transition: opacity 0.3s ease;
+}
+.loading-overlay-tip.fading { opacity: 0; }

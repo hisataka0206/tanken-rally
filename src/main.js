@@ -1462,11 +1462,79 @@ function clearError() {
 
 // ===== STEP 1: 駅名検索 =====
 // context: { stationName, lineName, cityName } を渡すと曖昧性解消用にgeocodeへ伝搬する
+// ローディング中に出すヒント（ゲームのコツ・機能紹介）。数秒ごとにランダム表示。
+const LOADING_TIPS = {
+  ja: [
+    '💡 とおくの スポットまで あるくほど、レアな なかまに 出会いやすいよ！',
+    '💡 たくさん あるいて 遠くへ 行くと、でんせつ（レジェンド）の なかまに 会えるかも！',
+    '💡 スポットを たくさん まわって しゃしんを とると、スコアが アップ！',
+    '💡 じゅうぶん あるいて しゃしんを とると、あたらしい なかまを 作れるよ。',
+    '💡 「いまどこ？」を つかいすぎると スコアが へっちゃう。ここぞ！の ときに つかおう。',
+    '💡 計画どおりに スポットを まわると、スコアが 高くなるよ。',
+    '💡 図鑑では、作った なかまの なまえや ものがたりが 読めるよ。',
+    '💡 まえの たんけんは「りれき」から つづきが できるよ。',
+    '💡 地図は PDFで いんさつできるよ。コンビニで すってから 出発しよう！',
+    '💡 なかまを「そだてる」きのうは いま 開発中。おたのしみに！',
+    '💡 いろんな 駅で たんけんすると、いろんな なかまが 集まるよ！',
+  ],
+  en: [
+    '💡 Walk to spots farther away to meet rarer friends!',
+    '💡 Walk far enough and you might meet a legendary friend!',
+    '💡 Visit more spots and take photos to raise your score!',
+    '💡 Walk enough and take photos to create a brand-new friend.',
+    '💡 Using "Where am I?" too much lowers your score — save it for when you are really stuck.',
+    '💡 Sticking to your plan boosts your score.',
+    '💡 In the zukan you can read your friends\' names and stories.',
+    '💡 Continue a past adventure from "History".',
+    '💡 You can print the map as a PDF — print it at a convenience store and go!',
+    '💡 The "raise your friend" feature is in development. Stay tuned!',
+    '💡 Explore different stations to collect different friends!',
+  ],
+};
+let _loadingTipTimer = null;
+let _loadingTipIdx = -1;
+
+function _renderLoadingTip() {
+  const tipEl = $('loading-overlay-tip');
+  if (!tipEl) return;
+  const tips = LOADING_TIPS[LANG === 'en' ? 'en' : 'ja'];
+  if (!tips || !tips.length) return;
+  // 直前と違うヒントをランダムに選ぶ
+  let i = Math.floor(Math.random() * tips.length);
+  if (tips.length > 1 && i === _loadingTipIdx) i = (i + 1) % tips.length;
+  _loadingTipIdx = i;
+  tipEl.classList.add('fading');
+  setTimeout(() => { tipEl.textContent = tips[i]; tipEl.classList.remove('fading'); }, 200);
+}
+
+// 全画面ローディング（重い遷移中に表示）
+function showLoadingOverlay(msg) {
+  const el = $('loading-overlay');
+  if (!el) return;
+  const m = $('loading-overlay-msg');
+  if (m && msg) m.textContent = msg;
+  el.classList.remove('hidden');
+  // ヒントを即表示＋約2.8秒ごとにランダム切替
+  _loadingTipIdx = -1;
+  const tipEl = $('loading-overlay-tip');
+  if (tipEl) { tipEl.classList.remove('fading'); tipEl.textContent = ''; }
+  _renderLoadingTip();
+  clearInterval(_loadingTipTimer);
+  _loadingTipTimer = setInterval(_renderLoadingTip, 2800);
+}
+function hideLoadingOverlay() {
+  const el = $('loading-overlay');
+  if (el) el.classList.add('hidden');
+  clearInterval(_loadingTipTimer);
+  _loadingTipTimer = null;
+}
+
 async function onSearchStation(context) {
   const isCtx = context && typeof context === 'object' && typeof context.stationName === 'string';
   const name = isCtx ? context.stationName : $('station-input').value.trim();
   if (!name) { showError(t('errEnterStation')); return; }
   clearError();
+  showLoadingOverlay(t('statusLoadingSpots', '駅のまわりを さがしているよ…'));
 
   const btn = $('search-btn');
   btn.textContent = t('statusSearching');
@@ -1592,6 +1660,7 @@ async function onSearchStation(context) {
   } catch (e) {
     showError(e.message || t('errGeneric'));
   } finally {
+    hideLoadingOverlay();
     btn.textContent = t('btnSearch');
     btn.disabled = false;
   }
@@ -3104,12 +3173,12 @@ function onChargenPick(idx) {
     `<button type="button" class="chargen-name-opt" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join('');
   nopt.querySelectorAll('.chargen-name-opt').forEach(b => {
     b.addEventListener('click', () => {
+      if (_chargenChosenName) return; // 二重保存ガード（名前決定と同時に自動保存するため）
       _chargenChosenName = b.dataset.name;
       nopt.querySelectorAll('.chargen-name-opt').forEach(x => x.classList.toggle('selected', x === b));
-      $('chargen-save-btn').disabled = false;
+      onChargenSave(); // 保存ボタン不要：名前を選んだら自動で図鑑に保存
     });
   });
-  $('chargen-save-btn').disabled = true;
   chargenSetPhase('reveal');
 }
 

@@ -494,7 +494,7 @@
           <p class="chargen-lead" data-i18n="chargenNameSub">なまえを えらんでね</p>
           <div id="chargen-name-options" class="chargen-name-options"></div>
           <div class="modal-actions">
-            <button id="chargen-save-btn" type="button" class="btn-primary" data-i18n="chargenSave" disabled>ずかんに とうろく →</button>
+            <button id="chargen-save-btn" type="button" class="btn-primary hidden" data-i18n="chargenSave" disabled>ずかんに とうろく →</button>
           </div>
         </div>
 
@@ -784,6 +784,15 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- 駅検索など時間のかかる遷移中に出す全画面ローディング -->
+  <div id="loading-overlay" class="loading-overlay hidden" role="status" aria-live="polite">
+    <div class="loading-overlay-card">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <div id="loading-overlay-msg" class="loading-overlay-msg">よみこみちゅう…</div>
+      <div id="loading-overlay-tip" class="loading-overlay-tip"></div>
+    </div>
   </div>
 
   <!-- Google Maps API（動的ロード） -->

@@ -3358,10 +3358,58 @@ body.lang-elementary { line-height: 1.85; }
 .loading-overlay-tip.fading { opacity: 0; }
 
 /* ルート画面の地図HTMLプレビュー（PDF化とは別に、まず見る用） */
+/* ルート画面：PDF相当の詳細（地図＋ルート＋ストリートビュー）を常時インライン表示 */
 .route-html-view {
   margin: 14px 0;
-  max-height: 70vh; overflow: auto;
   background: #f4efe3; border: 1px solid #e5dcc8; border-radius: 12px;
   padding: 8px;
 }
 .route-html-view.hidden { display: none; }
+
+/* 撮影ウィザード：ステージの地図＋ストリートビュー静止画 */
+.wizard-stage-media { margin: 10px 0 6px; }
+.wizard-stage-media.hidden { display: none; }
+.wizard-stage-map {
+  display: block; width: 100%; max-width: 560px; margin: 0 auto 10px;
+  border-radius: 12px; border: 1px solid #e5dcc8;
+}
+.wizard-sv-row {
+  display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+  scroll-snap-type: x mandatory;
+}
+.wizard-sv {
+  margin: 0; flex: 0 0 78%; max-width: 300px; scroll-snap-align: center;
+  border-radius: 10px; overflow: hidden; border: 1px solid #e5dcc8; background: #fff;
+}
+.wizard-sv img { display: block; width: 100%; aspect-ratio: 3/2; object-fit: cover; }
+.wizard-sv figcaption {
+  font-size: 11px; line-height: 1.5; color: #5c554a; padding: 6px 8px;
+}
+
+/* ステージ地図に現在地＋向きを重ねる（静止画オーバーレイ） */
+.wizard-stage-map-wrap { position: relative; width: 100%; max-width: 560px; margin: 0 auto 10px; }
+.wizard-stage-map-wrap .wizard-stage-map { margin: 0; }
+/* 現在地：GPS精度に応じた範囲円＋青点＋向きの三角（スマホ地図風。ピンではなく"範囲"で誤差の違和感を減らす） */
+.stage-you { position: absolute; width: 0; height: 0; pointer-events: none; }
+.stage-you.hidden { display: none; }
+.stage-you-acc {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 0; height: 0; border-radius: 50%;
+  background: rgba(43,127,224,.18); border: 1.5px solid rgba(43,127,224,.55);
+}
+.stage-you-dot {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 13px; height: 13px; border-radius: 50%;
+  background: #2b7fe0; border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,.35);
+}
+.stage-you-beam { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.stage-you-beam > i {
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -100%);
+  width: 0; height: 0;
+  border-left: 8px solid transparent; border-right: 8px solid transparent;
+  border-bottom: 18px solid #2b7fe0; filter: drop-shadow(0 0 1px #fff);
+}
+/* 地図の外にいるとき：範囲円と三角は出さず、赤点だけで「この方向の外」を示す */
+.stage-you.stage-you-off .stage-you-acc,
+.stage-you.stage-you-off .stage-you-beam { display: none; }
+.stage-you.stage-you-off .stage-you-dot { background: #c62828; }

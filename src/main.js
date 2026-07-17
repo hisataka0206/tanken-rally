@@ -2,7 +2,7 @@ import { CONFIG } from '../config.js?v=106';
 import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow, MAP_STYLE } from './utils/maps.js?v=106';
 import { fetchOriginStory, tidyMemo, transcribeAudio, setAiBackend } from './utils/ai.js?v=106';
 import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=106';
-import { generateMapPdf, renderMapPreview } from './utils/pdf.js?v=106';
+import { generateMapPdf, renderMapPreview, buildStageMedia } from './utils/pdf.js?v=106';
 import { DriveClient, generateSessionId } from './utils/drive.js?v=106';
 import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=106';
 import { CITIES, localizeStationName } from './data/cities.js?v=106';
@@ -142,6 +142,8 @@ function renderWizardStage() {
     $('wizard-prev').disabled = false;
     $('wizard-prev').textContent = (state.photoWizardStage === 0)
       ? t('btnWizardToMap', '← マップ') : t('btnWizardPrev', '← 前へ');
+    // ステージの静止画（地図＋ストリートビュー）を表示（探検開始時に一括生成済み）
+    renderWizardStageMedia();
     renderWizardThumbs(info.tag);
     // ARキャラ捕獲ボタン（スポット/ゴールステージのみ表示）
     updateArHuntButton(info);
@@ -172,6 +174,100 @@ function updateWizardGuide(info) {
     void img.offsetWidth; // アニメ再トリガ
     img.src = 'src/assets/characters/' + file;
     img.classList.add('wizard-guide-fade');
+  }
+}
+// ステージの静止画（探検開始時に buildStageMedia で一括生成）を表示。
+// 地図（そのステージの位置/レッグ）＋そのレッグの曲がり角ストリートビュー。
+function renderWizardStageMedia() {
+  const el = $('wizard-stage-media');
+  if (!el) return;
+  stopStageWhere(); // ステージが変わったら現在地オーバーレイの監視を止める
+  const media = (state.stageMedia || [])[state.photoWizardStage];
+  _stageGeo = (media && media.geo) || null;
+  if (!media || (!media.mapUrl && !(media.streetViews || []).length)) {
+    el.innerHTML = ''; el.classList.add('hidden'); return;
+  }
+  el.classList.remove('hidden');
+  const svHtml = (media.streetViews || []).map(sv =>
+    `<figure class="wizard-sv"><img src="${escapeHtml(sv.url)}" alt="" loading="lazy" onerror="this.closest('figure').style.display='none'" />` +
+    `${sv.title ? `<figcaption>${escapeHtml(sv.title)}</figcaption>` : ''}</figure>`).join('');
+  const mapHtml = media.mapUrl
+    ? `<div class="wizard-stage-map-wrap"><img class="wizard-stage-map" src="${escapeHtml(media.mapUrl)}" alt="map" loading="lazy" onerror="this.style.display='none'" /><div id="stage-you" class="stage-you hidden" aria-hidden="true"><div class="stage-you-acc"></div><div class="stage-you-beam"><i></i></div><div class="stage-you-dot"></div></div></div>`
+    : '';
+  el.innerHTML = mapHtml + (svHtml ? `<div class="wizard-sv-row">${svHtml}</div>` : '');
+}
+
+// ===== ステージ静止画への「現在地＋向き」オーバーレイ =====
+// 静止地図は中心・ズーム・北上が既知（buildStageMedia の geo）なので、
+// 現在地の緯度経度を Web メルカトル射影でピクセルに直して重ねられる。
+let _stageGeo = null;
+let _stageWhereWatch = null, _stageWhereOrient = null, _stageYouLL = null, _stageHeading = null, _stageAcc = null;
+
+function _stageProject(la, ln) {
+  const siny = Math.min(Math.max(Math.sin(la * Math.PI / 180), -0.9999), 0.9999);
+  return { x: 256 * (0.5 + ln / 360), y: 256 * (0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI)) };
+}
+function updateStageYou() {
+  const you = $('stage-you');
+  const img = document.querySelector('#wizard-stage-media .wizard-stage-map');
+  if (!you || !img || !_stageGeo || !_stageYouLL) return;
+  const scale = Math.pow(2, _stageGeo.zoom);
+  const c = _stageProject(_stageGeo.center.lat, _stageGeo.center.lng);
+  const p = _stageProject(_stageYouLL.lat, _stageYouLL.lng);
+  const dx = (p.x - c.x) * scale, dy = (p.y - c.y) * scale;  // 論理px
+  const rw = img.clientWidth || _stageGeo.w, rh = img.clientHeight || _stageGeo.h;
+  const sf = rw / _stageGeo.w;                                // 描画/論理 の縮尺
+  const x = rw / 2 + dx * sf, y = rh / 2 + dy * sf;
+  const inside = x >= 0 && x <= rw && y >= 0 && y <= rh;
+  you.classList.remove('hidden');
+  you.classList.toggle('stage-you-off', !inside);            // 地図の外なら赤点だけ
+  you.style.left = Math.max(0, Math.min(rw, x)) + 'px';
+  you.style.top = Math.max(0, Math.min(rh, y)) + 'px';
+  // 範囲円：実GPS精度（数m〜）を地図の縮尺で実寸描画（見やすさのため最小/最大でクランプ）
+  const acc = you.querySelector('.stage-you-acc');
+  if (acc && inside) {
+    const mpp = 156543.03392 * Math.cos(_stageGeo.center.lat * Math.PI / 180) / scale; // m/論理px
+    let accM = Math.max(4, Math.min(_stageAcc || 8, 50));
+    let rPx = Math.max(10, Math.min((accM / mpp) * sf, Math.min(rw, rh) / 2));
+    acc.style.width = (2 * rPx) + 'px';
+    acc.style.height = (2 * rPx) + 'px';
+  }
+  // 向きの三角（北＝上を基準に heading 回転。円は回さない）
+  const beam = you.querySelector('.stage-you-beam');
+  if (beam) beam.style.transform = `rotate(${_stageHeading != null ? _stageHeading : 0}deg)`;
+}
+function startStageWhere() {
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission().catch(() => {});
+    }
+  } catch (_) { /* no-op */ }
+  stopStageWhere();
+  _stageWhereOrient = (e) => {
+    let h = null;
+    if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)) h = e.webkitCompassHeading;
+    else if (e.absolute === true && typeof e.alpha === 'number') h = (360 - e.alpha) % 360;
+    if (h != null) { _stageHeading = h; updateStageYou(); }
+  };
+  const evName = ('ondeviceorientationabsolute' in window) ? 'deviceorientationabsolute' : 'deviceorientation';
+  window.addEventListener(evName, _stageWhereOrient, true);
+  if (navigator.geolocation) {
+    showToast(t('whereLocating', '現在地をさがしています…'));
+    _stageWhereWatch = navigator.geolocation.watchPosition(
+      (pos) => { _stageYouLL = { lat: pos.coords.latitude, lng: pos.coords.longitude }; _stageAcc = pos.coords.accuracy; updateStageYou(); },
+      () => showToast(t('whereGpsError', '現在地がとれませんでした')),
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 12000 }
+    );
+  } else {
+    showToast(t('whereNoGps', 'この端末では現在地がつかえません'));
+  }
+}
+function stopStageWhere() {
+  if (_stageWhereWatch != null && navigator.geolocation) { navigator.geolocation.clearWatch(_stageWhereWatch); _stageWhereWatch = null; }
+  if (_stageWhereOrient) {
+    window.removeEventListener('deviceorientationabsolute', _stageWhereOrient, true);
+    window.removeEventListener('deviceorientation', _stageWhereOrient, true);
+    _stageWhereOrient = null;
   }
 }
 function renderWizardThumbs(currentTag) {
@@ -473,12 +569,24 @@ function updateArHuntButton(info) {
   btn.classList.toggle('hidden', !ctx || _resolvedStages.has(state.photoWizardStage));
 }
 
-async function openArHunt() {
+// 「写真を撮る」= ARカメラを開く（キャラがいれば捕獲、撮った画像は写真として保存される）。
+// ・対象外ステージ / AR非対応端末 → 通常カメラ（native input）にフォールバック
+// ・捕獲済み or 「いなかった」解決済みステージ → キャラ抜きのカメラ（再捕獲・乱獲を防ぐ）
+function onWizardTakePhoto() {
+  const info = getWizardStageInfo(state.photoWizardStage);
+  const ctx = arStageContext(info);
+  if (!ctx) { const inp = $('photo-camera-input'); if (inp) inp.click(); return; }
+  openArHunt({ cameraOnly: _resolvedStages.has(state.photoWizardStage) });
+}
+
+async function openArHunt(opts = {}) {
   const info = getWizardStageInfo(state.photoWizardStage);
   const ctx = arStageContext(info);
   if (!ctx) return;
   // admin: 出すキャラを固定（指定があれば上書き）
   if (isAdmin() && adminOverride.charId) ctx.char = characterById(adminOverride.charId);
+  // カメラのみモード（捕獲済みステージ等）: キャラを出さない＝写真だけ撮れる
+  if (opts && opts.cameraOnly) ctx.char = null;
   arCurrent = ctx;
 
   // 「いなかった」外れステージは、開いてチェックした時点で再さがし不可にする（当たり＝キャラ有りは対象外）。
@@ -1427,6 +1535,7 @@ function fitMapToSpots(map, origin, spots) {
 }
 
 function showStep(stepId) {
+  if (stepId !== 'step-photos') stopStageWhere(); // 撮影画面を離れたら現在地監視を止める
   // CSS の `.step.hidden { display:none !important }` がインライン style に
   // 勝ってしまうため、クラス操作で表示切り替えする
   // トップ画面ではすごろくトレイルを隠す（ゲームの進捗ではないため）
@@ -1917,7 +2026,13 @@ function updateMakeRouteBtn() {
 // onMakeRoute（新規ルート作成時）と back-to-route（再開セッションで戻ってきた時）の両方から呼ぶ
 function renderRouteStepUI() {
   if (!state.stationLocation || !state.directionsResult || !state.orderedSpots.length) return;
-  resetMapPreview(); // ルート（再）描画時は古いHTMLプレビューを閉じてリセット
+  // ルートのHTML詳細（Static地図＋ルート＋曲がり角のストリートビュー）を常時表示する。
+  // 以前は「地図を見る」ボタンで開いていたが、常に全部見せる方針に変更（PDF相当の内容）。
+  const _mapView = $('route-html-view');
+  if (_mapView) {
+    renderMapPreview(_mapView, mapPreviewOpts());
+    _mapView.classList.remove('hidden');
+  }
 
   // ルート地図初期化（fitBounds で全スポットが入るよう自動調整）
   const routeMapEl = $('route-map');
@@ -2198,6 +2313,16 @@ async function onStartExplore() {
     });
     state.uploadedPhotos = [];
     state.selectedPhotoIds.clear();
+    // 探検スタート時に、各ステージの静止画（地図＋ストリートビュー）を一括生成して保存。
+    // 以降は順次表示するだけ＝同一URL再利用でブラウザキャッシュが効き、追加コストなし。
+    try {
+      state.stageMedia = buildStageMedia({
+        orderedSpots: state.orderedSpots,
+        origin: state.stationLocation,
+        directions: state.directionsResult,
+        apiKey: CONFIG.GOOGLE_MAPS_API_KEY,
+      });
+    } catch (e) { console.warn('[stage-media] 生成失敗（続行）:', e); state.stageMedia = []; }
     // 撮影ウィザードを駅出発（stage 0）から開始
     state.photoWizardStage = 0;
     showStep('step-photos');
@@ -4189,29 +4314,6 @@ function mapPreviewOpts() {
     apiKey: CONFIG.GOOGLE_MAPS_API_KEY,
   };
 }
-function resetMapPreview() {
-  const view = $('route-html-view');
-  if (view) { view.classList.add('hidden'); view.innerHTML = ''; }
-  const btn = $('show-map-btn');
-  if (btn) btn.textContent = t('btnShowMap', '地図を見る');
-}
-function onShowMapHtml() {
-  const view = $('route-html-view');
-  const btn = $('show-map-btn');
-  if (!view) return;
-  const isHidden = view.classList.contains('hidden');
-  if (isHidden) {
-    renderMapPreview(view, mapPreviewOpts());
-    view.classList.remove('hidden');
-    if (btn) btn.textContent = t('btnHideMap', '地図をとじる');
-    view.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } else {
-    view.classList.add('hidden');
-    view.innerHTML = '';
-    if (btn) btn.textContent = t('btnShowMap', '地図を見る');
-  }
-}
-
 // ===== PDF生成 =====
 async function onDownloadPdf() {
   const btn = $('download-pdf-btn');
@@ -4248,7 +4350,6 @@ $('search-btn').addEventListener('click', searchFromInput);
 $('station-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchFromInput(); });
 $('search-by-select-btn').addEventListener('click', onSearchBySelect);
 $('make-route-btn').addEventListener('click', onMakeRoute);
-$('show-map-btn').addEventListener('click', onShowMapHtml);
 $('download-pdf-btn').addEventListener('click', onDownloadPdf);
 $('reverse-route-btn').addEventListener('click', onReverseRoute);
 $('back-to-station').addEventListener('click', () => {
@@ -4460,7 +4561,7 @@ $('zukan-modal').addEventListener('click', e => {
 });
 
 // ARキャラ捕獲
-$('ar-hunt-btn').addEventListener('click', openArHunt);
+$('wizard-take-photo').addEventListener('click', onWizardTakePhoto);
 $('ar-close-btn').addEventListener('click', closeArOverlay);
 $('ar-shutter-btn').addEventListener('click', onArShutter);
 // GPS無しの救済「🔍 さがす」: 1セッションに1回だけ。図鑑で未取得の組合せを優先して1体出す。
@@ -4503,7 +4604,13 @@ $('where-btn').addEventListener('click', () => {
   // 使用回数をカウント（実行点から減点する。セッションに永続化して再開後も引き継ぐ）
   const used = (loadSessionState().whereUses || 0) + 1;
   patchSessionState({ whereUses: used });
-  openWhereModal();
+  // ウィザードのステージ地図（中心・ズーム既知）があれば、その静止画に現在地＋向きを重ねる。
+  // 無ければ従来のインタラクティブ地図モーダルにフォールバック。
+  if (state.photoWizardStage != null && _stageGeo) {
+    startStageWhere();
+  } else {
+    openWhereModal();
+  }
 });
 $('where-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'where-close') closeWhereModal();

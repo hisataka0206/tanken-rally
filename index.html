@@ -254,20 +254,19 @@
             <div class="photo-wizard-stage-icon" id="photo-wizard-icon"></div>
             <h3 class="photo-wizard-title" id="photo-wizard-title"></h3>
             <p class="photo-wizard-hint" id="photo-wizard-hint"></p>
+            <!-- ステージの地図＋ストリートビュー静止画（探検開始時に一括生成し順次表示） -->
+            <div id="wizard-stage-media" class="wizard-stage-media hidden"></div>
             <!-- ガイドキャラ（画面4: カテゴリ連動。main.js の updateWizardGuide が src を設定） -->
             <img id="wizard-guide" class="wizard-guide" alt="" aria-hidden="true" onerror="this.style.display='none'" />
             <div class="photo-upload-row">
-              <label for="photo-camera-input" class="photo-upload-btn photo-upload-camera photo-upload-btn-large">
+              <!-- 「写真を撮る」= ARカメラを開く（キャラがいれば捕獲＋写真保存に統合） -->
+              <button id="wizard-take-photo" type="button" class="photo-upload-btn photo-upload-camera photo-upload-btn-large">
                 <span data-i18n="photoCameraLabel">写真を撮る</span>
-              </label>
+              </button>
               <label for="photo-input" class="photo-upload-btn photo-upload-gallery photo-upload-btn-large">
                 <span data-i18n="photoGalleryLabel">写真を選ぶ</span>
               </label>
             </div>
-            <!-- ARキャラ捕獲（スポット/ゴールのステージでのみ表示。main.js が制御） -->
-            <button id="ar-hunt-btn" class="ar-hunt-btn hidden" type="button">
-              <span data-i18n="btnArHunt">キャラをさがす</span>
-            </button>
             <!-- いまどこ？：地図で現在地と向いている方角を表示（いつでも） -->
             <button id="where-btn" class="where-btn" type="button" data-i18n="btnWhere">まよったら…いまどこ？（点がすこしへる）</button>
             <div id="photo-wizard-thumbs" class="photo-wizard-thumbs"></div>
@@ -676,7 +675,6 @@
           <button id="back-to-spots" class="btn-secondary" data-i18n="btnBackSpots">← スポットを変える</button>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
             <button id="reverse-route-btn" class="btn-secondary" data-i18n="btnReverseRoute" title="ルートの順番を逆にします">逆順にする</button>
-            <button id="show-map-btn" class="btn-secondary" data-i18n="btnShowMap">地図を見る</button>
             <button id="download-pdf-btn" class="btn-secondary" data-i18n="btnDownloadPdf">PDFにする</button>
             <button id="start-explore-btn" class="btn-primary" data-i18n="btnStartExplore">探検スタート！ →</button>
           </div>

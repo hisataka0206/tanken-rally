@@ -324,6 +324,104 @@ export function renderMapPreview(targetEl, opts) {
   targetEl.appendChild(wrap);
 }
 
+/**
+ * 探検スタート時に一度だけ、各ウィザードステージの静止画（地図＋ストリートビュー）URLを構築する。
+ * 以降は同じURLを再利用して順次表示するだけ＝ブラウザキャッシュが効き、追加のAPI取得コストは発生しない。
+ * 返り値の index はウィザードのステージ番号に一致する:
+ *   0 = スタート(駅) ／ 1..N = 各スポット（到着レッグ legs[stage-1]）／ N+1 = ゴール(駅)。
+ * 各要素: { mapUrl, streetViews: [{ url, title }] }
+ */
+export function buildStageMedia({ orderedSpots, origin, directions, apiKey }) {
+  const out = [];
+  if (!apiKey) return out;
+  const legs = directions?.routes?.[0]?.legs || [];
+  const o = toLatLngLiteral(origin);
+  const N = (orderedSpots || []).length;
+
+  const svUrl = (lat, lng, heading) =>
+    `https://maps.googleapis.com/maps/api/streetview?size=480x320&location=${lat},${lng}` +
+    `&heading=${Math.round(heading || 0)}&fov=90&pitch=0&radius=120&source=outdoor&key=${apiKey}`;
+
+  // 地図は「中心・ズーム・北上・サイズ」を明示して作る（＝geo が確定するので現在地を後から重ねられる）。
+  const W = 560, H = 360;
+  const project = (la, ln) => { // Web メルカトル（zoom 0・256px タイル基準）
+    const siny = Math.min(Math.max(Math.sin(la * Math.PI / 180), -0.9999), 0.9999);
+    return { x: 256 * (0.5 + ln / 360), y: 256 * (0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI)) };
+  };
+  const fitCenterZoom = (pts) => {
+    let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+    pts.forEach(p => { minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat); minLng = Math.min(minLng, p.lng); maxLng = Math.max(maxLng, p.lng); });
+    const center = { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
+    const nw = project(maxLat, minLng), se = project(minLat, maxLng);
+    const spanX = Math.max(Math.abs(se.x - nw.x), 1e-6), spanY = Math.max(Math.abs(se.y - nw.y), 1e-6);
+    const pad = 1.18;
+    let zoom = Math.floor(Math.min(Math.log2(W / (spanX * pad)), Math.log2(H / (spanY * pad))));
+    zoom = Math.max(1, Math.min(zoom, 19));
+    return { center, zoom, w: W, h: H };
+  };
+  const mapUrlFor = (geo, markers, path) => [
+    `https://maps.googleapis.com/maps/api/staticmap?size=${W}x${H}&scale=2&maptype=roadmap`,
+    `center=${geo.center.lat},${geo.center.lng}&zoom=${geo.zoom}&language=${apiLang()}`,
+    ...staticMapStyleParams(), ...markers, ...(path ? [path] : []), `key=${apiKey}`,
+  ].join('&');
+
+  const pointMap = (ll) => {
+    const geo = { center: { lat: ll.lat, lng: ll.lng }, zoom: 17, w: W, h: H };
+    return { url: mapUrlFor(geo, [`markers=color:0x2e7d32%7Csize:mid%7C${ll.lat},${ll.lng}`]), geo };
+  };
+  const legMap = (fromLL, toLL, leg) => {
+    const pts = [{ lat: fromLL.lat, lng: fromLL.lng }];
+    (leg?.steps || []).forEach(s => { const a = toLatLngLiteral(s.start_location); if (a) pts.push(a); });
+    const lastEnd = toLatLngLiteral(leg?.steps?.[leg.steps.length - 1]?.end_location);
+    if (lastEnd) pts.push(lastEnd);
+    pts.push({ lat: toLL.lat, lng: toLL.lng });
+    const geo = fitCenterZoom(pts);
+    const path = `path=color:0x004029c8%7Cweight:5%7C${pts.map(p => `${p.lat},${p.lng}`).join('%7C')}`;
+    const markers = [
+      `markers=color:0x2e7d32%7Clabel:S%7Csize:mid%7C${fromLL.lat},${fromLL.lng}`,
+      `markers=color:0xc62828%7Clabel:G%7Csize:mid%7C${toLL.lat},${toLL.lng}`,
+    ];
+    return { url: mapUrlFor(geo, markers, path), geo };
+  };
+
+  const legTurnSVs = (leg) => {
+    const svs = [];
+    (leg?.steps || []).forEach(step => {
+      if (!step.maneuver || step.maneuver === 'straight') return;
+      const a = toLatLngLiteral(step.start_location);
+      const b = toLatLngLiteral(step.end_location);
+      if (!a) return;
+      svs.push({ url: svUrl(a.lat, a.lng, (a && b) ? computeHeading(a, b) : 0), title: stripHtml(step.html_instructions || step.instructions || '') });
+    });
+    return svs;
+  };
+
+  const asStage = (m, streetViews) => ({ mapUrl: m ? m.url : '', geo: m ? m.geo : null, streetViews });
+
+  // stage 0: スタート駅（1つ目のスポット方向を向いたSV）
+  const firstEnd = toLatLngLiteral(legs[0]?.steps?.[0]?.end_location);
+  out[0] = o
+    ? asStage(pointMap(o), [{ url: svUrl(o.lat, o.lng, firstEnd ? computeHeading(o, firstEnd) : 0), title: t('pdfStartCardSubtitle', 'ここから出発！') }])
+    : asStage(null, []);
+
+  // stage 1..N: 各スポット（到着レッグ = legs[stage-1]）
+  for (let stage = 1; stage <= N; stage++) {
+    const leg = legs[stage - 1];
+    const fromLL = stage === 1 ? o : toLatLngLiteral(orderedSpots[stage - 2]);
+    const toLL = toLatLngLiteral(orderedSpots[stage - 1]);
+    const m = (fromLL && toLL) ? legMap(fromLL, toLL, leg) : (toLL ? pointMap(toLL) : null);
+    out[stage] = asStage(m, legTurnSVs(leg));
+  }
+
+  // stage N+1: ゴール駅（最後のレッグ = legs[N]）
+  const goalLeg = legs[N];
+  const fromLLg = toLatLngLiteral(orderedSpots[N - 1]);
+  const mg = (fromLLg && o) ? legMap(fromLLg, o, goalLeg) : (o ? pointMap(o) : null);
+  out[N + 1] = asStage(mg, legTurnSVs(goalLeg));
+
+  return out;
+}
+
 function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, apiKey }) {
   const today = new Date().toLocaleDateString(LANG === 'en' ? 'en-US' : 'ja-JP');
   const localStation = localizeStationName(stationName, LANG);

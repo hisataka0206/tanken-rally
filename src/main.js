@@ -880,15 +880,17 @@ function renderZukanGrid(collection) {
   const genRecs = loadGeneratedCharacters();
   let genHtml = '';
   const genCards = genRecs.map(rec => {
-    // ローカルにbase64があればそれを表示。無ければ fileId で Drive本体を遅延取得（下の lazyLoadGeneratedImages）。
-    const needsServer = !rec.imageDataUrl && !!rec.fileId;
-    const url = needsServer ? TRANSPARENT_PX : generatedImageUrl(rec);
-    if (!url) return '';   // 画像もベース絵も fileId も無い壊れレコードは表示しない
+    // 画像を持たないレコード（ローカルbase64もベース絵も無い）は、genId でサーバから本体画像を取得する。
+    // ※fileId は古い行で列ズレしている場合があるので使わず、確実な genId(＝<genId>.png) で取る。
+    const needsServer = !rec.imageDataUrl && !rec.baseCharId;
+    const cached = needsServer ? _genImgCache.get(rec.genId) : null;
+    const url = rec.imageDataUrl ? rec.imageDataUrl : (cached || (needsServer ? TRANSPARENT_PX : generatedImageUrl(rec)));
+    if (!url) return '';
     const rar = rarityById(rec.rarityId);
     const style = (rec.imageDataUrl || needsServer) ? '' : ` style="filter:${rec.colorFilter || 'none'}"`;
-    const fid = needsServer ? escapeHtml(rec.fileId) : '';
+    const needImg = (needsServer && !cached) ? '1' : ''; // キャッシュ済みは遅延不要
     return `
-      <div class="zukan-item zukan-generated zukan-clickable" data-gen-id="${escapeHtml(rec.genId || '')}" data-file-id="${fid}" role="button">
+      <div class="zukan-item zukan-generated zukan-clickable" data-gen-id="${escapeHtml(rec.genId || '')}" data-need-img="${needImg}" role="button">
         <img src="${escapeHtml(url)}" alt=""${style} />
         <div class="zukan-name">${escapeHtml(rec.name || '')}</div>
         <div class="zukan-count">${'★'.repeat(rar.stars || 1)}</div>
@@ -912,21 +914,31 @@ function renderZukanGrid(collection) {
 const TRANSPARENT_PX = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 const _genImgCache = new Map(); // fileId -> dataURL（同一セッション内で再取得しない）
 
-// data-file-id を持つ生成カードに、Drive本体画像(base64)を遅延取得して差し込む。
+// data-need-img="1" の生成カードに、Drive本体画像(base64)を genId で遅延取得して差し込む。
 // getBlob() は必ず中身を返すので確実（公開URL・サムネイル生成に依存しない）。
+// 図鑑を表示する前に、サーバ生成キャラの画像(本体base64)を全部キャッシュに取り込む（await）。
+// これで「全部そろってから表示」でき、遅延読み込みのチラつきも無くなる。
+async function prefetchGeneratedImages() {
+  if (!drive) return;
+  const recs = loadGeneratedCharacters().filter(r => !r.imageDataUrl && !r.baseCharId && r.genId && !_genImgCache.has(r.genId));
+  await Promise.allSettled(recs.map(async (r) => {
+    try { const d = await drive.getGeneratedImage({ genId: r.genId }); if (d) _genImgCache.set(r.genId, d); }
+    catch (e) { console.warn('[zukan] 生成画像の取得失敗 genId=' + r.genId, e); }
+  }));
+}
+
 async function lazyLoadGeneratedImages(root) {
   if (!drive) return;
-  const cards = [...(root || document).querySelectorAll('.zukan-generated[data-file-id]')]
-    .filter(c => c.dataset.fileId);
+  const cards = [...(root || document).querySelectorAll('.zukan-generated[data-need-img="1"]')];
   await Promise.allSettled(cards.map(async (card) => {
-    const fileId = card.dataset.fileId;
+    const genId = card.dataset.genId;
     const img = card.querySelector('img');
-    if (!img) return;
-    if (_genImgCache.has(fileId)) { img.src = _genImgCache.get(fileId); return; }
+    if (!img || !genId) return;
+    if (_genImgCache.has(genId)) { img.src = _genImgCache.get(genId); return; }
     try {
-      const dataUrl = await drive.getGeneratedImage({ fileId });
-      if (dataUrl) { _genImgCache.set(fileId, dataUrl); img.src = dataUrl; }
-    } catch (e) { console.warn('[zukan] 生成画像の取得失敗 fileId=' + fileId, e); }
+      const dataUrl = await drive.getGeneratedImage({ genId });
+      if (dataUrl) { _genImgCache.set(genId, dataUrl); img.src = dataUrl; }
+    } catch (e) { console.warn('[zukan] 生成画像の取得失敗 genId=' + genId, e); }
   }));
 }
 
@@ -939,9 +951,10 @@ function showGeneratedDetail(genId) {
   if (!rec || !detail) return;
   const rar = rarityById(rec.rarityId);
   const story = buildGeneratedStory(rec, LANG);
-  // 画像: ローカルbase64 or キャッシュ済みの本体画像があればそれ、無ければ透明→下で遅延取得
-  const cached = rec.fileId ? _genImgCache.get(rec.fileId) : null;
-  const detailSrc = rec.imageDataUrl || cached || (rec.fileId ? TRANSPARENT_PX : generatedImageUrl(rec));
+  // 画像: ローカルbase64 or キャッシュ済みの本体画像があればそれ、無ければ透明→下で遅延取得（genIdで）
+  const needsServer = !rec.imageDataUrl && !rec.baseCharId;
+  const cached = needsServer ? _genImgCache.get(rec.genId) : null;
+  const detailSrc = rec.imageDataUrl || cached || (needsServer ? TRANSPARENT_PX : generatedImageUrl(rec));
   detail.innerHTML = `
     <button class="zukan-detail-close" type="button" aria-label="close">✕</button>
     <div class="zukan-detail-body">
@@ -958,11 +971,11 @@ function showGeneratedDetail(genId) {
     detail.classList.add('hidden');
     detail.innerHTML = '';
   });
-  // 本体画像が未取得なら Drive から取得して差し込む
-  if (!rec.imageDataUrl && !cached && rec.fileId && drive) {
-    drive.getGeneratedImage({ fileId: rec.fileId }).then(dataUrl => {
+  // 本体画像が未取得なら Drive から genId で取得して差し込む
+  if (needsServer && !cached && rec.genId && drive) {
+    drive.getGeneratedImage({ genId: rec.genId }).then(dataUrl => {
       if (!dataUrl) return;
-      _genImgCache.set(rec.fileId, dataUrl);
+      _genImgCache.set(rec.genId, dataUrl);
       const img = detail.querySelector('#gen-detail-img');
       if (img) img.src = dataUrl;
     }).catch(() => {});
@@ -1023,25 +1036,32 @@ async function openZukan() {
   updateZukanAccount();
   renderZukanGrid(loadCollection());
   $('zukan-modal').classList.remove('hidden');
-  // サーバー側のコレクションをマージして再描画（失敗してもローカル表示のまま）
+  // サーバー側のコレクションをマージ。生成キャラは全画像を取得し終えてから一括表示する。
   if (drive) {
-    // 捕獲図鑑と生成キャラ（#10 端末間同期）を並行取得してマージ
-    const uid = accountUserId() || getExplorerId();
-    const [capRes, genRes] = await Promise.allSettled([
-      drive.getCaptures({ explorerId: getExplorerId() }),
-      drive.getGeneratedCharacters({ userId: uid }),
-    ]);
-    if (genRes.status === 'fulfilled') {
-      // サーバの全生成キャラをメモリに保持（localStorageには積まない＝容量に依存せず全部表示）
-      try { setServerGenerated(genRes.value); } catch (_) {}
-    } else {
-      console.warn('[zukan] 生成キャラのサーバ取得失敗（ローカル表示を継続）:', genRes.reason);
-    }
-    if (capRes.status === 'fulfilled') {
-      renderZukanGrid(mergeServerCollection(capRes.value)); // 生成キャラの再描画も内包
-    } else {
-      console.warn('[zukan] Sheets読み込み失敗（ローカル表示を継続）:', capRes.reason);
-      renderZukanGrid(loadCollection()); // 生成キャラのマージ分だけでも反映
+    showLoadingOverlay(t('zukanLoading', '図鑑を よみこみ中…'));
+    try {
+      // 捕獲図鑑と生成キャラ（#10 端末間同期）を並行取得
+      const uid = accountUserId() || getExplorerId();
+      const [capRes, genRes] = await Promise.allSettled([
+        drive.getCaptures({ explorerId: getExplorerId() }),
+        drive.getGeneratedCharacters({ userId: uid }),
+      ]);
+      if (genRes.status === 'fulfilled') {
+        // サーバの全生成キャラをメモリに保持（localStorageには積まない＝容量に依存せず全部表示）
+        try { setServerGenerated(genRes.value); } catch (_) {}
+      } else {
+        console.warn('[zukan] 生成キャラのサーバ取得失敗（ローカル表示を継続）:', genRes.reason);
+      }
+      // 生成キャラの画像を全部キャッシュに取り込んでから描画（そろってから表示）
+      await prefetchGeneratedImages();
+      if (capRes.status === 'fulfilled') {
+        renderZukanGrid(mergeServerCollection(capRes.value)); // 生成キャラの再描画も内包
+      } else {
+        console.warn('[zukan] Sheets読み込み失敗（ローカル表示を継続）:', capRes.reason);
+        renderZukanGrid(loadCollection()); // 生成キャラのマージ分だけでも反映
+      }
+    } finally {
+      hideLoadingOverlay();
     }
   }
 }

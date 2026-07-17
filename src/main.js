@@ -1,5 +1,5 @@
 import { CONFIG } from '../config.js?v=106';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, isPlaceOpenInWindow, MAP_STYLE } from './utils/maps.js?v=106';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, fetchEditorialSummary, isPlaceOpenInWindow, MAP_STYLE } from './utils/maps.js?v=106';
 import { fetchOriginStory, fetchSpotFacts, generateCharacterBlurb, tidyMemo, transcribeAudio, setAiBackend } from './utils/ai.js?v=106';
 import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=106';
 import { generateMapPdf, renderMapPreview, buildStageMedia } from './utils/pdf.js?v=106';
@@ -3539,29 +3539,36 @@ async function onChargenSave() {
   const facts = (state.charGen && state.charGen.spotFacts) || null;
   const v0 = _chargenChosen.vocab || {};
 
-  // 説明文ジェネレーター: 「素材①キャラ探検データ × 素材②スポット史実」を1つの説明文に融合。
-  //   史実があるときだけ生成（史実を性格・あこがれに溶かし込む）。無ければ '' → 図鑑はテンプレへフォールバック。
+  // 説明文ジェネレーター: 「素材①キャラ探検データ × 素材②スポット」を1つの説明文に融合。
+  //   史跡が紐づいていれば必ず生成する（史実が薄い時は場所の種類・雰囲気を性格に溶かす）。
+  //   史跡が無い時だけテンプレ(buildGeneratedStory)へフォールバック。
   const core = (s) => String(s || '').split(/[・･]/)[0].trim();
   let description = '';
   let spotSource = '';
-  if (facts && facts.facts) {
+  if (hs && hs.name) {
+    // 冒頭フレーズ（0スポット/0kmのテスト生成でも自然な日本語になるよう組み立てる）
+    const town = String(p.station || '').replace(/駅$/, '') || 'どこかの町';
+    const nSpots = (p.spots || []).length;
+    const km = Math.max(0, Math.round((p.distanceKm || 0) * 10) / 10);
+    const adventure = nSpots > 0
+      ? `${town}の町を${nSpots}か所めぐって、${km}kmあるいた探検`
+      : `${town}の町をあるいた探検`;
     // お祝いの瞬間が固まらないよう最大8秒で打ち切り（間に合わなければテンプレ説明へフォールバック）。
     description = await Promise.race([
       generateCharacterBlurb({
         name: _chargenChosenName,
-        town: String(p.station || '').replace(/駅$/, ''),
-        spotCount: (p.spots || []).length,
-        distanceKm: p.distanceKm,
+        adventure,
         itemHint: core(v0.decoration) || core(v0.motif),
         animal: core(v0.motif),
         personality: [core(v0.atmosphere), core(v0.expression)].filter(Boolean).join('・'),
-        spotName: hs ? hs.name : (facts.title || ''),
-        spotFacts: facts.facts,
-        source: facts.source,
+        spotName: hs.name,
+        spotFacts: (facts && facts.facts) ? facts.facts : '',
+        source: (facts && facts.source) ? facts.source : '',
       }),
       new Promise(r => setTimeout(() => r(''), 8000)),
     ]);
-    if (description) spotSource = facts.source || '';
+    // 出典は Wikipedia等で裏取りできた時だけ表示（雰囲気だけの融合には出典を付けない）
+    if (description && facts && facts.facts) spotSource = facts.source || '';
   }
 
   const enrichedVocab = {
@@ -3880,7 +3887,7 @@ function maybeStartCharGen() {
   // このキャラに「行ったスポットの史跡」を1つ紐づける（史跡カテゴリ優先・無ければ先頭のスポット）。
   // 実際の史跡ストーリー取得は startCharGenBg で非同期に行う。
   const linkedSpot = (state.orderedSpots || []).find(s => s.category === 'historic') || (state.orderedSpots || [])[0] || null;
-  state.charGen.historicSpot = linkedSpot ? { name: linkedSpot.name, category: linkedSpot.category || '' } : null;
+  state.charGen.historicSpot = linkedSpot ? { name: linkedSpot.name, category: linkedSpot.category || '', placeId: linkedSpot.id || '' } : null;
   // ※生成の開始は case X の変数選択（openChargenPickModal → finalizeChargenPick）確定後。
 }
 
@@ -3890,14 +3897,52 @@ function startCharGenBg() {
   state.charGen.promise = startGeneration(state.charGen.params)
     .then(r => { state.charGen.result = r; return r; })
     .catch(e => { console.warn('[chargen] 先行生成失敗', e); return null; });
-  // 紐づけたスポットの「史実（Wikipedia事実）」を並行取得しておく。
-  // これは説明文ジェネレーター（素材②）の材料。実際の融合説明文は命名確定時（onChargenSave）に生成する。
+  // 紐づけたスポットの「史実」を並行取得しておく（素材②）。融合説明文は命名確定時（onChargenSave）に生成。
   const hs = state.charGen.historicSpot;
   if (hs && hs.name && !state.charGen.factsPromise) {
-    state.charGen.factsPromise = fetchSpotFacts(hs.name, { station: state.stationName })
+    state.charGen.factsPromise = resolveSpotFacts(hs)
       .then(f => { state.charGen.spotFacts = f || null; return f; })
       .catch(() => { state.charGen.spotFacts = null; return null; });
   }
+}
+
+// PlacesService（editorial_summary 取得用）を遅延生成して使い回す。
+let _placesSvc = null;
+function getPlacesService() {
+  if (_placesSvc) return _placesSvc;
+  if (!(typeof google !== 'undefined' && google.maps && google.maps.places)) return null;
+  try { _placesSvc = new google.maps.places.PlacesService(document.createElement('div')); }
+  catch (_) { _placesSvc = null; }
+  return _placesSvc;
+}
+
+// 史実グラウンディングのカスケード：① Gemini+Google検索 → ② Google Places(editorial) → ③ Wikipedia。
+// 最初に事実が取れた段で返す。全滅なら null（＝雰囲気ベースの融合になる）。
+async function resolveSpotFacts(spot) {
+  if (!spot || !spot.name) return null;
+  const station = state.stationName;
+  const lang = apiLang();
+  // ① Gemini + Google検索（出典つき・カバー広い）
+  if (drive && typeof drive.groundSpotFacts === 'function') {
+    try {
+      const g = await drive.groundSpotFacts({ spotName: spot.name, station, lang });
+      if (g && g.facts) return { facts: String(g.facts), source: g.source || 'Google検索' };
+    } catch (_) { /* 次段へ */ }
+  }
+  // ② Google Places の editorial_summary（施設の公式説明・カバーは狭い）
+  try {
+    const svc = getPlacesService();
+    if (svc && spot.placeId) {
+      const es = await fetchEditorialSummary(svc, spot.placeId);
+      if (es) return { facts: es, source: 'Google' };
+    }
+  } catch (_) { /* 次段へ */ }
+  // ③ Wikipedia（最後の砦）
+  try {
+    const w = await fetchSpotFacts(spot.name, { station });
+    if (w && w.facts) return { facts: String(w.facts), source: w.source || 'ウィキペディア' };
+  } catch (_) { /* 全滅 */ }
+  return null;
 }
 
 // case X: 変数選択ティーザー（探検おわり時に すき を選ぶ）

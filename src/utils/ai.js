@@ -178,51 +178,53 @@ export async function fetchSpotFacts(spotName, opts = {}) {
 export async function generateCharacterBlurb(data = {}) {
   const d = data || {};
   const facts = String(d.spotFacts || '').trim();
-  if (!facts) return '';
-  const km = Math.max(0, Math.round((Number(d.distanceKm) || 0) * 10) / 10);
+  const adventure = String(d.adventure || '').trim();
+  const spotName = String(d.spotName || '').trim();
+  // 史跡が全く紐づいていない時だけスキップ（＝混ぜる相手がいない）。史実が薄くても場所の雰囲気で融合する。
+  if (!spotName) return '';
   let systemPrompt, userPrompt;
   if (LANG === 'en') {
-    systemPrompt = `You are the field-guide writer for a kids' town-exploration game. Mix the two materials below into ONE character blurb.
+    systemPrompt = `You are the field-guide writer for a kids' town-exploration game. Blend the two materials below into ONE character blurb.
 Rules:
-1. Do NOT list the history as an explanation. Dissolve it into the character's personality, likes, longing, or talent (e.g. "a mystery writer lived there" -> "loves solving mysteries", "looks up to that writer").
-2. Kid-friendly. Plain words, 3-4 short sentences, about 220-300 characters.
-3. No meta/behind-the-scenes wording (no "rises as", "parallel world", etc.). Never explain from outside the story.
-4. Start with: "Born on an adventure that wandered {spots} spots and walked {km} km around {town}, a friend shaped like {animal}."
-5. End with one sentence about what the character does for the person who walked with it.
-6. Use ONLY facts present in Material 2. Do not add or invent anything not written there.
+1. Do NOT explain the place like a caption. Dissolve it into the character's personality, likes, longing, or talent (e.g. "a mystery writer lived there" -> "loves solving mysteries, looks up to that writer"; "an old quiet temple" -> "loves calm old places").
+2. Use specific facts (people, events, years) ONLY if they appear in Material 2. NEVER invent specific names, dates, or events. If Material 2 has little, color the character with the place's TYPE and mood only (e.g. temple = old, quiet, prayer).
+3. Kid-friendly. Plain words, 3-4 short sentences, about 200-280 characters.
+4. No meta/behind-the-scenes wording ("rises as", "parallel world", etc.). Never explain from outside the story.
+5. Start exactly with: "Born on ${adventure || 'an adventure around town'}, a friend shaped like ${d.animal || 'a little creature'}."
+6. End with one sentence about what the character does for the person who walked with it.
 Output: the blurb text only (no headings or notes).`;
     userPrompt = `Material 1 (character):
 - Name: ${d.name || ''}
-- Adventure: walked around ${d.town || ''}, ${d.spotCount || 0} spots, ${km} km
+- Adventure phrase (use in the opening): ${adventure || 'an adventure around town'}
 - Look / item: ${d.itemHint || '-'}
 - Animal / form: ${d.animal || 'a little creature'}
 - Personality: ${d.personality || '-'}
 
-Material 2 (real history of the spot):
-- Place: ${d.spotName || ''}
-- Facts (use only these): ${facts}
-- Source: ${d.source || 'Wikipedia'}`;
+Material 2 (the spot):
+- Place: ${spotName}
+- Known facts (use ONLY these; blank = no confirmed facts): ${facts || '(no confirmed facts — use only the place type/atmosphere, invent nothing specific)'}
+- Source: ${d.source || '(none)'}`;
   } else {
-    systemPrompt = `あなたは子ども向けまち探検ゲームのキャラ図鑑ライターです。以下の2つの素材を混ぜて、キャラクターの説明文を1つ作ってください。
+    systemPrompt = `あなたは子ども向けまち探検ゲームのキャラ図鑑ライターです。以下の2つの素材を混ぜて、キャラの説明文を1つ作ってください。
 ルール：
-1. 史実は「解説」として並べず、キャラの性格・好き・あこがれ・とくいとして溶かし込む（例：探偵小説家がいた→「なぞときが大すき」「その人にあこがれている」）。
-2. 子どもが読む文章。やさしい言葉で3〜4文、100〜130字程度。
-3. 「〜として立ち上がる」「パラレルワールド」など種明かし・メタな表現は禁止。物語の外から説明しない。
-4. 冒頭は必ず「{町名}の町を{スポット数}か所めぐって、{km}km歩いた探検の中で生まれた、{動物}の仲間。」の形から始める。
-5. 最後は、いっしょに歩いた人にキャラが何かしてくれる一文で締める。
-6. 史実は素材②に書かれた事実だけを使い、書かれていないことは足さない・創作しない。
+1. 場所の情報は「解説」として並べず、キャラの性格・好き・あこがれ・とくいに溶かし込む（例：探偵小説家がいた→「なぞときが大すき」「その人にあこがれている」／古くて静かなお寺→「しずかで古い場所が好き」「昔のものにわくわく」）。
+2. 具体的な事実（人名・出来事・年号）は、素材②に書かれている時だけ使う。**書かれていない具体的な事実は絶対に創作しない**。素材②が乏しい時は、場所の種類・雰囲気（例：お寺＝古い・静か・祈り）だけを、ふわっと性格に反映する。
+3. やさしい言葉で、3〜4文、100〜130字程度。
+4. 「〜として立ち上がる」「パラレルワールド」等のメタ表現は禁止。物語の外から説明しない。
+5. 冒頭は必ず「${adventure || 'まちをあるいた探検'}の中で生まれた、${d.animal || 'ふしぎな生きもの'}の仲間。」から始める。
+6. 最後は、いっしょに歩いた人にキャラが何かしてくれる一文で締める。
 出力：説明文の本文のみ（見出しや注釈は不要）。`;
     userPrompt = `素材① キャラの探検データ
 - 名前：${d.name || ''}
-- 生まれた場所／歩いた探検：${d.town || ''}の町を${d.spotCount || 0}か所めぐって、${km}km歩いた探検
+- 冒頭に使う探検フレーズ：${adventure || 'まちをあるいた探検'}
 - 見た目の特徴やアイテム：${d.itemHint || '（とくになし）'}
 - 動物・すがた：${d.animal || 'ふしぎな生きもの'}
 - 性格タグ：${d.personality || '（とくになし）'}
 
-素材② スポットの史実
-- 場所の名前：${d.spotName || ''}
-- 史実の要点（この範囲だけを使う）：${facts}
-- 出典：${d.source || 'ウィキペディア'}`;
+素材② スポット
+- 場所の名前：${spotName}
+- わかっている史実（この範囲だけを使う。空＝確かな史実は不明）：${facts || '（確かな史実は不明。場所の種類・雰囲気だけを使い、具体的な事実は創作しない）'}
+- 出典：${d.source || '（なし）'}`;
   }
   try {
     const out = await chat(

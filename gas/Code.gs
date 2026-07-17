@@ -158,6 +158,9 @@ function doPost(e) {
     if (action === 'getGeneratedImage') {
       return respond(headers, getGeneratedImage(body));
     }
+    if (action === 'geminiGroundSpot') {
+      return respond(headers, geminiGroundSpot(body));
+    }
     if (action === 'openaiChat') {
       return respond(headers, openaiChat(body));
     }
@@ -1154,6 +1157,98 @@ function getGeneratedCharacters(body) {
 // ===== OpenAI プロキシ（キーは Script Property OPENAI_API_KEY・ブラウザ非露出） =====
 // テキスト: chat/completions。音声: Whisper(audio/transcriptions)。
 // ※ script.external_request スコープが必要（Gemini 用に承認済みなら追加承認は不要）。
+// ===== 史実グラウンディング: Gemini + Google検索（Grounding with Google Search）=====
+// スポット名から、Web上の事実（歴史・由来・人物）を出典つきで取得する。
+// キーは画像生成と共通の GEMINI_API_KEY。テキストモデルは Script Property GEMINI_TEXT_MODEL で変更可
+// （既定 gemini-2.5-flash。3.x flash 系にすると無料枠5,000/月・$14/1000 でより安い）。
+// コスト保護のため月次上限（GROUND_MONTHLY_LIMIT）で無料枠内に収める。
+const GROUND_MONTHLY_LIMIT = 4500;        // 1か月あたりのグラウンディング呼び出し上限（無料枠5,000の手前）
+const SHEET_TAB_GROUND_GUARD = 'ground_guard';
+const SHEET_HEADERS_GROUND_GUARD = ['month', 'count', 'updatedAt'];
+
+function groundMonthKey_() { return Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM'); }
+
+/** 当月の呼び出しを1件予約。上限超過なら {ok:false}。ScriptLockで直列化。 */
+function reserveGroundQuota_() {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(8000); } catch (e) { return { ok: false }; }
+  try {
+    var sheet = getLogSheet(SHEET_TAB_GROUND_GUARD, SHEET_HEADERS_GROUND_GUARD);
+    var month = groundMonthKey_();
+    var last = sheet.getLastRow();
+    var rowNum = null, count = 0;
+    if (last >= 2) {
+      var vals = sheet.getRange(2, 1, last - 1, 2).getValues();
+      for (var i = 0; i < vals.length; i++) {
+        if (String(vals[i][0]) === month) { rowNum = i + 2; count = Number(vals[i][1]) || 0; break; }
+      }
+    }
+    if (count + 1 > GROUND_MONTHLY_LIMIT) return { ok: false, used: count, limit: GROUND_MONTHLY_LIMIT };
+    var now = new Date().toISOString();
+    if (rowNum) sheet.getRange(rowNum, 2, 1, 2).setValues([[count + 1, now]]);
+    else sheet.appendRow([month, 1, now]);
+    return { ok: true, used: count + 1 };
+  } finally { lock.releaseLock(); }
+}
+
+// body: { spotName, station, lang } → { ok, facts, source, sources:[domain] }
+function geminiGroundSpot(body) {
+  try {
+    var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+    if (!apiKey) return { ok: false, error: 'GEMINI_API_KEY not set' };
+    var spotName = String((body && body.spotName) || '').slice(0, 120);
+    if (!spotName) return { ok: false, error: 'spotName required' };
+    var station = String((body && body.station) || '').replace(/駅$/, '').slice(0, 60);
+    var lang = (body && body.lang === 'en') ? 'en' : 'ja';
+
+    // 月次上限（無料枠の手前で止める）
+    var reserve = reserveGroundQuota_();
+    if (!reserve.ok) return { ok: false, error: 'ground-monthly-limit', used: reserve.used, limit: GROUND_MONTHLY_LIMIT };
+
+    var model = PropertiesService.getScriptProperties().getProperty('GEMINI_TEXT_MODEL') || 'gemini-2.5-flash';
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+      + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(apiKey);
+
+    var prompt = (lang === 'en')
+      ? ('Using Google Search, summarize the real history/origins of the place "' + spotName + '"'
+         + (station ? (' (near ' + station + ')') : '') + '. Give only confirmed facts (people, events, what it is known for) in 3-5 short factual sentences. No kid-styling, facts only. If little is known, say so briefly.')
+      : ('Google検索を使って、史跡・場所「' + spotName + '」'
+         + (station ? ('（' + station + '周辺）') : '') + 'の歴史・由来・ゆかりの人物や出来事を、確かな事実だけ簡潔にまとめてください。3〜5文の事実のみ（子ども向けの脚色はしない）。ゆかりのある人物・何で知られるかを含める。分からなければその旨だけ短く。');
+
+    var payload = JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      tools: [{ google_search: {} }]
+    });
+    var res = UrlFetchApp.fetch(url, {
+      method: 'post', contentType: 'application/json', payload: payload, muteHttpExceptions: true
+    });
+    var code = res.getResponseCode();
+    var txt = res.getContentText();
+    if (code !== 200) return { ok: false, error: 'gemini http ' + code + ': ' + txt.slice(0, 200) };
+    var j = JSON.parse(txt);
+    var cand = (j.candidates && j.candidates[0]) || {};
+    var parts = (cand.content && cand.content.parts) || [];
+    var facts = '';
+    for (var p = 0; p < parts.length; p++) { if (parts[p].text) facts += parts[p].text; }
+    facts = String(facts).trim();
+    if (!facts) return { ok: false, error: 'no grounded text' };
+
+    // 出典ドメインを groundingMetadata から抽出（あれば）
+    var domains = [];
+    var gm = cand.groundingMetadata || cand.grounding_metadata || {};
+    var chunks = gm.groundingChunks || gm.grounding_chunks || [];
+    for (var c = 0; c < chunks.length; c++) {
+      var w = chunks[c].web || chunks[c].Web || {};
+      var dom = w.domain || w.title || '';
+      if (dom && domains.indexOf(dom) < 0) domains.push(dom);
+      if (domains.length >= 3) break;
+    }
+    return { ok: true, facts: facts, source: domains.length ? domains.join('・') : 'Google検索', sources: domains };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+}
+
 function openaiChat(body) {
   try {
     var key = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');

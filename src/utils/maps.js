@@ -248,6 +248,24 @@ export function fetchOpeningHours(service, placeId) {
   });
 }
 
+/** Google Places の editorial_summary（施設の短い公式説明）を取得。史実グラウンディングの2段目。
+ *  取れなければ '' を返す（多くの場所は未整備なので空が普通）。 */
+export function fetchEditorialSummary(service, placeId) {
+  return new Promise(resolve => {
+    if (!service || !placeId) return resolve('');
+    try {
+      service.getDetails(
+        { placeId, fields: ['editorial_summary'] },
+        (place, status) => {
+          const ok = (typeof google !== 'undefined') && status === google.maps.places.PlacesServiceStatus.OK;
+          const ov = ok && place && place.editorial_summary && place.editorial_summary.overview;
+          resolve(ov ? String(ov) : '');
+        }
+      );
+    } catch (_) { resolve(''); }
+  });
+}
+
 // opening_hours と「日付＋開始/終了時刻」から、指定時間帯のいずれかでお店が
 // 営業しているかを判定。
 //   true  : 重なる営業時間あり（=この時間帯に開いている）

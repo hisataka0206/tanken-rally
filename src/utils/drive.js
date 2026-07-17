@@ -12,6 +12,7 @@ export class DriveClient {
   static NON_RETRY_ACTIONS = new Set([
     'uploadPhoto', 'createSession', 'saveRanking',
     'saveIssueReport', 'submitIssueReport', 'registerUser',
+    'geminiGroundSpot', // 従量課金＝ネットワーク瞬断でも二重課金しないようリトライしない
   ]);
 
   async _post(body, { timeoutMs = 45000, retries } = {}) {
@@ -257,6 +258,15 @@ export class DriveClient {
     const data = await this._post({ action: 'saveSpotsCache', key, stationName, lang, spots });
     if (!data.ok) throw new Error(data.error);
     return data;
+  }
+
+  /** 史実グラウンディング: Gemini + Google検索でスポットの事実を出典つき取得。
+   *  返り値: { facts, source, sources } または null（未取得/失敗/上限）。カスケードの1段目。 */
+  async groundSpotFacts({ spotName, station, lang }) {
+    try {
+      const data = await this._post({ action: 'geminiGroundSpot', spotName, station, lang });
+      return (data && data.ok && data.facts) ? data : null;
+    } catch (_) { return null; }
   }
 
   /** キャラ自動生成: NanoBanana Pro（GAS側でAPIキー保持）で count 枚生成。

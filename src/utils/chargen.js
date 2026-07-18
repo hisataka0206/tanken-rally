@@ -320,39 +320,65 @@ export async function startGeneration(params) {
 
   // ★3体それぞれを「別の語彙＋別のフォルム(body)＋別の特徴」で個別に生成する（同じプロンプト×3をやめる）。
   //   これで3体のシルエットがはっきり別物になる。各1枚を並行生成。
-  const gens = await Promise.all(perCandidate.map((v, i) => {
+  //
+  // 1スロット分の生成＋検証。採用できなければ null を返す。
+  // 失敗理由（生成失敗 / 背景が抜けない）はログに残し、再生成の判断材料にする。
+  const genSlot = async (i) => {
     const prompt = buildPrompt({
       station: p.station, spots: p.spots, distanceKm: p.distanceKm,
-      vocab: v, bodyHint: bodies[i] ? bodies[i].promptHint : '',
+      vocab: perCandidate[i], bodyHint: bodies[i] ? bodies[i].promptHint : '',
       featureHint: features[i] ? features[i].promptHint : '',
     });
-    return callNanoBananaPro({ prompt, count: 1 })
+    const img = await callNanoBananaPro({ prompt, count: 1 })
       .then(arr => (arr && arr[0]) ? arr[0].imageDataUrl : null)
       .catch(() => null);
-  }));
-
-  // 生成画像は不透明背景のことが多い。外周シードのフラッドフィルで背景を透過に抜く。
-  const cuts = await Promise.all(gens.map(img => img ? cutoutBackground(img, { tolerance: 48 }) : null));
-  const candidates = [];
-  cuts.forEach((c, i) => {
-    if (c && c.url && c.removedRatio >= 0.12) {
-      candidates.push({
-        candidateId: 'g' + candidates.length,
-        bodyId: (bodies[i] || AXIS_BODY[0]).id,
-        featureId: features[i] ? features[i].id : null,
-        impressionId: AXIS_IMPRESSION[0].id,
-        rarityId: rarity.id,
-        baseCharId: null,
-        imageUrl: c.url,
-        colorFilter: 'none',
-        imageDataUrl: c.url,
-        vocab: perCandidate[i],
-      });
+    if (!img) { console.warn(`[chargen] slot${i} 生成失敗`); return null; }
+    // 生成画像は不透明背景のことが多い。外周シードのフラッドフィルで背景を透過に抜く。
+    const c = await cutoutBackground(img, { tolerance: 48 });
+    if (!c || !c.url || c.removedRatio < 0.12) {
+      console.warn(`[chargen] slot${i} 背景除去NG（removedRatio=${(c && c.removedRatio || 0).toFixed(2)}）`);
+      return null;
     }
-  });
-  console.info(`[chargen] 個別生成 採用 ${candidates.length}/${count}（removedRatio=${cuts.map(c => (c && c.removedRatio || 0).toFixed(2)).join(',')}）`);
-  if (candidates.length >= 1) {
-    return { candidates, rarityId: rarity.id, source: 'nanobanana' };
+    return {
+      candidateId: 'g' + i,
+      bodyId: (bodies[i] || AXIS_BODY[0]).id,
+      featureId: features[i] ? features[i].id : null,
+      impressionId: AXIS_IMPRESSION[0].id,
+      rarityId: rarity.id,
+      baseCharId: null,
+      imageUrl: c.url,
+      colorFilter: 'none',
+      imageDataUrl: c.url,
+      vocab: perCandidate[i],
+    };
+  };
+
+  // 欠けたスロットだけを再生成し、必ず3体そろえる。
+  // 選択肢が2体に減ると「3つから選ぶ」体験が壊れるため（無音で間引かれるのを防ぐ）。
+  // 無限リトライにならないよう回数を制限し、それでも足りなければモックで埋める。
+  const MAX_ROUNDS = 3;   // 初回 + 再生成2回。1体失敗なら追加1枚で済む
+  const slots = new Array(count).fill(null);
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    const missing = slots.map((v, i) => (v ? -1 : i)).filter(i => i >= 0);
+    if (!missing.length) break;
+    if (round > 0) console.warn(`[chargen] ${missing.length}体が不採用 → 再生成 ${round}回目`);
+    const got = await Promise.all(missing.map(i => genSlot(i)));
+    got.forEach((c, k) => { if (c) slots[missing[k]] = c; });
+  }
+
+  const filled = slots.filter(Boolean).length;
+  console.info(`[chargen] 個別生成 採用 ${filled}/${count}`);
+  if (filled > 0) {
+    // 再生成しても揃わなかったぶんはモックで補い、選択肢は必ず3つにする
+    if (filled < count) {
+      console.warn(`[chargen] ${count - filled}体を再生成でも揃えられず、モックで補完`);
+      const mocks = mockCandidates({ distanceKm: p.distanceKm, userPicks: p.userPicks }) || [];
+      let mi = 0;
+      for (let i = 0; i < count; i++) {
+        if (!slots[i] && mocks[mi]) slots[i] = { ...mocks[mi++], candidateId: 'g' + i };
+      }
+    }
+    return { candidates: slots.filter(Boolean), rarityId: rarity.id, source: 'nanobanana' };
   }
   // 全滅 → 下のモックへフォールバック
 

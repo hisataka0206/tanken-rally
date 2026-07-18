@@ -7,6 +7,7 @@
 import { toLatLngLiteral, staticMapStyleParams } from './maps.js?v=106';
 import { apiLang, t, LANG, adjustMinForKids } from './i18n.js?v=106';
 import { localizeStationName } from '../data/cities.js?v=106';
+import { FEATURES } from '../config-features.js?v=106';
 import { randomFunCharacterImage } from './characters.js?v=106';
 
 // お楽しみ要素: ストリートビューカードにランダムでキャラを紛れ込ませる確率
@@ -472,7 +473,7 @@ function buildPdfHtml({ stationName, orderedSpots, stats, origin, directions, ap
 
     <div style="display:flex;gap:18px;background:#f5f0e8;padding:8px 20px;border-radius:0 0 8px 8px;font-size:12px;">
       <div><span style="color:#666;">${escapeHtml(t('statsTotalDistance'))}</span> <strong style="font-size:14px;color:#004029;">${escapeHtml(stats?.distanceText || '-')}</strong></div>
-      <div><span style="color:#666;">${escapeHtml(t('statsEstTime'))}</span> <strong style="font-size:14px;color:#004029;">${escapeHtml(t('approxMin').replace('{n}', adjustMinForKids(stats?.durationMin) ?? '-'))}</strong>${LANG === 'elementary' ? `<span style="color:#999;font-size:10px;margin-left:4px;">${escapeHtml(t('kidsTimeNote'))}</span>` : ''}</div>
+      <div><span style="color:#666;">${escapeHtml(t('statsEstTime'))}</span> <strong style="font-size:14px;color:#004029;">${escapeHtml(t('approxMin').replace('{n}', adjustMinForKids(stats?.durationMin) ?? '-'))}</strong>${FEATURES.showKidsTimeNote ? `<span style="color:#999;font-size:10px;margin-left:4px;">${escapeHtml(t('kidsTimeNote'))}</span>` : ''}</div>
       <div><span style="color:#666;">${escapeHtml(t('statsSpotCount'))}</span> <strong style="font-size:14px;color:#004029;">${orderedSpots.length}${escapeHtml(t('suffSpots'))}</strong></div>
     </div>
 

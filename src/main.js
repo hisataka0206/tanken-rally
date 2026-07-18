@@ -2275,7 +2275,8 @@ function schedulePreview() {
       const fmt = t('routePreviewResultFmt')
         .replace('{dist}', stats.distanceText)
         .replace('{min}', displayMin);
-      const note = LANG === 'elementary' ? ` ${t('kidsTimeNote')}` : '';
+      // 計算方法の注釈は config-features のフラグに従う（既定は非表示）
+      const note = FEATURES.showKidsTimeNote ? ` ${t('kidsTimeNote')}` : '';
       previewEl.textContent = `${over ? '⚠️ ' : '🚶 '}${fmt}${note}`;
       previewEl.className = `route-preview${over ? ' over' : ''}`;
     } catch (e) {

@@ -10,7 +10,7 @@ mkdir -p "$DIST"
 
 # --- 1) 公開する実行ファイルだけをコピー（ソース/検証ファイルは含めない） ---
 #   含める : index.html / policy.html / 404.html / src/（アプリ本体）
-#   含めない: gas/ docs/ Doc/ config.example.js README.md requirements.md todo.md
+#   含めない: gas/ docs/ config.example.js README.md requirements.md todo.md
 #            test-gen.html variant-preview.html LICENSE .github/  ← 公開しない
 cp index.html policy.html 404.html "$DIST"/
 cp -r src "$DIST"/src

@@ -115,6 +115,22 @@
    "GAS API エラー: 404",
    "daily-limit"
   ],
-  "silhouettes": 10
+  "silhouettes": 10,
+  "note": "★ブラウザ記録の指標は穴埋めバグで汚染。canonical_metrics.json を使うこと"
+ },
+ {
+  "name": "E-B-form-sweep-v2",
+  "source_zip": "char-lab_2026-07-18-15-20-44.zip",
+  "desc": "14フォルム総当り（common固定・特徴なし）2枚/体・全フォルム成功。E-Bの完全版",
+  "prompt_version": "post-fix",
+  "n_total": 14,
+  "n_ok": 14,
+  "n_error": 0,
+  "rarity": {
+   "common": 14
+  },
+  "errors": null,
+  "silhouettes": 14,
+  "note": "★ブラウザ記録の指標は穴埋めバグで汚染。canonical_metrics.json を使うこと"
  }
 ]

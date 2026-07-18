@@ -361,12 +361,19 @@ function updateSweepHint() {
 }
 
 // ============================================================
-// 囲まれた背景（白ポケット）補正
-// seed-fill式cutoutは、キャラに完全に囲まれた白（例: コイル状のヘビの内側）を抜けず不透明のまま残す。
-// → シルエットが黒く塗り潰され、面積・輪郭・ソリディティの実測も歪む。
-// ここで「不透明かつ白に近い」画素の連結成分のうち一定面積以上を透明化して補正する canvas を返す。
-// ※本番 imagefx.js は変更せず、ラボの計測/シルエット表示だけを正す。
+// シルエット生成
+//
+// ★2026-07-18 重要な修正: 「囲まれた白の穴埋め」は既定でOFF（HOLE_FILL=false）。
+//   経緯: コイル状のヘビの内側の白が抜けない問題に対し、色ベースで「不透明かつ白に近い」
+//   領域を透明化する補正を入れた。しかしこの方式は
+//   **キャラ自身の白い部分（白い顔・お腹・白目・ツヤ）と、囲まれた背景を区別できない**。
+//   実測（common 14体）: 穴埋めありだと平均輪郭 2.80（最大6.26）、無しだと 1.33。
+//   白い顔を持つキャラほど過剰に穴が空き、輪郭が2〜3倍に膨張して指標が無意味になった。
+//   → シルエットテストの標準（外輪郭をベタ塗り）に戻す。決定的かつ色閾値に依存しない。
+//   ※コイル内側の白は塗り潰されるが、これは「形をベタで塗る」という標準的定義に沿う。
 // ============================================================
+const HOLE_FILL = false;  // true に戻すと上記の過剰除去が再発するので注意
+
 function correctedCanvas(dataUrl, MAX = 520) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -376,6 +383,7 @@ function correctedCanvas(dataUrl, MAX = 520) {
       const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
       const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, w, h);
       const im = cx.getImageData(0, 0, w, h); const d = im.data; const N = w * h;
+      if (!HOLE_FILL) { resolve(cv); return; }   // ★既定: 外輪郭ベタ塗り（穴埋めしない）
       // 不透明かつ白に近い＝囲まれた背景候補（TOLは純白付近に絞る＝キャラの淡色は残す）
       const bgw = new Uint8Array(N); const TOL = 58, tol2 = TOL*TOL;
       for (let i = 0; i < N; i++) {

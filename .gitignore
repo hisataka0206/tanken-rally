@@ -16,6 +16,10 @@ src/assets/characters/char-lab_*.zip
 # 測定値そのものは thesis/data/runs/*/results.json に残るのでコミット対象
 thesis/data/silhouettes/
 
+# thesis: char-lab の生成結果ZIP（約319MB・ローカル保管のみ）
+# 測定値は runs/*/results.json と canonical_metrics.json に抽出済み
+thesis/data/zip/
+
 # キャラクター原画シート（ローカル保管のみ。切り出し済み素材は src/assets/characters/ にコミット）
 img/
 

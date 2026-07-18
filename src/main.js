@@ -140,8 +140,12 @@ function renderWizardStage() {
     // ナビゲーションボタンの活性化
     // 先頭ステージでも「前へ」は押せる（マップに戻る導線にする）ので disabled にしない
     $('wizard-prev').disabled = false;
-    $('wizard-prev').textContent = (state.photoWizardStage === 0)
-      ? t('btnWizardToMap', '← マップ') : t('btnWizardPrev', '← 前へ');
+    // ボタンは矢印アイコンのみ。行き先の違いは読み上げ・ツールチップに残す（画面には文字を出さない）
+    const prevLabel = (state.photoWizardStage === 0)
+      ? t('btnWizardToMap', 'マップにもどる') : t('btnWizardPrev', '前へ');
+    $('wizard-prev').textContent = '←';
+    $('wizard-prev').title = prevLabel;
+    $('wizard-prev').setAttribute('aria-label', prevLabel);
     // ステージの静止画（地図＋ストリートビュー）を表示（探検開始時に一括生成済み）
     renderWizardStageMedia();
     renderWizardThumbs(info.tag);

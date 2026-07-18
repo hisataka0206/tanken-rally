@@ -38,10 +38,12 @@ function detectConstrainedDevice() {
 const A4 = { wMm: 210, hMm: 297 };
 const MARGIN_MM = 10;
 
-// スポット番号を A,B,C... のラベルに変換（地図・ルート・曲がり角で一貫使用）
-// 27件目以降はフォールバックで数字を返す（実用上ありえない件数だが念のため）
-const SPOT_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const spotLetter = i => SPOT_LETTERS[i] || String(i + 1);
+// 記号体系を2つに分ける（同じ記号が別の意味を持たないようにするため）
+//   スポット   … S / 1,2,3… / G   ＝ 訪問順。マップのマーカー・ルート一覧と一致させる
+//   曲がり角   … A,B,C…           ＝ 区間ごとにリセット。通し番号だと「この区間の何番目か」が分からないため
+const spotLabel = i => String(i + 1);
+const TURN_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const turnLetter = i => TURN_LETTERS[i] || String(i + 1);
 
 /**
  * @param {Object} opts
@@ -550,7 +552,7 @@ function buildRouteFlowHtml({ stationName, localStation, orderedSpots, direction
   const spotItem = (s, i) => `
     <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 4px;">
       <div style="flex-shrink:0;width:32px;height:32px;background:#c62828;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.25);">
-        ${spotLetter(i)}
+        ${spotLabel(i)}
       </div>
       <div style="flex:1;">
         <div style="font-weight:700;font-size:14px;">${escapeHtml(s.name)}</div>
@@ -623,13 +625,11 @@ function buildTurnPointsHtml({ stationName, localStation, origin, orderedSpots, 
   }
 
   // 各 leg を「区間ヘッダー + 区間内の曲がり角カード群」として出力
-  let globalTurnCount = 0;
   legs.forEach((leg, legIdx) => {
-    const fromLabel = legIdx === 0 ? 'S' : spotLetter(legIdx - 1);
-    const toLabel   = legIdx < orderedSpots.length ? spotLetter(legIdx) : 'G';
+    const fromLabel = legIdx === 0 ? 'S' : spotLabel(legIdx - 1);
+    const toLabel   = legIdx < orderedSpots.length ? spotLabel(legIdx) : 'G';
     const fromName  = legIdx === 0 ? stationDisp : orderedSpots[legIdx - 1].name;
     const toName    = legIdx < orderedSpots.length ? orderedSpots[legIdx].name : stationDisp;
-    const nextRaw   = `${toLabel} (${toName})`;
 
     cards.push(segmentHeader({
       from: fromLabel, to: toLabel,
@@ -640,7 +640,6 @@ function buildTurnPointsHtml({ stationName, localStation, origin, orderedSpots, 
     (leg.steps || []).forEach(step => {
       if (!step.maneuver) return;
       if (step.maneuver === 'straight') return;
-      globalTurnCount++;
       turnsInThisLeg++;
       const start = toLatLngLiteral(step.start_location);
       const end = toLatLngLiteral(step.end_location);
@@ -653,7 +652,7 @@ function buildTurnPointsHtml({ stationName, localStation, origin, orderedSpots, 
       const subtitleHtml =
         `${escapeHtml(distText)}・${escapeHtml(t('approxMinDot').replace('{min}', min))}`;
       cards.push(buildTurnCard({
-        label: String(globalTurnCount),
+        label: turnLetter(turnsInThisLeg - 1),   // 区間ごとに A,B,C…
         labelColor: '#004029',
         title: stripHtml(step.html_instructions || step.instructions || ''),
         subtitle: subtitleHtml,
@@ -812,7 +811,7 @@ function buildStaticMapUrl({ origin, orderedSpots, directions, apiKey }) {
   if (o) params.push(`markers=color:0x004029|label:S|${o.lat},${o.lng}`);
   // 各スポット（A,B,C... のアルファベット表記、最大26件）
   orderedSpots.slice(0, SPOT_LETTERS.length).forEach((s, i) => {
-    params.push(`markers=color:red|label:${spotLetter(i)}|${s.lat},${s.lng}`);
+    params.push(`markers=color:red|label:${spotLabel(i)}|${s.lat},${s.lng}`);
   });
   // パス：徒歩経路の encoded polyline 優先（Directions API の overview_polyline）
   // フォールバックは点を直線で結ぶ

@@ -1,0 +1,345 @@
+[
+  {
+    "i": 0,
+    "rarity": "common",
+    "bodyJa": "まる・ボール",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a single rounded ball-shaped body with only small stubby limbs. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.0053935185378866,
+      "solidity": 0.9476905954368392,
+      "symmetry": 1,
+      "area": 3406,
+      "occupancy": 0.244683908045977
+    },
+    "removedRatio": 0.7612767075047349,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 1,
+    "rarity": "common",
+    "bodyJa": "四足獣",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a four-legged beast with a horizontal body and a head facing forward. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.1806639161368369,
+      "solidity": 0.9151699364465322,
+      "symmetry": 0.772386728505173,
+      "area": 4968,
+      "occupancy": 0.3568965517241379
+    },
+    "removedRatio": 0.6505820534446023,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 2,
+    "rarity": "common",
+    "bodyJa": "直立二足",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a tall upright body standing on two legs with visible arms. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.1446033852815214,
+      "solidity": 0.962582538517975,
+      "symmetry": 0.9408284023668639,
+      "area": 1968,
+      "occupancy": 0.1413793103448276
+    },
+    "removedRatio": 0.8644871567234849,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 3,
+    "rarity": "common",
+    "bodyJa": "座り・下ぶくれ",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a bottom-heavy sitting body: a wide round base with a small head resting on top. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": null,
+    "removedRatio": null,
+    "error": "GAS API エラー: 404"
+  },
+  {
+    "i": 4,
+    "rarity": "common",
+    "bodyJa": "鳥・つばさ",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a round-bodied bird with two side wings and a beak. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 0.9693971610006425,
+      "solidity": 0.9697334738744166,
+      "symmetry": 0.8389491719017704,
+      "area": 3220,
+      "occupancy": 0.23132183908045978
+    },
+    "removedRatio": 0.7734365752249053,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 5,
+    "rarity": "common",
+    "bodyJa": "大翼・飛行",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a flying creature with large spread wings and a wide dynamic wingspan. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": null,
+    "removedRatio": null,
+    "error": "GAS API エラー: 404"
+  },
+  {
+    "i": 6,
+    "rarity": "common",
+    "bodyJa": "小さな丸い二足",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a small round bipedal critter with a big head and short little limbs. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.1441997136306155,
+      "solidity": 0.925222959067002,
+      "symmetry": 0.9564796905222437,
+      "area": 4046,
+      "occupancy": 0.2906609195402299
+    },
+    "removedRatio": 0.7179130785392992,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 7,
+    "rarity": "common",
+    "bodyJa": "耳付き丸（猫系）",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a round-headed cat-like creature with prominent ears and a slim tidy body. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.2242913962986313,
+      "solidity": 0.8950948800572861,
+      "symmetry": 0.9984012789768185,
+      "area": 2500,
+      "occupancy": 0.17959770114942528
+    },
+    "removedRatio": 0.8259619510535038,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 8,
+    "rarity": "common",
+    "bodyJa": "尻尾つき二足（俊敏）",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a slim agile bipedal creature with a prominent noticeable tail. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.1659470510135694,
+      "solidity": 0.9135415032166955,
+      "symmetry": 0.5341238471673254,
+      "area": 2911,
+      "occupancy": 0.20912356321839082
+    },
+    "removedRatio": 0.7987227006392046,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 9,
+    "rarity": "common",
+    "bodyJa": "竜・トカゲ",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a stout dragon-lizard with a thick body, a neck and a tail, half-standing. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": null,
+    "removedRatio": null,
+    "error": "GAS API エラー: 404"
+  },
+  {
+    "i": 10,
+    "rarity": "common",
+    "bodyJa": "細長・ヘビ",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a long legless serpent forming one single long curved line. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.504617882118512,
+      "solidity": 0.7831415473851623,
+      "symmetry": 0.45531988873435325,
+      "area": 8371,
+      "occupancy": 0.6013649425287356
+    },
+    "removedRatio": 0.41246078953598486,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 11,
+    "rarity": "common",
+    "bodyJa": "魚・水棲",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a spindle-shaped fish-like aquatic creature with clear fins. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": null,
+    "removedRatio": null,
+    "error": "GAS API エラー: 404"
+  },
+  {
+    "i": 12,
+    "rarity": "common",
+    "bodyJa": "虫・分節",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a segmented insect body with legs and antennae. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": null,
+    "removedRatio": null,
+    "error": "signal is aborted without reason"
+  },
+  {
+    "i": 13,
+    "rarity": "common",
+    "bodyJa": "横広・多脚/触手",
+    "featJa": "",
+    "flags": {
+      "h1": true,
+      "h2": false,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. The character's overall body plan MUST clearly be: a wide-bodied many-limbed creature (crab or octopus-like) with several appendages spread sideways. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view. Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above. Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.5116854706814928,
+      "solidity": 0.8870317569560515,
+      "symmetry": 0.994693787309308,
+      "area": 9022,
+      "occupancy": 0.648132183908046
+    },
+    "removedRatio": 0.3672115441524621,
+    "error": null,
+    "source": "nanobanana"
+  }
+]

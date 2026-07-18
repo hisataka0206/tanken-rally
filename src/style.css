@@ -2869,6 +2869,14 @@ body.ar-open { overflow: hidden; }
 
 /* --- 段階タップ式ピッカー（Phase B: STEP1のselect代替） --- */
 .selector-row-hidden { display: none !important; }
+/* 写真画面のルート概要：主役は写真なので、控えめな囲みで下部に置く */
+.photo-route-summary {
+  margin-top: 16px; padding: 10px 12px;
+  background: #f7fbfe; border: 1px solid #d9ecf7; border-radius: 12px;
+  font-size: 13px;
+}
+.photo-route-summary.hidden { display: none; }
+
 /* 目安時間を超えたら推定時間だけを赤くする。警告文で数字を繰り返さず、色でどの値が問題かを示す */
 .route-stats .stat-over strong { color: #d9534f; }
 .route-stats .stat-over { border-color: #f0c2be; }

@@ -309,8 +309,11 @@
           </div>
           <div id="upload-progress" class="upload-progress hidden"></div>
           <div id="photos-grid" class="photos-grid"></div>
+          <!-- ルート概要（順路のみ）。マップに戻らなくても順番を確認できるようにする -->
+          <div id="photo-route-summary" class="route-spots-list photo-route-summary hidden"></div>
           <div class="step-actions">
-            <button id="back-to-route" class="btn-secondary btn-icon-only" data-i18n-aria="btnBackRoute">←</button>
+            <!-- 「マップに戻る」は削除。誤タップでルート画面に戻ってしまい、探検のやり直しを誘発するため。
+                 ルートの確認は上部トレイルから戻れる。 -->
             <span id="photos-count" class="photos-count">0枚</span>
             <button id="finish-explore-btn" class="btn-primary" data-i18n="btnFinishExplore">探検おわり！ノートへ →</button>
           </div>

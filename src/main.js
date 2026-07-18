@@ -2425,6 +2425,19 @@ function renderRouteStepUI() {
       <span>${t('routeFlowGoal').replace('{name}', escapeHtml(localStationName))}</span>
     </div>`);
   $('route-spots').innerHTML = parts.join('');
+  renderPhotoRouteSummary();
+}
+
+// 写真画面（総括）の下部にルート概要を出す。
+// 「マップに戻る」ボタンを誤タップ対策で廃止したため、戻らなくても順路を確認できるようにする。
+// ストリートビューや曲がり角は載せない（歩く順番が分かれば十分）。
+function renderPhotoRouteSummary() {
+  const el = $('photo-route-summary');
+  if (!el) return;
+  const src = $('route-spots');
+  if (!src || !src.innerHTML.trim()) { el.classList.add('hidden'); return; }
+  el.innerHTML = src.innerHTML;
+  el.classList.remove('hidden');
 }
 
 // 必要なら state を補完（駅座標 / Directions）してから STEP 3 を構築。
@@ -5266,7 +5279,8 @@ $('where-btn').addEventListener('click', () => {
 $('where-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'where-close') closeWhereModal();
 });
-$('back-to-route').addEventListener('click', async () => {
+// 写真画面の「マップに戻る」ボタンは廃止（誤タップ対策）。要素が無い場合はスキップする。
+$('back-to-route')?.addEventListener('click', async () => {
   // 再開セッションでは Directions が未構築なので必要に応じて再構築する
   const btn = $('back-to-route');
   const orig = btn.textContent;

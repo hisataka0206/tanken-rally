@@ -17,24 +17,47 @@
 
 課題Bは **d'（判別力）** も算出する（ヒット率と誤警報率から）。単なる正答率より、当てずっぽうの影響を受けにくい。
 
-## 使い方
+## 使い方（★iPad等のリモート実施が標準）
 
 ```bash
-# 1) 刺激を生成（初回のみ。参照画像は著作物由来のためコミットされない）
 cd thesis/experiment
+
+# 1) 初回のみ: 刺激と固定項目セットを用意
 python3 make_stimuli.py --ref-n 40 --min-dex 650
+python3 memorability_proxies.py
+python3 select_memory_set.py --n-study 50 --seed 0
 
-# 2) ローカルサーバを立てて開く（fetch を使うため file:// では動かない）
-cd ../..            # リポジトリ直下へ
-python3 -m http.server 8080
-#   → http://localhost:8080/thesis/experiment/silhouette-quiz.html
+# 2) 配信＋回収サーバを起動（0.0.0.0にバインド。結果は自動でMacに保存される）
+python3 serve_quiz.py
+#   → 起動時に、開くべきURL（localhost / Tailscale / LAN）が表示される
 
-# 3) 実施 → 「結果をダウンロード」で quiz_*.json を保存
-#    集めた json を thesis/experiment/results/ に置く
+# 3) 参加者に実施してもらう
+#    課題は「B': 記憶テスト・固定セット」を選ぶ（全員同じ項目にすること）
+#    終了時に結果は自動送信され、results/ に quiz_<pid>_<時刻>.json が保存される
 
 # 4) 分析
-python3 thesis/experiment/analyze_quiz.py 'thesis/experiment/results/*.json'
+python3 analyze_quiz.py 'results/*.json'
+python3 memorability_proxies.py --validate 'results/*.json'
 ```
+
+### [[iPad]] から実施する（[[Tailscale]] 経由）
+
+1. **Mac と iPad が同じ tailnet にログイン**していることを確認する。
+2. Mac で `python3 serve_quiz.py` を起動。表示された `http://100.x.x.x:8080/silhouette-quiz.html` を控える。
+3. **iPad の Safari でそのURLを開く**。（Tailscale のトンネル内なので平文HTTPで問題ない）
+4. 参加者IDを入れて実施 → **終了時に自動で Mac へ送信**される。画面に `✅ 送信しました` と出れば成功。
+5. 「つぎの人へ」を押すと初期画面に戻るので、そのまま次の参加者に渡せる。
+
+**つながらないときの確認順**
+- Mac 側: `python3 serve_quiz.py` が起動したままか（Ctrl+Cで落ちていないか）
+- Tailscale: Mac と iPad が両方オンラインか（Tailscale アプリで確認）
+- IP: 表示された `100.x.x.x` を使っているか（LAN側IPと取り違えていないか）
+- **macOS のファイアウォール**: 「システム設定 → ネットワーク → ファイアウォール」で
+  Python の受信接続がブロックされていないか。ブロックされていれば許可する。
+- どうしても届かない場合は `tailscale serve --bg 8080` を使うと HTTPS で公開できる。
+
+**自動送信が失敗した場合**: 画面に警告が出るので「結果を手動保存（予備）」を押し、
+生成された json を AirDrop 等で Mac の `thesis/experiment/results/` に置く。
 
 ## 設計上の注意（交絡の回避）
 

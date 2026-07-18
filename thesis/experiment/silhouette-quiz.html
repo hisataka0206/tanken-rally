@@ -90,9 +90,10 @@
   <div class="card done">
     <p class="big" id="score"></p>
     <p class="stat" id="detail"></p>
+    <p class="stat" id="sendState" style="font-weight:700"></p>
     <div class="row" style="justify-content:center; margin-top:14px">
-      <button id="dl" class="primary">結果をダウンロード</button>
-      <button id="again" class="ghost">もう一度</button>
+      <button id="again" class="primary">つぎの人へ</button>
+      <button id="dl" class="ghost">結果を手動保存（予備）</button>
     </div>
     <table id="tbl"></table>
   </div>
@@ -328,6 +329,26 @@ function finish(){
     $('score').textContent = `お疲れさまでした`;
   }
   $('detail').textContent = `3択 ${results.triplet.length} 試行 ／ 記憶 ${mem.length} 試行 ${line ? '｜'+line : ''}`;
+  submitResults();   // ← サーバへ自動送信（iPad運用のため）
+}
+
+// 結果をサーバ（Mac）へ自動送信する。iOS Safari のダウンロードを避けるため。
+// serve_quiz.py が受け取り results/ に保存する。失敗時は手動保存ボタンにフォールバック。
+async function submitResults(){
+  const el = $('sendState');
+  el.textContent = '結果を送信中…'; el.style.color = '#666';
+  try{
+    const r = await fetch('/submit', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(results)
+    });
+    const j = await r.json();
+    if(!r.ok || !j.ok) throw new Error(j.error || ('HTTP '+r.status));
+    el.textContent = `✅ 送信しました（${j.saved}）`; el.style.color = '#2e7d32';
+  }catch(e){
+    el.innerHTML = `⚠ 自動送信に失敗しました（${e.message}）<br>下の「結果を手動保存（予備）」を押して、ファイルを渡してください。`;
+    el.style.color = '#c62828';
+  }
 }
 
 $('start').onclick = () => { if(!items.length){ alert('刺激が読み込めていません'); return; } run(); };

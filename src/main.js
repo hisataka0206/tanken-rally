@@ -1269,9 +1269,13 @@ async function openHistory() {
     const a = getStoredAuth();
     accEl.textContent = a ? t('zukanAccountFmt').replace('{name}', a.name || '') : '';
   }
-  // セキュリティ削除の注意文（今日から約1か月前の日付を計算して表示）
+  // セキュリティ削除の注意文は、保持期間より古い探検を実際に持っている人にだけ出す。
+  // 全員に常時見せても行動が変わらないため（該当がなければ後段の renderHistory で非表示のまま）。
   const noteEl = $('history-security-note');
-  if (noteEl) noteEl.textContent = t('historySecurityNoteFmt').replace('{date}', oneMonthAgoLabel());
+  if (noteEl) {
+    noteEl.textContent = t('historySecurityNoteFmt').replace('{date}', oneMonthAgoLabel());
+    noteEl.classList.add('hidden');
+  }
   $('history-modal').classList.remove('hidden');
 
   if (!drive) {
@@ -1313,6 +1317,16 @@ function oneMonthAgoLabel() {
 
 function renderHistory(items) {
   const list = $('history-list');
+  // 保持期間より古い探検が1件でもある場合だけ、削除の注意文を出す
+  const noteEl = $('history-security-note');
+  if (noteEl) {
+    const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 1);
+    const hasOld = (items || []).some(it => {
+      const ms = Date.parse(it && (it.createdAt || it.date || it.updatedAt) || '');
+      return !isNaN(ms) && ms < cutoff.getTime();
+    });
+    noteEl.classList.toggle('hidden', !hasOld);
+  }
   if (!items || !items.length) {
     list.innerHTML = `<p class="history-empty">${escapeHtml(t('historyEmpty'))}</p>`;
     return;
@@ -1691,7 +1705,14 @@ function renderStationChips(line) {
     // 駅名の「漢字（かな）」の読みは、チップ（ボタン）ではルビで上に小さく表示する。
     // （プルダウンの <option> はルビ不可なので localizeStationName の「漢字（かな）」のまま）
     const _disp = localizeStationName(name, LANG);
-    const _ruby = furiganize(_disp);
+    let _ruby = furiganize(_disp);
+    // furiganize は「漢字（ひらがな）」しか変換しないため、「国際センター（こくさいセンター）」
+    // 「高輪ゲートウェイ（…）」のようにカタカナや ノ/ヶ を含む駅名は括弧が literal 表示されていた。
+    // 駅名は必ず「表記（よみ）」の形なので、変換できなかった場合はここでルビを組み立てる。
+    if (!_ruby && LANG === 'elementary') {
+      const m = /^(.+)（(.+)）$/.exec(_disp);
+      if (m) _ruby = `<ruby>${escapeHtml(m[1])}<rt>${escapeHtml(m[2])}</rt></ruby>`;
+    }
     if (_ruby) b.innerHTML = _ruby; else b.textContent = _disp;
     b.addEventListener('click', () => {
       const sSel = $('station-select');

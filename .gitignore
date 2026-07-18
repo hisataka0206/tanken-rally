@@ -29,3 +29,6 @@ pokemon_all_metrics.csv
 # Python 実行キャッシュ（tools/ のスクリプト実行で生成）
 __pycache__/
 *.pyc
+
+# generated character assets
+src/assets/characters/*.zip

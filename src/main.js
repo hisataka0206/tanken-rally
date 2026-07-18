@@ -2372,7 +2372,7 @@ function renderRouteStepUI() {
     ` : ''}
     <div class="route-stats">
       <div><span>${escapeHtml(t('statsTotalDistance'))}</span><br/><strong>${distanceText}</strong></div>
-      <div><span>${escapeHtml(t('statsEstTime'))}</span><br/><strong>${escapeHtml(t('approxMin').replace('{n}', displayMin))}</strong>${kidsNote}</div>
+      <div class="${overLimit ? 'stat-over' : ''}"><span>${escapeHtml(t('statsEstTime'))}</span><br/><strong>${escapeHtml(t('approxMin').replace('{n}', displayMin))}</strong>${kidsNote}</div>
       <div><span>${escapeHtml(t('statsSpotCount'))}</span><br/><strong>${state.orderedSpots.length}${escapeHtml(t('suffSpots'))}</strong></div>
     </div>
   `;

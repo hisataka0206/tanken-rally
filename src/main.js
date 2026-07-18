@@ -1614,22 +1614,58 @@ function selectCity(cityId, opts = {}) {
 // ===== STEP1: 段階タップ式ピッカー（Phase B） =====
 // select は状態保持用に温存し、チップのタップで select の値を書き換えて
 // change イベントを発火する。検索ロジック（onSearchBySelect）は無変更で動く。
+// 路線名から事業者カテゴリを判定（表示の文字数を大幅に削るためのグルーピング）
+function lineCategory(line) {
+  const n = String((line && line.name) || '');
+  if (/地下鉄|メトロ|都営|市営|Subway|Metro/i.test(n)) return '地下鉄';
+  if (/名鉄|Meitetsu/i.test(n)) return '名鉄';
+  if (/JR/i.test(n)) return 'JR';
+  if (/東急|京王|小田急|西武|東武|京成|京急|阪急|阪神|近鉄|南海|相鉄/.test(n)) return '私鉄';
+  return 'その他';
+}
+// 事業者プレフィックスを除いた短い路線名（例「名古屋市営地下鉄 東山線」→「東山線」）
+function shortLineName(line) {
+  let n = locName(line);
+  n = n.replace(/^(名古屋市営地下鉄|大阪市営地下鉄|大阪メトロ|Osaka Metro|東京メトロ|Tokyo Metro|都営|名鉄|Meitetsu|JR東海|JR西日本|JR東日本|JR|Nagoya Subway)\s*/i, '');
+  return n.trim() || locName(line);
+}
+
 function renderLineChips(city) {
   const wrap = $('line-chips');
   if (!wrap) return;
   wrap.innerHTML = '';
+  // カテゴリ（地下鉄/名鉄/JR/私鉄/その他）ごとにまとめて、事業者名の重複表示をなくす
+  const order = ['地下鉄', '名鉄', 'JR', '私鉄', 'その他'];
+  const groups = {};
   city.lines.forEach((line, i) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'pick-chip';
-    b.dataset.value = String(i);
-    b.textContent = locName(line);
-    b.addEventListener('click', () => {
-      const lineSel = $('line-select');
-      lineSel.value = String(i);
-      lineSel.dispatchEvent(new Event('change'));
+    const cat = lineCategory(line);
+    (groups[cat] || (groups[cat] = [])).push({ line, i });
+  });
+  order.filter(c => groups[c]).forEach(cat => {
+    // 1カテゴリ = 1行：左にカテゴリ名、右にチップ（縦の消費を抑える）
+    const row = document.createElement('div');
+    row.className = 'line-cat-row';
+    const name = document.createElement('div');
+    name.className = 'line-cat-name';
+    name.textContent = cat;
+    row.appendChild(name);
+    const chips = document.createElement('div');
+    chips.className = 'line-cat-chips';
+    groups[cat].forEach(({ line, i }) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pick-chip';
+      b.dataset.value = String(i);
+      b.textContent = shortLineName(line);
+      b.addEventListener('click', () => {
+        const lineSel = $('line-select');
+        lineSel.value = String(i);
+        lineSel.dispatchEvent(new Event('change'));
+      });
+      chips.appendChild(b);
     });
-    wrap.appendChild(b);
+    row.appendChild(chips);
+    wrap.appendChild(row);
   });
   syncChipActive('line-chips', $('line-select').value);
   // 駅チップは路線未選択のヒント表示に戻す
@@ -1639,10 +1675,13 @@ function renderLineChips(city) {
 function renderStationChips(line) {
   const wrap = $('station-chips');
   if (!wrap) return;
+  const stage = $('stage-station');
   if (!line) {
+    if (stage) stage.classList.remove('ready');   // ②バッジをグレーに戻す
     wrap.innerHTML = `<p class="chip-hint">${escapeHtml(t('optStationEmpty'))}</p>`;
     return;
   }
+  if (stage) stage.classList.add('ready');         // 路線が決まったら②をアクティブ色に
   wrap.innerHTML = '';
   line.stations.forEach(name => {
     const b = document.createElement('button');
@@ -3013,10 +3052,13 @@ async function onResumeSession() {
     return;
   }
 
+  // 駅画面の「前回を開く」ボタンは廃止済み。履歴モーダル経由だと存在しないためガードする
   const btn = $('resume-session-btn');
-  const original = btn.textContent;
-  btn.textContent = t('btnLoadingResume');
-  btn.disabled = true;
+  const original = btn ? btn.textContent : '';
+  if (btn) {
+    btn.textContent = t('btnLoadingResume');
+    btn.disabled = true;
+  }
 
   try {
     // 1) セッション情報を Drive + Sheet から取得
@@ -3160,8 +3202,10 @@ async function onResumeSession() {
     errEl.textContent = e.message || t('errResumeFailed');
     errEl.classList.remove('hidden');
   } finally {
-    btn.textContent = original;
-    btn.disabled = false;
+    if (btn) {
+      btn.textContent = original;
+      btn.disabled = false;
+    }
   }
 }
 
@@ -4647,6 +4691,29 @@ const searchFromInput = () => {
 $('search-btn').addEventListener('click', searchFromInput);
 $('station-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchFromInput(); });
 $('search-by-select-btn').addEventListener('click', onSearchBySelect);
+
+// 駅画面のボトム・アイコンナビ（つづき/しぼる/ヘルプ）：対応パネルを開閉（他は閉じる）
+document.querySelectorAll('.station-nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const panel = document.getElementById(btn.dataset.stationPanel);
+    if (!panel) return;
+    const opening = panel.classList.contains('hidden');
+    document.querySelectorAll('#step-station .station-panel').forEach(p => p.classList.add('hidden'));
+    document.querySelectorAll('.station-nav-btn').forEach(b => b.classList.remove('active'));
+    if (opening) { panel.classList.remove('hidden'); btn.classList.add('active'); }
+  });
+});
+// 汎用ヒント開閉：見出し横の「？」で説明文を出し入れする（既定表示の文字数を0にするための共通部品）
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.hint-toggle');
+  if (!btn) return;
+  const panel = document.getElementById(btn.dataset.hint);
+  if (!panel) return;
+  const opening = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', !opening);
+  btn.classList.toggle('active', opening);
+});
+
 $('make-route-btn').addEventListener('click', onMakeRoute);
 $('download-pdf-btn').addEventListener('click', onDownloadPdf);
 $('reverse-route-btn').addEventListener('click', onReverseRoute);
@@ -5232,8 +5299,7 @@ $('chargen-pick-modal').addEventListener('click', e => {
 });
 
 // セッション再開（パスワードで前回の写真を復元）
-$('resume-session-btn').addEventListener('click', onResumeSession);
-$('resume-session-input').addEventListener('keydown', e => { if (e.key === 'Enter') onResumeSession(); });
+// 「前回を開く」の駅ページUIは廃止（トップ画面の履歴に集約）。onResumeSession は履歴からの再開で流用。
 
 // ===== 起動時ログインゲート（なまえ＋あいことば） =====
 let _appEntered = false;

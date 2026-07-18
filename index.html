@@ -107,7 +107,7 @@
       <div class="home-screen">
         <div class="home-hero">
           <div class="home-hero-logo" id="home-hero-logo" aria-label="テクタン"></div>
-          <div class="home-hero-sub" data-i18n="headerSub">駅から街を探検しよう</div>
+          <!-- 標語はヘッダーに常時表示しているため、ここでの重複表示は削除 -->
         </div>
         <p class="home-hello" id="home-hello"></p>
         <button id="home-start" class="home-entry home-entry-primary" type="button">
@@ -136,27 +136,10 @@
     <!-- STEP 1: 駅名入力 -->
     <section id="step-station" class="step hidden">
       <div class="card">
-        <h2 class="step-title"><span class="step-num">1</span> <span data-i18n="step1Title">探検する駅をえらぼう</span></h2>
-
-        <!-- 免責 -->
-        <p class="disclaimer" data-i18n-html="disclaimer">
-          <strong>すべての駅で適切なルートが確保できていることを確約していません。</strong>
-          スポットが少なかったり、目安時間（約60分）に収まらないこともあります。気になったら別の駅も試してみてね。
-        </p>
-
-        <!-- 前回の続きを開く（セッションID入力） -->
-        <details class="resume-section">
-          <summary data-i18n="resumeSummary">前回のたんけんを開く（パスワード入力）</summary>
-          <p class="resume-hint" data-i18n-html="resumeHint">
-            前回の探検時に Drive 上に作成されたフォルダ名の末尾にあるランダムな文字列（例：<code>lwgvzs6b9k2</code>）を入力すると、
-            そのときの写真を読み込んで「たんけんノート」の続きが書けます。
-          </p>
-          <div class="resume-form">
-            <input id="resume-session-input" type="text" data-i18n-placeholder="resumeInputPh" placeholder="セッションID を貼り付け..." autocomplete="off" />
-            <button id="resume-session-btn" class="btn-secondary" data-i18n="btnResume">前回を開く →</button>
-          </div>
-          <div id="resume-error" class="error-msg hidden"></div>
-        </details>
+        <!-- ガイドの一言は shell（キャラ吹き出し speechStation）が担当。ここには重複表示を置かない。 -->
+        <!-- 「前回を開く」導線はトップ画面の履歴に集約。onResumeSession が使う要素だけ隠し持つ。 -->
+        <input id="resume-session-input" type="hidden" />
+        <div id="resume-error" class="error-msg hidden"></div>
 
         <!-- 都市タブ -->
         <div id="city-tabs" class="city-tabs"></div>
@@ -177,17 +160,16 @@
             </select>
           </div>
 
-          <!-- 段階タップ式ピッカー（Phase B: selectの代替UI） -->
-          <div class="picker-stage">
-            <div class="picker-label" data-i18n="pickerLine">ろせんをえらぶ</div>
-            <div id="line-chips" class="chip-grid"></div>
+          <!-- 段階タップ式ピッカー：路線枠 → ▼ → 駅枠。カテゴリ名は左・チップは右で縦を節約 -->
+          <div class="picker-frame">
+            <div id="line-chips" class="line-cats"></div>
           </div>
-          <div class="picker-stage">
-            <div class="picker-label" data-i18n="pickerStation">えきをえらぶ</div>
-            <div id="station-chips" class="chip-grid chip-grid-scroll"></div>
+          <div class="picker-arrow" aria-hidden="true">▼</div>
+          <div class="picker-frame picker-frame-scroll" id="stage-station">
+            <div id="station-chips" class="chip-grid"></div>
           </div>
 
-          <div class="step-actions">
+          <div class="step-actions step-actions-next">
             <button id="search-by-select-btn" class="btn-primary" disabled data-i18n="btnSearchSelect">この駅でさがす →</button>
           </div>
         </div>
@@ -208,9 +190,19 @@
 
         <div id="station-error" class="error-msg hidden"></div>
 
-        <!-- 詳細絞り込み（任意・日時で営業時間フィルタ） -->
-        <details class="filter-section">
-          <summary data-i18n="filterSummary">詳細絞り込み（任意）</summary>
+        <!-- ボトム・アイコンナビ：前回/しぼる/ヘルプ をアイコンの奥へ（読まなくても操作できる導線） -->
+        <div class="station-nav">
+          <button type="button" class="station-nav-btn" data-station-panel="filter-section"><span class="station-nav-ico" aria-hidden="true">⚙️</span><span data-i18n="navFilter">しぼる</span></button>
+          <button type="button" class="station-nav-btn" data-station-panel="station-notice"><span class="station-nav-ico" aria-hidden="true">？</span><span data-i18n="navHelp">ヘルプ</span></button>
+        </div>
+
+        <!-- 注意（免責）：ヘルプで開く -->
+        <div id="station-notice" class="station-panel hidden">
+          <p class="disclaimer" data-i18n-html="disclaimer"><strong>すべての駅で適切なルートが確保できていることを確約していません。</strong> スポットが少なかったり、目安時間（約60分）に収まらないこともあります。気になったら別の駅も試してみてね。</p>
+        </div>
+
+        <!-- 詳細絞り込み（既定は非表示・下部「しぼる」で開く） -->
+        <div id="filter-section" class="station-panel filter-section hidden">
           <p class="filter-hint" data-i18n-html="filterHint">
             探検する日時を入れると、<strong>その時間に開いていないお店や施設は結果から自動で除外</strong>します。
           </p>
@@ -227,7 +219,7 @@
             正確性を保証するものではありません。実際にお出かけする前に、お店や施設の
             公式サイト・電話などで営業時間を必ずご確認ください。
           </p>
-        </details>
+        </div>
       </div>
     </section>
 
@@ -329,10 +321,7 @@
     <section id="step-report" class="step hidden">
       <div class="card">
         <h2 class="step-title"><span class="step-num">5</span> <span data-i18n="step5Title">たんけんノートをつくろう</span></h2>
-        <p class="report-intro" data-i18n="reportIntro">
-           自分のことばで、感じたこと・見つけたこと・気になったことを書いてみよう。
-          PDFにして印刷すると、B3ポスターサイズのたんけんノートになるよ。
-        </p>
+        <!-- 冒頭の説明文は削除：前半はテキスト欄のplaceholderと重複、後半（B3ポスター）はPDFボタンのtitleへ退避 -->
 
         <div id="report-editor" class="report-editor">
           <div class="report-page">
@@ -366,8 +355,12 @@
             </section>
 
             <section class="report-section">
-              <h3 data-i18n="reportSecPhotos">とった写真と思い出</h3>
-              <p class="report-hint" data-i18n="reportPhotosHint">
+              <h3 class="sec-head-with-hint">
+                <span data-i18n="reportSecPhotos">とった写真と思い出</span>
+                <button type="button" class="hint-toggle" data-hint="report-photos-hint" aria-label="ヒント">？</button>
+              </h3>
+              <!-- ヒントは既定で非表示。？で開く（既定表示から67字を退避） -->
+              <p id="report-photos-hint" class="report-hint hidden" data-i18n="reportPhotosHint">
                 行った順に並べてあるよ。ノートに載せたくない写真は STEP 4 で外しておこう。
                 写真ごとに思ったこと・気づいたことを書きこめます（任意）。
               </p>
@@ -396,7 +389,7 @@
             <!-- キャラ発見（条件クリア時のみ表示。生成→発見の世界観） -->
             <button id="chargen-start-btn" type="button" class="btn-secondary chargen-start-btn hidden" data-i18n="chargenStart">✨ なかまを 発見</button>
             <button id="submit-score-btn" class="btn-secondary title-with-icon"><img class="ui-icon" src="src/assets/icons/icon-trophy.svg" alt="" aria-hidden="true"> <span data-i18n="btnSubmitScore">スコア</span></button>
-            <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf">PDF出力</button>
+            <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf" data-i18n-title="reportPdfTitle" title="PDFにして印刷すると、B3ポスターサイズのたんけんノートになるよ。">PDF出力</button>
           </div>
         </div>
       </div>
@@ -431,11 +424,10 @@
               <span id="score-exec" class="score-split-val">0</span>
             </div>
           </div>
-          <p class="score-split-note" data-i18n="scoreSplitNote">計画点＝どんな探検を計画したか（スポット数・距離） / 実行点＝実際にどれだけ楽しめたか（写真・コメント・ペース・キャラ捕獲など）</p>
-
-          <!-- スコアの仕組み（簡単な説明・係数は非公開） -->
+          <!-- 説明はすべて折りたたみの奥へ（既定表示から101字を退避／情報は消さずタイミングをずらす） -->
           <details class="score-howto">
-            <summary data-i18n="scoreHowtoSummary">スコアはどう決まるの？</summary>
+            <summary data-i18n="scoreHowtoSummary">くわしく</summary>
+            <p class="score-split-note" data-i18n="scoreSplitNote">計画点＝どんな探検を計画したか（スポット数・距離） / 実行点＝実際にどれだけ楽しめたか（写真・コメント・ペース・キャラ捕獲など）</p>
             <ul class="score-howto-list" data-i18n-html="scoreHowtoList">
               <li>たくさん歩く</li>
               <li>いろんなスポットに行く</li>

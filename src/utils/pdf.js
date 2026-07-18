@@ -809,9 +809,11 @@ function buildStaticMapUrl({ origin, orderedSpots, directions, apiKey }) {
   staticMapStyleParams().forEach(s => params.push(s));
   // 駅マーカー
   if (o) params.push(`markers=color:0x004029|label:S|${o.lat},${o.lng}`);
-  // 各スポット（A,B,C... のアルファベット表記、最大26件）
-  orderedSpots.slice(0, SPOT_LETTERS.length).forEach((s, i) => {
-    params.push(`markers=color:red|label:${spotLabel(i)}|${s.lat},${s.lng}`);
+  // 各スポット（1,2,3… の数字表記）。Static Map のマーカーラベルは英数1文字のみ対応のため、
+  // 2桁になる10件目以降はラベルなしのピンにする（実運用のスポット数では基本1〜9で収まる）。
+  orderedSpots.forEach((s, i) => {
+    const label = (i + 1) <= 9 ? `label:${spotLabel(i)}|` : '';
+    params.push(`markers=color:red|${label}${s.lat},${s.lng}`);
   });
   // パス：徒歩経路の encoded polyline 優先（Directions API の overview_polyline）
   // フォールバックは点を直線で結ぶ

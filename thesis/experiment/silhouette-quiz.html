@@ -62,15 +62,16 @@
         <option value="1">少し知っている</option><option value="2">くわしい</option>
         <option value="3">とてもくわしい</option></select></div>
       <div><label>課題</label><select id="mode">
-        <option value="both">両方（推奨）</option>
+        <option value="fixedmem">B': 記憶テスト・固定セット（推奨）</option>
+        <option value="both">両方（探索用）</option>
         <option value="triplet">A: 見分け（3択）のみ</option>
-        <option value="memory">B: 記憶テストのみ</option>
+        <option value="memory">B: 記憶テスト・ランダム</option>
       </select></div>
     </div>
     <div class="row" style="margin-top:14px">
       <div><label>A: 3択の試行数</label><input id="nTrip" type="number" value="24" min="6" max="80" style="width:90px"></div>
       <div><label>B: 記憶する数</label><input id="nStudy" type="number" value="12" min="4" max="30" style="width:90px"></div>
-      <div><label>B: 1枚の提示秒数</label><input id="expo" type="number" value="2.0" step="0.5" min="0.5" max="5" style="width:90px"></div>
+      <div><label>B: 1枚の提示秒数</label><input id="expo" type="number" value="1.2" step="0.5" min="0.5" max="5" style="width:90px"></div>
       <button id="start" class="primary">はじめる</button>
     </div>
     <p class="stat" id="loadInfo" style="margin-top:10px">刺激を読み込み中…</p>
@@ -112,7 +113,7 @@
 // ============================================================
 
 const $ = id => document.getElementById(id);
-let M = null, items = [], trials = [], results = null, idx = 0, t0 = 0;
+let M = null, items = [], trials = [], results = null, idx = 0, t0 = 0, FIXED = null;
 
 const rnd = (a) => a[Math.floor(Math.random()*a.length)];
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
@@ -126,6 +127,10 @@ fetch('stimuli/manifest.json').then(r=>r.json()).then(m=>{
     ...m.reference.map(x=>({...x, url:`stimuli/reference/${x.id}`})),
   ];
   $('loadInfo').textContent = `刺激 ${items.length} 枚を読み込みました（生成 ${m.generated.length} / 参照 ${m.reference.length}）`;
+  return fetch('memory_set.json').then(r=>r.json()).then(fs=>{
+    FIXED = fs;
+    $('loadInfo').textContent += `／固定セット: 覚える ${fs.study.length} 枚・新規 ${fs.lure.length} 枚`;
+  }).catch(()=>{ $('loadInfo').textContent += '（固定セット未生成 → select_memory_set.py を実行）'; });
 }).catch(e=>{
   $('loadInfo').innerHTML = `<span style="color:var(--bad)">刺激の読み込みに失敗: ${e}<br>
     先に <code>python3 make_stimuli.py</code> を実行し、このページをローカルサーバ経由で開いてください。</span>`;
@@ -178,6 +183,25 @@ async function run(){
       const r = await askTriplet(T[i]);
       results.triplet.push(r);
     }
+  }
+  if(mode==='fixedmem'){
+    // 固定セット: 全参加者に同一項目を提示し、項目あたりの観測数を稼ぐ。
+    // study/lure は source と指標分布を揃えてある（select_memory_set.py）。
+    const byId = Object.fromEntries(items.map(x=>[x.id,x]));
+    const study = FIXED.study.map(id=>byId[id]).filter(Boolean);
+    const lures = FIXED.lure.map(id=>byId[id]).filter(Boolean);
+    const test = shuffle([...study.map(x=>({item:x,old:true})), ...lures.map(x=>({item:x,old:false}))]);
+    results.config.fixedSet = { n_study: study.length, n_lure: lures.length, seed: FIXED.seed };
+    for(let i=0;i<study.length;i++){
+      setProg(i, study.length, `おぼえてください（${i+1}/${study.length}）`);
+      await showOne(study[i], expo);
+    }
+    await distractor();
+    for(let i=0;i<test.length;i++){
+      setProg(i, test.length, `さっき見た？（${i+1}/${test.length}）`);
+      results.memory.push(await askOldNew(test[i]));
+    }
+    finish(); return;
   }
   if(mode==='both' || mode==='memory'){
     const { study, test } = makeMemory(nStudy);

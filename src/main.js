@@ -305,10 +305,8 @@ function renderWizardThumbs(currentTag) {
   if (!wrap) return;
   wrap.innerHTML = '';
   const photos = state.uploadedPhotos.filter(p => p.spotName === currentTag && !p.uploading);
-  if (photos.length === 0) {
-    wrap.innerHTML = `<p class="photo-wizard-empty-msg">${escapeHtml(t('wizardNoPhotosYet'))}</p>`;
-    return;
-  }
+  // 空のときは何も出さない（撮影ボタンが目の前にあるので「まだ写真がないよ」は不要）
+  if (photos.length === 0) return;
   photos.forEach(photo => {
     const div = document.createElement('div');
     div.className = 'photo-wizard-thumb';
@@ -4983,7 +4981,8 @@ document.addEventListener('click', (e) => {
 });
 
 // キャラずかん
-$('logout-btn').addEventListener('click', onLogout);
+// ログアウトはトップ画面に集約したため、図鑑モーダル側のボタンは廃止（存在しない場合がある）
+$('logout-btn')?.addEventListener('click', onLogout);
 $('history-modal').addEventListener('click', e => {
   if (e.target.dataset.action === 'close') $('history-modal').classList.add('hidden');
 });

@@ -648,10 +648,10 @@ function buildTurnPointsHtml({ stationName, localStation, origin, orderedSpots, 
       const rawMin = Math.max(1, Math.round((step.duration?.value || 0) / 60));
       const min = adjustMinForKids(rawMin);
       const distText = step.distance?.text || '';
-      // 区間情報を含めた subtitle: 距離・時間 + 次の目的地（A,B,C 表記）
+      // subtitle は距離・時間のみ。行き先は区間ヘッダーが示しており、
+      // 各ターンに「→ 次は◯◯方面」を繰り返すと同一区間で同じ文字列が並ぶだけになる。
       const subtitleHtml =
-        `${escapeHtml(distText)}・${escapeHtml(t('approxMinDot').replace('{min}', min))} ` +
-        `${escapeHtml(t('pdfNextDirection').replace('{name}', nextRaw))}`;
+        `${escapeHtml(distText)}・${escapeHtml(t('approxMinDot').replace('{min}', min))}`;
       cards.push(buildTurnCard({
         label: String(globalTurnCount),
         labelColor: '#004029',

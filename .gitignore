@@ -45,3 +45,4 @@ __pycache__/
 
 # generated character assets
 src/assets/characters/*.zip
+thesis/experiment/work/

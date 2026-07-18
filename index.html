@@ -274,14 +274,14 @@
               </label>
             </div>
             <!-- いまどこ？：地図で現在地と向いている方角を表示（いつでも） -->
-            <button id="where-btn" class="where-btn where-btn-icon" type="button" data-i18n-aria="btnWhere"><img class="ui-icon" src="src/assets/icons/icon-pin.svg" alt="" aria-hidden="true"></button>
+            <button id="where-btn" class="where-btn" type="button"><img class="ui-icon" src="src/assets/icons/icon-target.svg" alt="" aria-hidden="true"> <span data-i18n="btnWhere">いまどこ？</span></button>
             <!-- 史跡系スポットで「今どこ」を押した時だけ、目的地のストリートビューをヒント表示 -->
             <div id="stage-hint" class="stage-hint hidden"></div>
             <div id="photo-wizard-thumbs" class="photo-wizard-thumbs"></div>
           </div>
           <div class="photo-wizard-nav">
             <button id="wizard-prev" class="btn-secondary btn-icon-only" data-i18n-aria="btnWizardPrev">←</button>
-            <button id="wizard-skip" class="btn-secondary btn-icon-only" data-i18n-aria="btnWizardSkip">⏭</button>
+            <button id="wizard-skip" class="btn-secondary" data-i18n="btnWizardSkip" data-i18n-title="btnWizardSkipTitle">スキップ</button>
             <button id="wizard-next" class="btn-primary btn-icon-only" data-i18n-aria="btnWizardNext">→</button>
           </div>
         </div>
@@ -682,7 +682,7 @@
         <div class="step-actions">
           <button id="back-to-spots" class="btn-secondary btn-icon-only" data-i18n-aria="btnBackSpots">←</button>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button id="reverse-route-btn" class="btn-secondary btn-icon-only" data-i18n-aria="btnReverseRoute">⇅</button>
+            <button id="reverse-route-btn" class="btn-secondary" data-i18n="btnReverseRoute" data-i18n-title="btnReverseRouteTitle">逆順にする</button>
             <button id="download-pdf-btn" class="btn-secondary" data-i18n="btnDownloadPdf">PDFにする</button>
             <button id="start-explore-btn" class="btn-primary" data-i18n="btnStartExplore">探検スタート！ →</button>
           </div>

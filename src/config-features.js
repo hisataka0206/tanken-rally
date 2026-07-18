@@ -31,7 +31,7 @@ const FEATURES_BY_LANG = {
   elementary: {
     // === 動作 ===
     travelTimeMultiplier: 1.5,
-    showKidsTimeNote: true,
+    showKidsTimeNote: false,   // 計算方法の注釈は非表示（読んでも行動が変わらない脚注のため）
 
     // === 機能オン/オフ ===
     photoWizardEnabled: true,

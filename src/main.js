@@ -2330,7 +2330,9 @@ function renderRouteStepUI() {
   const { distanceText, durationMin } = state.routeStats;
   const displayMin = adjustMinForKids(durationMin);
   const overLimit = displayMin > 60;
-  const kidsNote = LANG === 'elementary'
+  // 計算方法の注釈は既定で出さない（読んでも行動が変わらないため）。
+  // 出し分けは config-features.js の showKidsTimeNote で制御する（従来フラグが未参照だったのを修正）。
+  const kidsNote = FEATURES.showKidsTimeNote
     ? `<span class="kids-time-note">${escapeHtml(t('kidsTimeNote'))}</span>`
     : '';
   $('route-info').innerHTML = `

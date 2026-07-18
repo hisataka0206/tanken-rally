@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>シルエットクイズ（測定装置）</title>
+<style>
+  :root { --ink:#1c1c1c; --sub:#666; --line:#e3e3e3; --ok:#2e7d32; --accent:#1565c0; --bad:#c62828; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; font-family:system-ui,-apple-system,"Hiragino Sans",sans-serif; color:var(--ink); background:#fafafa; }
+  .wrap { max-width:960px; margin:0 auto; padding:16px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .lead { font-size:13px; color:var(--sub); margin:0 0 14px; line-height:1.6; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; }
+  label { font-size:12px; color:var(--sub); display:block; margin-bottom:3px; }
+  input, select { padding:8px 10px; border:1px solid var(--line); border-radius:9px; font-size:15px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+  button { padding:11px 20px; border:0; border-radius:999px; font-weight:700; font-size:15px; cursor:pointer; }
+  .primary { background:var(--ok); color:#fff; }
+  .ghost { background:#eee; color:#333; }
+  button:disabled { opacity:.45; cursor:default; }
+  .bar { height:7px; background:#eee; border-radius:999px; overflow:hidden; margin:12px 0 6px; }
+  .bar>div { height:100%; width:0; background:var(--accent); transition:width .25s; }
+  .stat { font-size:12px; color:var(--sub); }
+  /* 課題表示 */
+  .stage { text-align:center; padding:8px 0 4px; }
+  .q { font-size:17px; font-weight:700; margin-bottom:14px; }
+  .choices { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+  .choice { border:3px solid transparent; border-radius:16px; background:#fff; padding:6px; cursor:pointer; transition:transform .08s, border-color .1s; }
+  .choice:hover { border-color:#cfe3ff; }
+  .choice:active { transform:scale(.97); }
+  .choice img { width:190px; height:190px; display:block; object-fit:contain; }
+  .single img { width:300px; height:300px; object-fit:contain; }
+  .yn { display:flex; gap:14px; justify-content:center; margin-top:16px; }
+  .yn button { min-width:150px; padding:15px 0; font-size:17px; }
+  .fix { font-size:64px; text-align:center; padding:70px 0; color:#bbb; }
+  .done { text-align:center; padding:18px; }
+  .big { font-size:30px; font-weight:800; color:var(--ok); }
+  table { width:100%; border-collapse:collapse; font-size:12px; margin-top:10px; }
+  th,td { border:1px solid var(--line); padding:5px 7px; text-align:left; }
+  th { background:#f6f6f6; }
+  .hide { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div id="setup">
+  <h1>シルエットクイズ — 測定装置</h1>
+  <p class="lead">
+    キャラの<b>形（黒いかげ）だけ</b>で、どれくらい見分けられるか・覚えていられるかを測ります。<br>
+    正解・不正解を競うものではありません。<b>直感で</b>答えてください。所要 5〜8分。
+  </p>
+  <div class="card">
+    <div class="row">
+      <div><label>参加者ID（匿名で可）</label><input id="pid" placeholder="例: p01"></div>
+      <div><label>年齢層</label><select id="age">
+        <option value="">未回答</option><option>〜9</option><option>10-15</option>
+        <option>16-29</option><option>30-49</option><option>50-</option></select></div>
+      <div><label>ポケモンにどれくらい詳しいか</label><select id="fam">
+        <option value="">未回答</option><option value="0">ほとんど知らない</option>
+        <option value="1">少し知っている</option><option value="2">くわしい</option>
+        <option value="3">とてもくわしい</option></select></div>
+      <div><label>課題</label><select id="mode">
+        <option value="both">両方（推奨）</option>
+        <option value="triplet">A: 見分け（3択）のみ</option>
+        <option value="memory">B: 記憶テストのみ</option>
+      </select></div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div><label>A: 3択の試行数</label><input id="nTrip" type="number" value="24" min="6" max="80" style="width:90px"></div>
+      <div><label>B: 記憶する数</label><input id="nStudy" type="number" value="12" min="4" max="30" style="width:90px"></div>
+      <div><label>B: 1枚の提示秒数</label><input id="expo" type="number" value="2.0" step="0.5" min="0.5" max="5" style="width:90px"></div>
+      <button id="start" class="primary">はじめる</button>
+    </div>
+    <p class="stat" id="loadInfo" style="margin-top:10px">刺激を読み込み中…</p>
+  </div>
+</div>
+
+<div id="run" class="hide">
+  <div class="card">
+    <div class="bar"><div id="prog"></div></div>
+    <div class="stat" id="phase"></div>
+    <div class="stage" id="stage"></div>
+  </div>
+</div>
+
+<div id="fin" class="hide">
+  <div class="card done">
+    <p class="big" id="score"></p>
+    <p class="stat" id="detail"></p>
+    <div class="row" style="justify-content:center; margin-top:14px">
+      <button id="dl" class="primary">結果をダウンロード</button>
+      <button id="again" class="ghost">もう一度</button>
+    </div>
+    <table id="tbl"></table>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ============================================================
+// シルエットクイズ = C1(識別性) と 記憶可能性 の測定装置
+//
+// 課題A【3択・奇数選び】: 3つのシルエットのうち「いちばん形が違う」ものを選ぶ。
+//   → 計算上の距離（埋め込み・形状指標）が人間の知覚を予測するかの検証に使う。
+//     ※未検証の代理指標を最適化する前に、まず代理の妥当性を測るのが目的。
+// 課題B【記憶テスト】: 提示 → 遅延 → 再認（見た/見てない）。
+//   → 杉森建の目的関数「記憶に残ること」の直接測定。個体ごとのヒット率を出す。
+//     ※初回接触で測るため、既知性（親近性）の交絡を受けにくい。
+// ============================================================
+
+const $ = id => document.getElementById(id);
+let M = null, items = [], trials = [], results = null, idx = 0, t0 = 0;
+
+const rnd = (a) => a[Math.floor(Math.random()*a.length)];
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+// 刺激の読み込み
+fetch('stimuli/manifest.json').then(r=>r.json()).then(m=>{
+  M = m;
+  items = [
+    ...m.generated.map(x=>({...x, url:`stimuli/generated/${x.id}`})),
+    ...m.reference.map(x=>({...x, url:`stimuli/reference/${x.id}`})),
+  ];
+  $('loadInfo').textContent = `刺激 ${items.length} 枚を読み込みました（生成 ${m.generated.length} / 参照 ${m.reference.length}）`;
+}).catch(e=>{
+  $('loadInfo').innerHTML = `<span style="color:var(--bad)">刺激の読み込みに失敗: ${e}<br>
+    先に <code>python3 make_stimuli.py</code> を実行し、このページをローカルサーバ経由で開いてください。</span>`;
+});
+
+// ---- 課題A: 3択（奇数選び）の試行を作る -------------------------------
+// 同一 source 内から3枚選ぶ（生成同士 / 参照同士）。source混在は画風差が手がかりになるため避ける。
+function makeTriplets(n){
+  const bySrc = { generated: items.filter(i=>i.source==='generated'),
+                  reference: items.filter(i=>i.source==='reference') };
+  const out=[];
+  const srcs = Object.keys(bySrc).filter(s=>bySrc[s].length>=3);
+  for(let k=0;k<n;k++){
+    const s = srcs[k % srcs.length];
+    const pick = shuffle(bySrc[s]).slice(0,3);
+    out.push({ type:'triplet', source:s, options: shuffle(pick) });
+  }
+  return shuffle(out);
+}
+
+// ---- 課題B: 記憶テスト（study → delay → recognition） ------------------
+function makeMemory(nStudy){
+  const pool = shuffle(items);
+  const study = pool.slice(0, nStudy);                 // 覚える
+  const lures = pool.slice(nStudy, nStudy + nStudy);   // 見ていない（新規）
+  const test  = shuffle([...study.map(x=>({item:x, old:true})),
+                         ...lures.map(x=>({item:x, old:false}))]);
+  return { study, test };
+}
+
+// ---- 進行 --------------------------------------------------------------
+async function run(){
+  const mode = $('mode').value;
+  const nTrip = Math.max(6, +$('nTrip').value||24);
+  const nStudy = Math.max(4, +$('nStudy').value||12);
+  const expo = Math.max(0.5, +$('expo').value||2) * 1000;
+
+  results = {
+    participant: { pid:$('pid').value||'anon', age:$('age').value, familiarity:$('fam').value },
+    startedAt: new Date().toISOString(),
+    config: { mode, nTrip, nStudy, expoMs: expo },
+    triplet: [], memory: []
+  };
+  $('setup').classList.add('hide'); $('run').classList.remove('hide');
+
+  if(mode==='both' || mode==='triplet'){
+    const T = makeTriplets(nTrip);
+    for(let i=0;i<T.length;i++){
+      setProg(i, T.length, `A: いちばん形がちがうものを選ぶ（${i+1}/${T.length}）`);
+      const r = await askTriplet(T[i]);
+      results.triplet.push(r);
+    }
+  }
+  if(mode==='both' || mode==='memory'){
+    const { study, test } = makeMemory(nStudy);
+    // 記銘フェーズ
+    for(let i=0;i<study.length;i++){
+      setProg(i, study.length, `B: おぼえてください（${i+1}/${study.length}）`);
+      await showOne(study[i], expo);
+    }
+    // 遅延（干渉課題）
+    await distractor();
+    // 再認フェーズ
+    for(let i=0;i<test.length;i++){
+      setProg(i, test.length, `B: さっき見た？（${i+1}/${test.length}）`);
+      const r = await askOldNew(test[i]);
+      results.memory.push(r);
+    }
+  }
+  finish();
+}
+
+function setProg(i,n,label){ $('prog').style.width = (i/n*100)+'%'; $('phase').textContent = label; }
+
+function askTriplet(t){
+  return new Promise(res=>{
+    $('stage').innerHTML = `<div class="q">いちばん <u>形がちがう</u> のはどれ？</div>
+      <div class="choices">${t.options.map((o,i)=>
+        `<div class="choice" data-i="${i}"><img src="${o.url}" alt=""></div>`).join('')}</div>`;
+    const t0 = performance.now();
+    $('stage').querySelectorAll('.choice').forEach(el=>{
+      el.onclick = () => res({
+        source: t.source,
+        options: t.options.map(o=>o.id),
+        chosen: t.options[+el.dataset.i].id,
+        rtMs: Math.round(performance.now()-t0)
+      });
+    });
+  });
+}
+
+async function showOne(item, ms){
+  $('stage').innerHTML = `<div class="single"><img src="${item.url}" alt=""></div>`;
+  await sleep(ms);
+  $('stage').innerHTML = `<div class="fix">＋</div>`;
+  await sleep(300);
+}
+
+function askOldNew(tt){
+  return new Promise(res=>{
+    $('stage').innerHTML = `<div class="single"><img src="${tt.item.url}" alt=""></div>
+      <div class="yn">
+        <button class="primary" data-a="1">さっき見た</button>
+        <button class="ghost" data-a="0">見てない</button>
+      </div>`;
+    const t0 = performance.now();
+    $('stage').querySelectorAll('button').forEach(b=>{
+      b.onclick = () => {
+        const said = b.dataset.a === '1';
+        res({ id: tt.item.id, source: tt.item.source, wasOld: tt.old, saidOld: said,
+              correct: said === tt.old, rtMs: Math.round(performance.now()-t0) });
+      };
+    });
+  });
+}
+
+// 遅延用の干渉課題（記憶の短期保持を切る。20秒の簡単な計算）
+async function distractor(){
+  const until = Date.now() + 20000;
+  while(Date.now() < until){
+    const a = 2+Math.floor(Math.random()*8), b = 2+Math.floor(Math.random()*8);
+    const ok = await new Promise(res=>{
+      const left = Math.ceil((until-Date.now())/1000);
+      $('phase').textContent = `休けい（あと ${left} 秒）`;
+      $('prog').style.width = '100%';
+      const ans = a*b, wrong = ans + (Math.random()<.5?-1:1)*(1+Math.floor(Math.random()*4));
+      const opts = shuffle([ans, wrong]);
+      $('stage').innerHTML = `<div class="q">${a} × ${b} = ?</div>
+        <div class="yn">${opts.map(o=>`<button class="ghost" data-v="${o}">${o}</button>`).join('')}</div>`;
+      $('stage').querySelectorAll('button').forEach(x=>x.onclick=()=>res(true));
+    });
+  }
+}
+
+// ---- 集計 --------------------------------------------------------------
+function finish(){
+  results.finishedAt = new Date().toISOString();
+  $('run').classList.add('hide'); $('fin').classList.remove('hide');
+
+  const mem = results.memory;
+  let line = '';
+  if(mem.length){
+    const hits = mem.filter(r=>r.wasOld && r.saidOld).length;
+    const olds = mem.filter(r=>r.wasOld).length;
+    const fas  = mem.filter(r=>!r.wasOld && r.saidOld).length;
+    const news = mem.filter(r=>!r.wasOld).length;
+    const acc  = mem.filter(r=>r.correct).length / mem.length;
+    // d'（判別力）: ヒット率と誤警報率から。極値は log-linear 補正
+    const hr = (hits+0.5)/(olds+1), fr = (fas+0.5)/(news+1);
+    const z = p => { // 正規分布の逆関数（Acklam近似）
+      const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+      const b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+      const c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+      const d=[7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+      const pl=0.02425;
+      if(p<pl){const q=Math.sqrt(-2*Math.log(p));return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+      if(p>1-pl){const q=Math.sqrt(-2*Math.log(1-p));return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+      const q=p-0.5,r=q*q;
+      return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+    };
+    const dprime = z(hr) - z(fr);
+    results.summary = { acc, hitRate:hits/olds, faRate:fas/news, dprime };
+    $('score').textContent = `正答率 ${(acc*100).toFixed(0)}%`;
+    line = `ヒット率 ${(hits/olds*100).toFixed(0)}% ／ 誤警報率 ${(fas/news*100).toFixed(0)}% ／ d' = ${dprime.toFixed(2)}`;
+    // source別
+    const bySrc = {};
+    mem.forEach(r=>{ (bySrc[r.source] ||= []).push(r); });
+    $('tbl').innerHTML = `<tr><th>種別</th><th>試行</th><th>正答率</th><th>ヒット率</th></tr>` +
+      Object.entries(bySrc).map(([s,rs])=>{
+        const o=rs.filter(r=>r.wasOld);
+        return `<tr><td>${s==='generated'?'生成キャラ':'参照ロスター'}</td><td>${rs.length}</td>
+          <td>${(rs.filter(r=>r.correct).length/rs.length*100).toFixed(0)}%</td>
+          <td>${o.length?(o.filter(r=>r.saidOld).length/o.length*100).toFixed(0)+'%':'—'}</td></tr>`;
+      }).join('');
+  } else {
+    $('score').textContent = `お疲れさまでした`;
+  }
+  $('detail').textContent = `3択 ${results.triplet.length} 試行 ／ 記憶 ${mem.length} 試行 ${line ? '｜'+line : ''}`;
+}
+
+$('start').onclick = () => { if(!items.length){ alert('刺激が読み込めていません'); return; } run(); };
+$('again').onclick = () => location.reload();
+$('dl').onclick = () => {
+  const blob = new Blob([JSON.stringify(results,null,1)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `quiz_${results.participant.pid}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
+  a.click();
+};
+</script>
+</body>
+</html>

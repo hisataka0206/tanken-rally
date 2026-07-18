@@ -20,6 +20,11 @@ thesis/data/silhouettes/
 # 測定値は runs/*/results.json と canonical_metrics.json に抽出済み
 thesis/data/zip/
 
+# thesis/experiment: 実験刺激（参照は著作物由来のシルエット＝再配布しない）
+# make_stimuli.py で誰でも再生成できるため、スクリプトのみコミットする
+thesis/experiment/stimuli/
+thesis/experiment/results/
+
 # キャラクター原画シート（ローカル保管のみ。切り出し済み素材は src/assets/characters/ にコミット）
 img/
 

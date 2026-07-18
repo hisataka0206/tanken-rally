@@ -289,20 +289,17 @@
         <!-- 写真一覧管理（ウィザード最後のステージ／復元時はここから始まる） -->
         <div id="photo-manage">
           <div class="photo-upload-area">
-            <!-- カメラ起動 (capture=environment) と ギャラリー選択 (capture なし) を2ボタンで分離。
-                 Android Chrome の一部環境では capture が無いとカメラがファイルピッカーに表示されず、
-                 ユーザーが「Chrome からカメラが使えない」と誤解する問題を回避するため。
-                 iOS Safari は両方とも同じシートを開くので問題なし。 -->
+            <!-- 総括ページは「撮った写真を整理する場所」。撮影はウィザード（スポットで撮る）の役割なので
+                 カメラボタンは置かず、アップロードだけにする。
+                 ただし ARキャラ捕獲のフォールバック等から programmatically 起動されるため、
+                 photo-camera-input（input 自体）は隠したまま残す。 -->
             <div class="photo-upload-row">
-              <label for="photo-camera-input" class="photo-upload-btn photo-upload-camera">
-                <span data-i18n="photoCameraLabel">写真を撮る</span>
-                <input id="photo-camera-input" type="file" accept="image/*" capture="environment" multiple hidden />
-              </label>
               <label for="photo-input" class="photo-upload-btn photo-upload-gallery">
                 <span data-i18n="photoGalleryLabel">写真を選ぶ</span>
                 <input id="photo-input" type="file" accept="image/*" multiple hidden />
               </label>
             </div>
+            <input id="photo-camera-input" type="file" accept="image/*" capture="environment" multiple hidden />
             <div class="sec-head-with-hint photo-reenter-row">
               <button id="wizard-reenter" class="btn-secondary photo-wizard-reenter" data-i18n="btnWizardReenter">スポットで撮る</button>
               <button type="button" class="hint-toggle" data-hint="photo-hint" aria-label="ヒント">？</button>

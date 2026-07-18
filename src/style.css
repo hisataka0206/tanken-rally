@@ -2877,6 +2877,23 @@ body.ar-open { overflow: hidden; }
 }
 .spot-compass svg { width: 15px; height: 15px; display: block; }
 
+/* アイコンのみのボタン（戻る/前後/スキップ等）。意味は aria-label と title に残す */
+.btn-icon-only {
+  min-width: 48px; width: auto; flex: 0 0 auto;
+  padding: 12px 16px; font-size: 18px; line-height: 1;
+}
+.step.active .step-actions .btn-icon-only { flex: 0 0 auto; width: auto; }
+@media (max-width: 640px) {
+  .step-actions .btn-icon-only { width: auto; }
+}
+/* 「いまどこ？」は現在地ピンの丸ボタンに */
+.where-btn-icon {
+  width: 44px; height: 44px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.where-btn-icon .ui-icon { width: 22px; height: 22px; }
+.photo-reenter-row { justify-content: center; margin-top: 8px; }
+
 .picker-stage { margin-bottom: 14px; }
 /* 見出し横の「？」で説明文を出し入れする共通部品（既定表示の文字数を0にする） */
 .sec-head-with-hint { display: flex; align-items: center; gap: 8px; }

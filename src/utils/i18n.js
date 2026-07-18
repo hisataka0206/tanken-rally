@@ -96,7 +96,7 @@ const TRANSLATIONS = {
     whereMapError: '地図が よみこめなかったよ。',
     btnWizardNext: '次へ →',
     btnWizardSkip: 'スキップ',
-    btnWizardReenter: '各スポットで写真をとる',
+    btnWizardReenter: '写真をとる',
     wizardProgressFmt: '{n} / {total}',
     wizardStartTitleFmt: '{name}駅 (スタート)',
     wizardGoalTitleFmt: '{name}駅 (ゴール)',
@@ -589,7 +589,7 @@ const TRANSLATIONS = {
     whereMapError: 'The map could not load.',
     btnWizardNext: 'Next →',
     btnWizardSkip: 'Skip',
-    btnWizardReenter: 'Take photos at each spot',
+    btnWizardReenter: 'Take photos',
     wizardProgressFmt: '{n} / {total}',
     wizardStartTitleFmt: '{name} Sta. (Start)',
     wizardGoalTitleFmt: '{name} Sta. (Goal)',
@@ -1070,7 +1070,7 @@ const TRANSLATIONS = {
     whereMapError: '地図（ちず）が 読（よ）みこめなかったよ。',
     btnWizardNext: '次（つぎ）へ →',
     btnWizardSkip: 'スキップ',
-    btnWizardReenter: '各（かく）スポットで写真（しゃしん）を撮（と）る',
+    btnWizardReenter: '写真（しゃしん）をとる',
     wizardProgressFmt: '{n} / {total}',
     wizardStartTitleFmt: '{name}駅（えき）（スタート）',
     wizardGoalTitleFmt: '{name}駅（えき）（ゴール）',
@@ -1922,6 +1922,14 @@ export function applyI18n(root = document) {
   root.querySelectorAll('[data-i18n-title]').forEach(el => {
     const text = t(el.dataset.i18nTitle);
     if (typeof text === 'string') el.setAttribute('title', text);
+  });
+  // アイコンのみのボタン用：画面には文字を出さず、読み上げ・ツールチップにだけ意味を残す
+  root.querySelectorAll('[data-i18n-aria]').forEach(el => {
+    const text = t(el.dataset.i18nAria);
+    if (typeof text !== 'string') return;
+    const plain = text.replace(/[（(][ぁ-ゖ]+[）)]/g, '');   // 読み上げにルビ括弧は不要
+    el.setAttribute('aria-label', plain);
+    if (!el.hasAttribute('data-i18n-title')) el.setAttribute('title', plain);
   });
   // <html lang="..."> も切り替え（'elementary' は CSS では ja 扱い）
   document.documentElement.lang = LANG === 'elementary' ? 'ja' : LANG;

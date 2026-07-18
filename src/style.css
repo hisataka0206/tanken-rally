@@ -2924,6 +2924,25 @@ body.ar-open { overflow: hidden; }
 .where-btn-icon .ui-icon { width: 22px; height: 22px; }
 .photo-reenter-row { justify-content: center; margin-top: 8px; }
 
+/* 登録直後のお祝いモーダル（ルッキー入手） */
+.welcome-content { max-width: 380px; text-align: center; }
+.welcome-eyebrow { color: var(--sun, #f0a800); font-weight: 800; font-size: 13px; letter-spacing: .08em; margin: 0 0 4px; }
+.welcome-char { display: flex; justify-content: center; margin: 6px 0 4px; }
+.welcome-char img { width: 148px; height: 148px; object-fit: contain; animation: g-pop .4s ease-out; }
+.welcome-title { font-size: 22px; margin: 4px 0 6px; color: var(--green-dark, #0F7A4D); }
+.welcome-sub { font-size: 14px; color: #5a5a5a; margin: 0 0 14px; line-height: 1.6; }
+.welcome-actions { justify-content: center; }
+.welcome-actions .btn-primary { min-width: 180px; padding: 14px 40px; font-size: 17px; }
+
+/* トップの歓迎メッセージ（登録直後だけ） */
+.home-welcome {
+  margin: 4px auto 14px; max-width: 440px; padding: 14px 16px;
+  background: #fff8ec; border: 1.5px solid #ffe0a8; border-radius: 16px; text-align: center;
+}
+.home-welcome.hidden { display: none; }
+.home-welcome-title { font-weight: 800; color: #b07f00; margin: 0 0 6px; font-size: 15px; }
+.home-welcome-body { font-size: 13px; color: #6a5a3a; line-height: 1.7; margin: 0; }
+
 .picker-stage { margin-bottom: 14px; }
 /* 見出し横の「？」で説明文を出し入れする共通部品（既定表示の文字数を0にする） */
 .sec-head-with-hint { display: flex; align-items: center; gap: 8px; }

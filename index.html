@@ -47,6 +47,20 @@
     </div>
 
     <!-- 起動時ログインゲート（なまえ＋あいことば）。未ログイン時のみ表示してアプリを覆う -->
+    <!-- 新規登録直後のお祝い（スターターのルッキー入手）。JSで表示・画像差し込み。 -->
+    <div id="welcome-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="welcome-modal-title">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content welcome-content">
+        <p class="welcome-eyebrow" data-i18n="welcomeGotEyebrow">なかまが できたよ！</p>
+        <div class="welcome-char"><img id="welcome-char-img" src="" alt="" /></div>
+        <h3 id="welcome-modal-title" class="welcome-title" data-i18n="welcomeGotTitle">ルッキーを もらえた！</h3>
+        <p class="welcome-sub" data-i18n="welcomeGotSub">はじめての なかま、ルッキー。いっしょに たんけんに でかけよう。</p>
+        <div class="modal-actions welcome-actions">
+          <button id="welcome-continue-btn" class="btn-primary" data-i18n="welcomeGotContinue">はじめる</button>
+        </div>
+      </div>
+    </div>
+
     <div id="login-gate" class="login-gate hidden" role="dialog" aria-modal="true" aria-labelledby="login-title">
       <div class="login-card">
         <div class="login-logo"><img src="src/assets/icons/icon-acorn.svg" alt="" aria-hidden="true" class="ui-icon"> <span data-i18n="appTitle">テクタン</span></div>
@@ -110,6 +124,11 @@
           <!-- 標語はヘッダーに常時表示しているため、ここでの重複表示は削除 -->
         </div>
         <p class="home-hello" id="home-hello"></p>
+        <!-- 登録直後だけ出る歓迎メッセージ（感謝＋第一発見者になってね）。既定は非表示。 -->
+        <div id="home-welcome" class="home-welcome hidden">
+          <p class="home-welcome-title" data-i18n="welcomeHomeTitle">ようこそ、テクタンへ！</p>
+          <p class="home-welcome-body" data-i18n="welcomeHomeBody">あそびに きてくれて ありがとう。これから 日本中（にっぽんじゅう）を たんけんして、まだ だれも 見（み）つけていない キャラクターの 第一発見者（だいいちはっけんしゃ）に なってね！</p>
+        </div>
         <button id="home-start" class="home-entry home-entry-primary" type="button">
           <span class="home-entry-icon"><img src="src/assets/icons/icon-map.svg" alt="" aria-hidden="true"></span>
           <span class="home-entry-label" data-i18n="homeStart">たんけんを はじめる</span>

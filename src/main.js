@@ -10,6 +10,7 @@ import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=106';
 import { applyI18n, LANG, t, furiganize, installFuriganaObserver, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=106';
 import { APP_VERSION, RELEASE_LABEL } from './version.js?v=106';
 import { FEATURES } from './config-features.js?v=106';
+import { EARLY_BIRD_ACTIVE, EARLY_BIRD_RARITY_ID, STARTER_CHARACTER_ID } from './config-campaign.js?v=106';
 import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=106';
 import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, charRarityStars, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID, VARIANTS, variantById, rollVariant, collectionKey, parseCollectionKey } from './utils/characters.js?v=106';
 import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, loadLegacyAnonymousCollection } from './utils/collection.js?v=106';
@@ -3720,6 +3721,8 @@ async function onChargenSave() {
   });
   state.charGen.consumed = true;
   patchSessionState({ charGenDone: true }); // #11: この探検では生成済み→再開しても再生成不可
+  // 早期ボーナスを使い切ったら、このアカウントでは以後の探検は通常ゲートに戻す
+  if (state.charGen.earlyBird) { markEarlyBirdUsed(); console.info('[chargen] 早期ボーナス（エピック）を消費'); }
   // #10 端末間同期: 実API画像を持つ生成キャラをサーバ保存（画像=Drive／メタ=Sheets）。
   //   fire-and-forget（失敗してもローカルには保存済み）。モック（画像なし）は同期しない。
   if (drive && rec.imageDataUrl) {
@@ -4003,14 +4006,20 @@ function maybeStartCharGen() {
   state.charGen.summary = summary;
   // admin マスターモードは生成ゲートを無条件で通す（テスト用・非adminには一切影響しない）。
   const adminBypass = isAdmin();
-  state.charGen.eligible = elig.ok || adminBypass;
+  // 早期ボーナス（100人到達まで・アカウント1回だけ）: 生成ゲートを免除し、レア度をエピックに固定。
+  const earlyBird = EARLY_BIRD_ACTIVE && !earlyBirdUsed();
+  state.charGen.earlyBird = earlyBird;
+  state.charGen.eligible = elig.ok || adminBypass || earlyBird;
   state.charGen.consumed = !!loadSessionState().charGenDone; // #11: 既に今探検で生成済みなら再生成不可
-  state.charGen.rarityId = elig.rarity.id;
-  console.info('[chargen] eligibility', elig.ok, elig.reasons, summary, adminBypass ? '(admin bypass)' : '', state.charGen.consumed ? '(already generated)' : '');
+  state.charGen.rarityId = earlyBird ? EARLY_BIRD_RARITY_ID : elig.rarity.id;
+  console.info('[chargen] eligibility', elig.ok, elig.reasons, summary, adminBypass ? '(admin bypass)' : '', earlyBird ? '(early-bird: epic)' : '', state.charGen.consumed ? '(already generated)' : '');
   if (!state.charGen.eligible || state.charGen.consumed) return;
   const spots = (state.orderedSpots || []).map(s => s.name);
   const spotCats = (state.orderedSpots || []).map(s => s.category).filter(Boolean); // 提案A: スポット連動モチーフ用
-  state.charGen.params = { station: state.stationName, spots, spotCats, distanceKm: summary.distanceKm, userPicks: null };
+  state.charGen.params = {
+    station: state.stationName, spots, spotCats, distanceKm: summary.distanceKm, userPicks: null,
+    forceRarityId: earlyBird ? EARLY_BIRD_RARITY_ID : null, // 早期ボーナスは距離に関係なくエピック
+  };
   // このキャラに「行ったスポットの史跡」を1つ紐づける（史跡カテゴリ優先・無ければ先頭のスポット）。
   // 実際の史跡ストーリー取得は startCharGenBg で非同期に行う。
   const linkedSpot = (state.orderedSpots || []).find(s => s.category === 'historic') || (state.orderedSpots || [])[0] || null;
@@ -5387,6 +5396,37 @@ $('chargen-pick-modal').addEventListener('click', e => {
 
 // ===== 起動時ログインゲート（なまえ＋あいことば） =====
 let _appEntered = false;
+let _justRegistered = false;   // 今回のログインが「新規作成」だったか（スターター付与・お祝い演出の判定）
+
+// スターターのルッキー（ノーマル）を図鑑に付与する。既に持っていれば何もしない（冪等）。
+function grantStarterCharacter() {
+  try {
+    const key = collectionKey(STARTER_CHARACTER_ID, 'normal'); // ノーマルは charId のまま
+    const col = loadCollection();
+    if (col[key] && (col[key].count || 0) > 0) return; // 二重付与しない
+    const at = new Date().toISOString();
+    recordCapture(key, at);
+    if (drive) {
+      drive.saveCaptures({
+        explorerId: getExplorerId(),
+        records: [{ characterId: key, capturedAt: at }],
+      }).catch(e => console.warn('[starter] Sheets同期失敗（ローカルには付与済）:', e));
+    }
+    console.info('[starter] ルッキー（ノーマル）を付与');
+  } catch (e) {
+    console.warn('[starter] 付与に失敗:', e);
+  }
+}
+
+// 早期ボーナス（生成保証＋エピック）を、このアカウントで既に使ったか。
+// アカウント（＝explorerId）ごとに localStorage で1回だけに制限する。
+function earlyBirdKey() { return 'tekutan_earlybird_used_' + getExplorerId(); }
+function earlyBirdUsed() {
+  try { return localStorage.getItem(earlyBirdKey()) === '1'; } catch (_) { return false; }
+}
+function markEarlyBirdUsed() {
+  try { localStorage.setItem(earlyBirdKey(), '1'); } catch (_) {}
+}
 
 // 統合フロー: ログインと新規作成を1画面に統一（#3）。モード切替は廃止。
 function applyLoginMode() {
@@ -5431,6 +5471,8 @@ function hideLoginGate() { $('login-gate').classList.add('hidden'); }
 function initLoginGate() {
   applyLoginMode();
   $('login-submit-btn').addEventListener('click', onLoginSubmit);
+  // お祝いモーダルの「はじめる」：閉じるだけ（トップの歓迎メッセージは残す）
+  $('welcome-continue-btn')?.addEventListener('click', () => $('welcome-modal')?.classList.add('hidden'));
   const switchLine = document.querySelector('.login-switch');
   if (switchLine) switchLine.classList.add('hidden'); // 統合フローでモード切替は不要
   $('login-pin-toggle').addEventListener('click', () => {
@@ -5474,6 +5516,7 @@ async function onLoginSubmit() {
       const reg = await registerAccount(name, pin, drive);
       if (reg.ok) {
         res = reg; // 新しい名前だった＝新規作成成功
+        _justRegistered = true; // スターター付与＋お祝い演出のフラグ
       } else if (reg.error === 'name-taken') {
         // 名前は存在する＝ログイン失敗の理由はあいことば違い
         return fail('login-mismatch');
@@ -5483,6 +5526,8 @@ async function onLoginSubmit() {
     }
     // 初回ログイン時、端末に残っている無記名の図鑑をアカウントへ引き継ぐ
     await migrateAnonymousCollection();
+    // 新規作成なら、スターターのルッキー（ノーマル）を図鑑に付与してから入る
+    if (_justRegistered) grantStarterCharacter();
     enterApp();
   } catch (e) {
     console.warn('[login] error:', e);
@@ -5549,6 +5594,20 @@ function enterApp() {
   if (hello) { const a = getStoredAuth(); hello.textContent = a && a.name ? t('homeHelloFmt', 'ようこそ、{name}さん！').replace('{name}', a.name) : ''; }
   buildHomeHeroLogo();
   showStep('step-home');
+  // 新規登録なら、ルッキー入手のお祝い→トップの歓迎メッセージを一度だけ出す
+  if (_justRegistered) { _justRegistered = false; showWelcomeCelebration(); }
+}
+
+// 登録直後のお祝い演出。インタースティシャルでルッキー入手を見せ、
+// 閉じるとトップの歓迎メッセージ（感謝＋第一発見者）が残る（この回だけ）。
+function showWelcomeCelebration() {
+  const starter = characterById(STARTER_CHARACTER_ID);
+  const img = $('welcome-char-img');
+  if (img && starter) { img.src = characterImageUrl(starter, 'found'); img.alt = charDisplayName(starter); }
+  const banner = $('home-welcome');
+  if (banner) banner.classList.remove('hidden');   // トップに歓迎メッセージを出す（この回だけ）
+  const modal = $('welcome-modal');
+  if (modal) modal.classList.remove('hidden');
 }
 
 // ===== アプリ内ブラウザ（WebView）検知 → 外部ブラウザ誘導 =====

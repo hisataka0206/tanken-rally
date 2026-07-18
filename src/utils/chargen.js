@@ -101,8 +101,8 @@ export function evaluateEligibility(summary) {
 // ===== 生成プロンプト構築 =====
 // ブランディング固定部＋駅名＋スポット名＋距離(レア度)＋ユーザー変数(軸A×B)。
 // ユーザー由来の自由テキストは入れない（安全・プロンプト混入対策）。
-export function buildPrompt({ station, spots, distanceKm, vocab, bodyHint, featureHint }) {
-  const rarity = rarityForDistance(distanceKm);
+export function buildPrompt({ station, spots, distanceKm, vocab, bodyHint, featureHint, rarityId }) {
+  const rarity = rarityId ? rarityById(rarityId) : rarityForDistance(distanceKm);
   const v = vocab || {};
   const spotThemes = (spots || []).slice(0, 5).map(sanitizeTheme).filter(Boolean).join(', ');
   // ★"ごちゃつき"対策（実測: ポケモンは浮遊物≈1、AIは≈8）。以前はここでレア度ごとに
@@ -314,7 +314,8 @@ export async function startGeneration(params) {
     return vv;
   });
   const bodies = pickDistinct(AXIS_BODY, count);
-  const rarity = rarityForDistance(p.distanceKm);
+  // 早期ボーナス等でレア度を固定したい場合は forceRarityId を優先（無ければ距離から算出）。
+  const rarity = p.forceRarityId ? rarityById(p.forceRarityId) : rarityForDistance(p.distanceKm);
   // 各フォルムに相性の良い「形に出る特徴」を1つ割り当てる（H2＝シルエットの個体差の主役）。
   const features = bodies.map(b => pickFeatureForBody(b ? b.id : null));
 
@@ -328,6 +329,7 @@ export async function startGeneration(params) {
       station: p.station, spots: p.spots, distanceKm: p.distanceKm,
       vocab: perCandidate[i], bodyHint: bodies[i] ? bodies[i].promptHint : '',
       featureHint: features[i] ? features[i].promptHint : '',
+      rarityId: rarity.id, // 早期ボーナス等でレア度を固定した場合、見た目もそのレア度にする
     });
     const img = await callNanoBananaPro({ prompt, count: 1 })
       .then(arr => (arr && arr[0]) ? arr[0].imageDataUrl : null)

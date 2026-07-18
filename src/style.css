@@ -2869,6 +2869,13 @@ body.ar-open { overflow: hidden; }
 
 /* --- 段階タップ式ピッカー（Phase B: STEP1のselect代替） --- */
 .selector-row-hidden { display: none !important; }
+/* カード内のカテゴリは絵文字のみ（画面上部のフィルタチップが凡例として常設されているため）。
+   意味は title / aria-label に残す。21枚ぶんの繰り返しラベルを消すのが目的。 */
+.spot-category-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; font-size: 15px; line-height: 1;
+}
+
 /* 駅から見た方位を示す矢印バッジ（距離・住所の文字表示の代わり） */
 .spot-compass {
   display: inline-flex; align-items: center; justify-content: center;

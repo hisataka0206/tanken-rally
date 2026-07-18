@@ -2118,7 +2118,7 @@ function renderSpotsList(map) {
       <span class="spot-check">⬜</span>
       <div class="spot-info">
         <div class="spot-name">${spot.name}${spot.recommended ? ` <span class="spot-badge">${escapeHtml(t('badgeRequired'))}</span>` : ''}</div>
-        <span class="spot-category ${cat.cls}">${cat.icon} ${escapeHtml(catLabel(spot.category))}</span>${compassHtml}
+        <span class="spot-category ${cat.cls} spot-category-icon" title="${escapeHtml(catLabel(spot.category))}" aria-label="${escapeHtml(catLabel(spot.category))}">${cat.icon}</span>${compassHtml}
       </div>
       <button class="spot-delete" type="button" title="${escapeHtml(t('spotDeleteTitle'))}" aria-label="${escapeHtml(t('spotDeleteLabel'))}">🗑</button>
     `;

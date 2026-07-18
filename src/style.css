@@ -2876,6 +2876,17 @@ body.ar-open { overflow: hidden; }
   font-size: 13px;
 }
 .photo-route-summary.hidden { display: none; }
+/* タップでそのスポットの撮影へ飛べることを、カメラアイコンで示す（文字は足さない） */
+.photo-route-summary .route-jump {
+  cursor: pointer; border-radius: 10px; padding: 6px 8px;
+  transition: background .15s ease;
+}
+.photo-route-summary .route-jump::after {
+  content: '📷'; margin-left: auto; padding-left: 8px; font-size: 15px; opacity: .55;
+}
+.photo-route-summary .route-jump:hover,
+.photo-route-summary .route-jump:focus-visible { background: #e8f4fb; outline: none; }
+.photo-route-summary .route-jump:active { transform: scale(0.99); }
 
 /* 目安時間を超えたら推定時間だけを赤くする。警告文で数字を繰り返さず、色でどの値が問題かを示す */
 .route-stats .stat-over strong { color: #d9534f; }

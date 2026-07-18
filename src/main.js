@@ -2404,15 +2404,17 @@ function renderRouteStepUI() {
   };
   const parts = [];
   parts.push(`
-    <div class="route-spot-item route-station">
+    <div class="route-spot-item route-station" data-stage="0">
       <span class="route-spot-num start">S</span>
       <span>${t('routeFlowStart').replace('{name}', escapeHtml(localStationName))}</span>
     </div>`);
   state.orderedSpots.forEach((s, i) => {
     const cat = CAT[s.category] || CAT.other;
     if (legs[i]) parts.push(legHtml(legs[i]));
+    // data-stage: 撮影ウィザードのステージ番号（0=出発駅 / 1..N=スポット / N+1=ゴール）。
+    // 写真画面のルート概要から、行きたいスポットへ直接飛ぶために使う。
     parts.push(`
-      <div class="route-spot-item">
+      <div class="route-spot-item" data-stage="${i + 1}">
         <span class="route-spot-num">${i + 1}</span>
         <span>${cat.icon} <strong>${escapeHtml(s.name)}</strong></span>
       </div>`);
@@ -2420,7 +2422,7 @@ function renderRouteStepUI() {
   const lastLeg = legs[legs.length - 1];
   if (lastLeg) parts.push(legHtml(lastLeg));
   parts.push(`
-    <div class="route-spot-item route-station">
+    <div class="route-spot-item route-station" data-stage="${state.orderedSpots.length + 1}">
       <span class="route-spot-num goal">G</span>
       <span>${t('routeFlowGoal').replace('{name}', escapeHtml(localStationName))}</span>
     </div>`);
@@ -2435,9 +2437,34 @@ function renderPhotoRouteSummary() {
   const el = $('photo-route-summary');
   if (!el) return;
   const src = $('route-spots');
-  if (!src || !src.innerHTML.trim()) { el.classList.add('hidden'); return; }
+  // 「スポットで撮る」は順路が出せないとき専用のフォールバック。
+  // 順路が出ていればそこから各スポットへ直接飛べるので、ボタンだけ隠す。
+  // （同じ行にあるタグ付けヒントの「？」は常に残す）
+  const reenterBtn = $('wizard-reenter');
+  if (!src || !src.innerHTML.trim()) {
+    el.classList.add('hidden');
+    if (reenterBtn) reenterBtn.classList.remove('hidden');
+    return;
+  }
   el.innerHTML = src.innerHTML;
   el.classList.remove('hidden');
+  if (reenterBtn) reenterBtn.classList.add('hidden');
+
+  // 各行をタップで、そのスポットの撮影ステージへ直接ジャンプできるようにする。
+  // （従来は「スポットで撮る」で必ず出発駅に戻る必要があった）
+  el.querySelectorAll('[data-stage]').forEach(item => {
+    const stage = Number(item.dataset.stage);
+    if (!Number.isFinite(stage)) return;
+    item.classList.add('route-jump');
+    item.setAttribute('role', 'button');
+    item.setAttribute('tabindex', '0');
+    item.setAttribute('title', t('photoJumpTitle', 'ここで写真をとる'));
+    const go = () => showWizardStage(stage);
+    item.addEventListener('click', go);
+    item.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+    });
+  });
 }
 
 // 必要なら state を補完（駅座標 / Directions）してから STEP 3 を構築。
@@ -3248,6 +3275,9 @@ async function onResumeSession() {
     state.photoWizardStage = totalWizardStages() - 1;
     showStep('step-photos');
     renderWizardStage();
+    // 再開直後は Directions が未構築なため、ルート概要（順路タップで各スポットへ飛ぶ導線）が
+    // 空になる。裏で復元して埋める。画面表示はブロックしない（失敗しても撮影自体は使える）。
+    ensureRouteStepReady().catch(e => console.warn('[resume] ルート復元に失敗（順路は非表示）:', e));
     // 再開中インジケータを表示（新しい駅で検索するまで出しっぱなし。#2 取り違え防止）
     showResumeIndicator(localizeStationName(state.stationName, LANG));
   } catch (e) {

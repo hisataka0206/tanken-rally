@@ -413,6 +413,7 @@ const TRANSLATIONS = {
     statsEstTime: '推定時間',
     statsSpotCount: 'スポット数',
     suffSpots: '件',
+    suffSpotsUnit: 'スポット',
     approxMin: '約{n}分',          // "約30分"
     approxMinKm: '約 {min}分・{km}', // 区間
     approxMinDot: '約 {min}分',
@@ -903,6 +904,7 @@ const TRANSLATIONS = {
     statsEstTime: 'Estimated time',
     statsSpotCount: 'Spots',
     suffSpots: '',
+    suffSpotsUnit: 'spots',
     approxMin: '~ {n} min',
     approxMinKm: '~ {min} min · {km}',
     approxMinDot: '~ {min} min',
@@ -1380,6 +1382,7 @@ const TRANSLATIONS = {
     statsEstTime: '推定時間（すいていじかん）',
     statsSpotCount: 'スポット数（すう）',
     suffSpots: '件（けん）',
+    suffSpotsUnit: 'スポット',
     approxMin: '約（やく）{n}分（ふん）',
     approxMinKm: '約（やく） {min}分（ふん）・{km}',
     approxMinDot: '約（やく） {min}分（ふん）',

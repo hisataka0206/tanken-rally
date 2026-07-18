@@ -2369,10 +2369,12 @@ function renderRouteStepUI() {
         </div>
       </div>
     ` : ''}
+    <!-- ラベル（総距離/推定時間/スポット数）は削除。単位そのものが意味を示すため。
+         読み上げ用にだけ title を残す。件数は「3件」より短い「3スポット」表記にする。 -->
     <div class="route-stats">
-      <div><span>${escapeHtml(t('statsTotalDistance'))}</span><br/><strong>${distanceText}</strong></div>
-      <div class="${overLimit ? 'stat-over' : ''}"><span>${escapeHtml(t('statsEstTime'))}</span><br/><strong>${escapeHtml(t('approxMin').replace('{n}', displayMin))}</strong>${kidsNote}</div>
-      <div><span>${escapeHtml(t('statsSpotCount'))}</span><br/><strong>${state.orderedSpots.length}${escapeHtml(t('suffSpots'))}</strong></div>
+      <div title="${escapeHtml(t('statsTotalDistance'))}"><strong>${distanceText}</strong></div>
+      <div class="${overLimit ? 'stat-over' : ''}" title="${escapeHtml(t('statsEstTime'))}"><strong>${escapeHtml(t('approxMin').replace('{n}', displayMin))}</strong>${kidsNote}</div>
+      <div title="${escapeHtml(t('statsSpotCount'))}"><strong>${state.orderedSpots.length}${escapeHtml(t('suffSpotsUnit', 'スポット'))}</strong></div>
     </div>
   `;
   if (overLimit) {

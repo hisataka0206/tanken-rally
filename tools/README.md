@@ -46,3 +46,17 @@ python3 tools/character_complexity.py gen1 --roles tools/gen1_roles.csv --out ge
 - `tekutan_baseline_metrics.csv` と Gen1 の数値を並べ、**テクタンが各役割帯に対して"盛りすぎ/シンプルすぎ"どちらか**を判定して調整する。
 
 ※ 役割分類（gen1_roles.csv）はデザイン観点の判断を含む（例: Gengar=cool, Magikarp=gag）。異論があれば role 列を書き換えれば集計に即反映される。
+
+## measure-visible-text.js — 画面の文字数をブラウザ実測する
+
+`docs/ui-text-minimization-design.md` の目標判定に使う計測ツール。
+ソース解析ではなく**実DOMに問い合わせる**ため、JS が実行時に書いた文字・折りたたみ・
+条件表示をすべて正しく扱える。
+
+使い方:
+1. 計測したい画面をブラウザで開く（beta 環境で可）
+2. DevTools のコンソールにファイルの中身を貼って実行
+3. 画面ごとの表と合計が出る。画面を切り替えたら `tekutanMeasure()` を再実行
+
+出力には駅名・スポット名などの固有名詞が含まれる。目標判定では固有名詞と
+ユーザー入力を除外して数えること（Doc §3-2）。

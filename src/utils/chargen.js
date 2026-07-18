@@ -9,7 +9,7 @@
 
 import { CHARACTERS, characterImageUrl } from './characters.js?v=106';
 import { getExplorerId } from './collection.js?v=106';
-import { AXIS_BODY, AXIS_IMPRESSION, bodyById, impressionById, axisLabel } from '../data/archetypes.js?v=106';
+import { AXIS_BODY, AXIS_FEATURE, AXIS_IMPRESSION, bodyById, featureById, impressionById, axisLabel, featuresForBody } from '../data/archetypes.js?v=106';
 import { makeVocabPicks, VOCAB } from '../data/vocab.js?v=106';
 import { cutoutBackground } from './imagefx.js?v=106';
 import { STATION_NAMES_KANA, STATION_NAMES_EN } from '../data/cities.js?v=106';
@@ -101,7 +101,7 @@ export function evaluateEligibility(summary) {
 // ===== 生成プロンプト構築 =====
 // ブランディング固定部＋駅名＋スポット名＋距離(レア度)＋ユーザー変数(軸A×B)。
 // ユーザー由来の自由テキストは入れない（安全・プロンプト混入対策）。
-export function buildPrompt({ station, spots, distanceKm, vocab, bodyHint }) {
+export function buildPrompt({ station, spots, distanceKm, vocab, bodyHint, featureHint }) {
   const rarity = rarityForDistance(distanceKm);
   const v = vocab || {};
   const spotThemes = (spots || []).slice(0, 5).map(sanitizeTheme).filter(Boolean).join(', ');
@@ -112,12 +112,17 @@ export function buildPrompt({ station, spots, distanceKm, vocab, bodyHint }) {
   // ★レア度ごとに「シルエットの複雑さ」を段階化する（Gen1公式アート151枚の実測に基づく）。
   //   実測: 格が上がるほど 輪郭複雑度↑（1.5→3.2）／ソリディティ↓（0.81→0.54）／非対称↑（0.70→0.38）。
   //   ＝ポケモンの"格"はシルエット（形）で作られている。色数ではない。ここを生成に効かせる。
+  // ★課題①対策（char-lab で検証済み）: 格（レア度）を「翼・角・トゲの一律注入」ではなく、
+  //   "そのキャラ自身のフォルム＋形に出る特徴を大きく・作り込む"ことで出す。
+  //   → wings/horns/spikes という語を渡さない（＝フォルムが格に上書きされない）。
   const silhouetteByRarity = {
-    common: 'Silhouette design: keep it very simple, rounded and symmetric — one clear compact mass with almost no extra appendages. It must read instantly as a solid black shape.',
-    rare:   'Silhouette design: mostly rounded and calm, but give it ONE distinctive feature (a notable ear, tail, or single accessory) so its black shape is memorable.',
-    epic:   'Silhouette design: dynamic and slightly asymmetric — add a couple of bold appendages (wings, horns, a flowing tail or a few spikes) and an active pose, while keeping one rounded core mass so it still reads cleanly as a black shape.',
-    legend: 'Silhouette design: elaborate, asymmetric and majestic — several bold appendages (large wings, horns, a sweeping tail, spikes) in a dynamic, imposing pose. Make the outline highly distinctive, but keep one rounded core mass so the solid black silhouette stays instantly recognizable.',
+    common: 'Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape.',
+    rare:   'Rarity feel: still calm and compact, but a little larger and bolder — make its own body form and its one identifying feature slightly more pronounced so the black shape is memorable.',
+    epic:   "Rarity feel: bigger, more dynamic and slightly asymmetric — exaggerate and elaborate THIS creature's own body form and its own identifying feature, and give it an active, lively pose, while keeping one rounded core mass so it still reads cleanly as a black shape.",
+    legend: "Rarity feel: the grandest, most imposing version of THIS creature — noticeably larger, with its own body form and its own identifying feature pushed to their fullest and most elaborate, boldly asymmetric and majestic in a dynamic pose, while keeping one rounded core mass so the solid black silhouette stays instantly recognizable.",
   };
+  // 形に出る特徴（H2）＝シルエットに必ず出す。作り込みはレア度でスケール（H3: common=素朴 / legend=豪華）。
+  const featureScale = { common: 'small and simple', rare: 'clearly visible', epic: 'big and bold', legend: 'huge and elaborate' };
   // レジェンド枠（epic/legend＝☆3以上）だけ「クールな強キャラ」DNAへ差し替える（提案B）。
   //   ブランド共通ルール（太い焦茶アウトライン・フラット塗り・白ツヤ・2Dベクター）は死守し、
   //   cute/yuru-chara/pastel/pink cheeks を排除して sharp/glowing/dynamic に置換する。
@@ -143,8 +148,12 @@ export function buildPrompt({ station, spots, distanceKm, vocab, bodyHint }) {
     legendary
       ? 'Child-friendly: cool and powerful but not scary, no violence, no weapons.'
       : 'Child-friendly: cute and friendly, not scary, no violence, no weapons.',
-    // === フォルム（シルエット）＝候補ごとに変えて3体の形をはっきり分ける ===
-    bodyHint ? `Base creature form: ${bodyHint}. Give it a clear, distinctive silhouette in this shape.` : '',
+    // === 基本フォルム（シルエット骨格）＝格より優先させる言い切り（★①対策）===
+    bodyHint ? `The character's overall body plan MUST clearly be: ${bodyHint}. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view.` : '',
+    // 付属肢はフォルムと形の特徴からのみ生えさせる（レア度で勝手に足さない）。禁止語は並べず肯定形で。
+    bodyHint ? 'Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above.' : '',
+    // 形に出る特徴（H2）＝シルエットに必ず出す。作り込みはレア度でスケール。
+    featureHint ? `The silhouette must clearly show its identifying feature: ${featureHint}. Make this feature ${featureScale[rarity.id] || 'clearly visible'} and part of the outline so the character is recognizable by shape alone.` : '',
     // レア度ごとのシルエット複雑さ（格の階段はここで作る）＋可読性ガード
     silhouetteByRarity[rarity.id] || silhouetteByRarity.common,
     'Above all, the design must stay recognizable purely as its black silhouette (shape-first readability).',
@@ -230,6 +239,12 @@ function pickDistinct(arr, n) {
   return out;
 }
 
+// 基本フォルムに相性の良い「形に出る特徴」を1つランダムに選ぶ（H2）。
+function pickFeatureForBody(bodyId) {
+  const pool = featuresForBody(bodyId);
+  return pool[Math.floor(Math.random() * pool.length)] || null;
+}
+
 function mockCandidates({ distanceKm, userPicks }) {
   const rarity = rarityForDistance(distanceKm);
   const chars = pickDistinct(CHARACTERS, 3);
@@ -300,13 +315,16 @@ export async function startGeneration(params) {
   });
   const bodies = pickDistinct(AXIS_BODY, count);
   const rarity = rarityForDistance(p.distanceKm);
+  // 各フォルムに相性の良い「形に出る特徴」を1つ割り当てる（H2＝シルエットの個体差の主役）。
+  const features = bodies.map(b => pickFeatureForBody(b ? b.id : null));
 
-  // ★3体それぞれを「別の語彙＋別のフォルム(body)」で個別に生成する（同じプロンプト×3をやめる）。
+  // ★3体それぞれを「別の語彙＋別のフォルム(body)＋別の特徴」で個別に生成する（同じプロンプト×3をやめる）。
   //   これで3体のシルエットがはっきり別物になる。各1枚を並行生成。
   const gens = await Promise.all(perCandidate.map((v, i) => {
     const prompt = buildPrompt({
       station: p.station, spots: p.spots, distanceKm: p.distanceKm,
       vocab: v, bodyHint: bodies[i] ? bodies[i].promptHint : '',
+      featureHint: features[i] ? features[i].promptHint : '',
     });
     return callNanoBananaPro({ prompt, count: 1 })
       .then(arr => (arr && arr[0]) ? arr[0].imageDataUrl : null)
@@ -321,6 +339,7 @@ export async function startGeneration(params) {
       candidates.push({
         candidateId: 'g' + candidates.length,
         bodyId: (bodies[i] || AXIS_BODY[0]).id,
+        featureId: features[i] ? features[i].id : null,
         impressionId: AXIS_IMPRESSION[0].id,
         rarityId: rarity.id,
         baseCharId: null,

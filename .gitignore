@@ -3,6 +3,15 @@ config.js
 .DS_Store
 *.bak
 
+# char-lab 検証で出力した分析画像・DLしたZIP（ローカルのみ）
+silhouette_montage_*.png
+E2_*.png
+E2b_*.png
+E3_*.png
+compare_*.png
+sil_holefix_*.png
+src/assets/characters/char-lab_*.zip
+
 # キャラクター原画シート（ローカル保管のみ。切り出し済み素材は src/assets/characters/ にコミット）
 img/
 

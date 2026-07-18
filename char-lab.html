@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>テクタン キャラ仮説ラボ（char-lab）</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root { --line:#e2e2e2; --ink:#222; --sub:#666; --ok:#2e7d32; --warn:#e07b00; --bad:#c62828; --accent:#5b3a1a; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif; color:var(--ink); background:#fafafa; }
+  header { position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line); padding:12px 16px; }
+  h1 { font-size:16px; margin:0 0 4px; }
+  .lead { font-size:12px; color:var(--sub); margin:0 0 10px; }
+  .row { display:flex; gap:10px 14px; flex-wrap:wrap; align-items:flex-end; }
+  .fld { display:flex; flex-direction:column; gap:2px; }
+  .fld label { font-size:11px; color:var(--sub); }
+  .fld input, .fld select { padding:6px 8px; border:1px solid var(--line); border-radius:8px; font-size:14px; }
+  .fld input { width:80px; }
+  .fld select { width:150px; }
+  .toggles { display:flex; gap:8px 10px; flex-wrap:wrap; margin:10px 0 6px; }
+  .tog { display:flex; align-items:center; gap:6px; border:1px solid var(--line); border-radius:10px; padding:6px 10px; font-size:12px; background:#fff; cursor:pointer; user-select:none; }
+  .tog input { margin:0; }
+  .tog.on { border-color:var(--ok); background:#f0f8f1; }
+  .tog b { font-weight:700; }
+  .tog .h { color:var(--accent); font-weight:800; margin-right:2px; }
+  button { padding:8px 14px; border:0; border-radius:999px; font-weight:700; cursor:pointer; font-size:14px; }
+  #start { background:var(--ok); color:#fff; }
+  #dry { background:#333; color:#fff; }
+  #conntest { background:#1565c0; color:#fff; }
+  #zip { background:#6a1b9a; color:#fff; }
+  #stop { background:var(--bad); color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  .est { font-size:12px; color:var(--warn); font-weight:700; margin-top:6px; }
+  .bar { height:8px; background:#eee; border-radius:999px; overflow:hidden; margin-top:8px; }
+  .bar > div { height:100%; width:0; background:var(--ok); transition:width .2s; }
+  .stats { font-size:12px; color:var(--sub); margin-top:6px; }
+  main { padding:16px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:12px; }
+  .card { border:1px solid var(--line); border-radius:12px; background:#fff; overflow:hidden; font-size:11px; }
+  .imgs { display:flex; align-items:stretch; }
+  .imgs figure { margin:0; flex:1; text-align:center; padding:6px; }
+  .imgs figcaption { font-size:10px; color:var(--sub); }
+  .imgs img, .imgs canvas { width:100%; height:120px; object-fit:contain; display:block; }
+  .cut { background: conic-gradient(#ddd 25%, #fff 0 50%, #ddd 0 75%, #fff 0) 0 0/14px 14px; }
+  .sil { background:#f4f4f4; }
+  .meta { padding:8px; border-top:1px solid var(--line); line-height:1.55; }
+  .pill { display:inline-block; padding:1px 6px; border-radius:999px; color:#fff; font-weight:700; font-size:10px; margin:1px 2px 1px 0; }
+  .b-ok { background:var(--ok); } .b-warn { background:var(--warn); } .b-bad { background:var(--bad); } .b-info { background:#555; }
+  .metrics { margin-top:5px; font-size:10px; color:#333; }
+  .metrics span { display:inline-block; margin-right:8px; }
+  .metrics em { font-style:normal; color:var(--sub); }
+  .prompt { color:var(--sub); max-height:56px; overflow:auto; margin-top:5px; font-size:10px; white-space:pre-wrap; }
+  .err { color:var(--bad); padding:10px; }
+  details summary { cursor:pointer; font-size:10px; color:#1565c0; margin-top:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>テクタン キャラ仮説ラボ <span style="font-weight:400;color:var(--sub)">— char-lab（src/ 非改変・新プロンプトを実生成→黒シルエット→複雑さ実測）</span></h1>
+  <p class="lead">6つの仮説を個別にON/OFFして効果を切り分ける。生成経路は本番と同じ（新buildProptV2→GAS→NanoBanana→cutout）。指標は <code>character_complexity.py</code> と同式をブラウザ内で計算。</p>
+
+  <div class="row">
+    <div class="fld"><label>体数 N</label><input id="n" type="number" value="12" min="1" max="300"></div>
+    <div class="fld"><label>基本フォルム</label><select id="body"></select></div>
+    <div class="fld"><label>形に出る特徴</label><select id="feat"></select></div>
+    <div class="fld"><label>レア度</label><select id="rarity">
+      <option value="">おまかせ</option><option value="common">コモン</option>
+      <option value="rare">レア</option><option value="epic">エピック</option>
+      <option value="legend">レジェンド</option></select></div>
+    <div class="fld"><label>実験モード(sweep)</label><select id="sweep">
+      <option value="">なし（ランダム）</option>
+      <option value="form">フォルム総当り(14)</option>
+      <option value="rarity">レア度ラダー(4)</option>
+      <option value="feature">特徴総当り(7)</option></select></div>
+    <div class="fld"><label>1体あたり枚数</label><input id="count" type="number" value="1" min="1" max="4"></div>
+    <div class="fld"><label>並列数</label><input id="conc" type="number" value="3" min="1" max="6"></div>
+    <div class="fld"><label>cutout tol</label><input id="tol" type="number" value="48" min="10" max="120"></div>
+  </div>
+
+  <div class="toggles" id="toggles">
+    <label class="tog on"><input type="checkbox" id="h1" checked><span><span class="h">H1</span><b>フォルムファースト</b>（14骨格）</span></label>
+    <label class="tog on"><input type="checkbox" id="h2" checked><span><span class="h">H2</span><b>形に出る特徴</b>（耳/尻尾/角/翼）</span></label>
+    <label class="tog on"><input type="checkbox" id="h3" checked><span><span class="h">H3</span><b>レア度×格</b>（シルエット段階化）</span></label>
+    <label class="tog on"><input type="checkbox" id="h4" checked><span><span class="h">H4</span><b>フラット塗り</b></span></label>
+    <label class="tog on"><input type="checkbox" id="h5" checked><span><span class="h">H5</span><b>単一被写体/浮遊物ゼロ</b></span></label>
+    <label class="tog on"><input type="checkbox" id="h6" checked><span><span class="h">H6</span><b>シルエットQC</b>（黒化+合否）</span></label>
+  </div>
+  <div class="stats" id="sweephint" style="color:#1565c0; font-weight:700;"></div>
+
+  <div class="row">
+    <button id="start">▶ 実生成</button>
+    <button id="dry">乱数だけ（無料・プロンプト＋既存絵QC）</button>
+    <button id="conntest">🔌 接続テスト(1件)</button>
+    <button id="zip">⬇ 一括DL(ZIP)</button>
+    <button id="stop" disabled>■ 停止</button>
+  </div>
+  <div class="stats" id="gasinfo"></div>
+  <div class="est" id="est"></div>
+  <div class="bar"><div id="prog"></div></div>
+  <div class="stats" id="stats">待機中</div>
+</header>
+<main><div class="grid" id="grid"></div></main>
+
+<script type="module">
+import { cutoutBackground } from './src/utils/imagefx.js?v=lab1';
+import { DriveClient } from './src/utils/drive.js?v=lab1';
+import { CHARACTERS, characterImageUrl } from './src/utils/characters.js?v=lab1';
+import { CONFIG } from './config.js';
+
+const $ = id => document.getElementById(id);
+const rand = arr => arr[Math.floor(Math.random() * arr.length)];
+const drive = (CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL')
+  ? new DriveClient(CONFIG.GAS_URL, CONFIG.GAS_SECRET) : null;
+
+// ============================================================
+// 仮説データ（src/ に入れる前の"叩き台"。ここで効果を確認してから archetypes.js へ移す）
+// ============================================================
+
+// H1: 新14フォルム（docs/character-form-first-design.md §5）。promptHint は「丸ブロブ」ではなく骨格。
+const BODY14 = [
+  { id:'round',     ja:'まる・ボール',        hint:'a single rounded ball-shaped body with only small stubby limbs' },
+  { id:'quadruped', ja:'四足獣',              hint:'a four-legged beast with a horizontal body and a head facing forward' },
+  { id:'upright',   ja:'直立二足',            hint:'a tall upright body standing on two legs with visible arms' },
+  { id:'squat',     ja:'座り・下ぶくれ',       hint:'a bottom-heavy sitting body: a wide round base with a small head resting on top' },
+  { id:'bird',      ja:'鳥・つばさ',          hint:'a round-bodied bird with two side wings and a beak' },
+  { id:'bigwing',   ja:'大翼・飛行',          hint:'a flying creature with large spread wings and a wide dynamic wingspan' },
+  { id:'critter',   ja:'小さな丸い二足',       hint:'a small round bipedal critter with a big head and short little limbs' },
+  { id:'eared',     ja:'耳付き丸（猫系）',     hint:'a round-headed cat-like creature with prominent ears and a slim tidy body' },
+  { id:'tailed',    ja:'尻尾つき二足（俊敏）', hint:'a slim agile bipedal creature with a prominent noticeable tail' },
+  { id:'dragon',    ja:'竜・トカゲ',          hint:'a stout dragon-lizard with a thick body, a neck and a tail, half-standing' },
+  { id:'serpent',   ja:'細長・ヘビ',          hint:'a long legless serpent forming one single long curved line' },
+  { id:'aqua',      ja:'魚・水棲',            hint:'a spindle-shaped fish-like aquatic creature with clear fins' },
+  { id:'bug',       ja:'虫・分節',            hint:'a segmented insect body with legs and antennae' },
+  { id:'multilimb', ja:'横広・多脚/触手',      hint:'a wide-bodied many-limbed creature (crab or octopus-like) with several appendages spread sideways' },
+];
+
+// H1 OFF 用: 旧10フォルム（現行 archetypes.js＝丸ブロブ寄り）。効果比較のフォールバック。
+const BODY_OLD = [
+  { id:'beast',    hint:'a small four-legged furry creature' },
+  { id:'bird',     hint:'a round winged bird-like creature' },
+  { id:'dragon',   hint:'a cute little reptilian dragon creature' },
+  { id:'bug',      hint:'a friendly rounded insect-like creature' },
+  { id:'aqua',     hint:'a soft aquatic sea creature' },
+  { id:'critter',  hint:'a tiny rodent-like critter' },
+  { id:'humanoid', hint:'a small friendly humanoid mascot' },
+  { id:'plant',    hint:'a cheerful plant-like sprout creature' },
+  { id:'machine',  hint:'a cute round robot or rock creature' },
+  { id:'mystery',  hint:'a mysterious soft blob or ghost-like creature' },
+];
+
+// H2: 形に出る特徴（シルエットに現れる＝§6）。1つ選ぶ or ランダム。
+const FEATURES = [
+  { id:'ears_long',  ja:'長い耳',      en:'two long upright ears' },
+  { id:'ears_round', ja:'丸い耳',      en:'two round ears on top of the head' },
+  { id:'ears_droop', ja:'垂れ耳',      en:'two large droopy ears' },
+  { id:'tail_long',  ja:'長い尻尾',    en:'one long sweeping tail' },
+  { id:'tail_fluffy',ja:'ふさふさ尻尾', en:'one big fluffy bushy tail' },
+  { id:'tail_multi', ja:'複数の尻尾',  en:'several tails fanning out' },
+  { id:'horn_1',     ja:'角1本',      en:'a single horn on the head' },
+  { id:'horn_2',     ja:'角2本',      en:'two horns on the head' },
+  { id:'horn_twist', ja:'ねじれ角',   en:'a pair of twisted spiral horns' },
+  { id:'wings',      ja:'翼',         en:'a pair of clear wings on the back' },
+  { id:'fins',       ja:'ヒレ',       en:'prominent fins along the body' },
+  { id:'antennae',   ja:'触角',       en:'two antennae on the head' },
+  { id:'backfin',    ja:'背びれ',     en:'a row of spikes / a back fin along the spine' },
+  { id:'crest',      ja:'冠羽',       en:'a tall feather crest on the head' },
+];
+
+// レア度（距離→ティア。UI強制も可）。docs の RARITY_TIERS と同義。
+const RARITY = [
+  { id:'common', stars:1 }, { id:'rare', stars:2 }, { id:'epic', stars:3 }, { id:'legend', stars:4 },
+];
+const rarById = id => RARITY.find(r => r.id === id) || RARITY[0];
+
+// H3: レア度別シルエット複雑さ指定。
+// ★課題①対策: 格（レア度）を「翼・角・トゲの一律注入」ではなく、
+//   "そのキャラ自身のフォルム＋H2特徴を大きく・作り込む"ことで出す。
+//   → 生成AIに wings/horns/spikes という語を渡さない（negation ではなく非言及）。
+//   これでフォルムがレア度に上書きされず、高レアでもフォルムが残る。
+const SIL_BY_RARITY = {
+  common: 'Rarity feel: keep the shape simple, small, rounded and calm — one clear compact mass, close to symmetric. It reads instantly as a solid black shape.',
+  rare:   'Rarity feel: still calm and compact, but a little larger and bolder — make its own body form and its one identifying feature slightly more pronounced so the black shape is memorable.',
+  epic:   "Rarity feel: bigger, more dynamic and slightly asymmetric — exaggerate and elaborate THIS creature's own body form and its own identifying feature, and give it an active, lively pose, while keeping one rounded core mass so it still reads cleanly as a black shape.",
+  legend: "Rarity feel: the grandest, most imposing version of THIS creature — noticeably larger, with its own body form and its own identifying feature pushed to their fullest and most elaborate, boldly asymmetric and majestic in a dynamic pose, while keeping one rounded core mass so the solid black silhouette stays instantly recognizable.",
+};
+
+// H6: レア度別の複雑さ目標帯（docs/pokemon-character-design-analysis.md §6-2）。実測を合否判定に使う。
+const TARGETS = {
+  common: { contour:[1.4,1.75], solidity:[0.75,0.90], symmetry:[0.55,0.80] },
+  rare:   { contour:[1.65,1.95], solidity:[0.66,0.80], symmetry:[0.50,0.68] },
+  epic:   { contour:[2.0,2.45],  solidity:[0.58,0.70], symmetry:[0.42,0.58] },
+  legend: { contour:[2.6,3.4],   solidity:[0.48,0.62], symmetry:[0.30,0.48] },
+};
+
+const motifPool = ['ほし','つき','くも','しずく','どんぐり','はっぱ','ほのお','こおり','いし','きのこ','はぐるま','コンパス','ランタン','つみき','ラムネ'];
+const atmoPool  = ['げんき','おっとり','ミステリアス','ゆうかん','ひんやり','ぽかぽか'];
+
+// ============================================================
+// 新プロンプト buildPromptV2（各仮説をトグルで組み立て）
+// ============================================================
+function buildPromptV2(p, H) {
+  const rar = p.rarity;
+  const legendary = rarById(rar).stars >= 3;
+  const out = [];
+
+  // 固定DNA（画風統一：H3の legendary 分岐は buildPrompt と同じ）
+  if (legendary) {
+    out.push('Design one COOL LEGENDARY GUARDIAN mascot character for a kids station-exploration game called "Tekutan".');
+    out.push('Art style: a single flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat vibrant colors with glossy white highlights, sticker-like flat shading.');
+    out.push('This is a special LEGEND-tier character: sharp glowing eyes, sharp edges and a bold dynamic silhouette, a confident majestic heroic presence. NOT cute-baby, no pastel, no pink cheeks — cool and awe-inspiring but still friendly for kids.');
+  } else {
+    out.push('Design one original mascot character for a kids station-exploration game called "Tekutan".');
+    out.push('Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration.');
+    out.push('Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading.');
+  }
+
+  // 背景（再発防止＝不要物の名前を書かず肯定形で言い切る）※常時ON（安全のため）
+  out.push('The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture.');
+  out.push(legendary ? 'Child-friendly: cool and powerful but not scary, no violence, no weapons.' : 'Child-friendly: cute and friendly, not scary, no violence, no weapons.');
+
+  // H1: 基本フォルム（ON=14骨格 / OFF=旧10ブロブ）。★フォルムを格より優先させる言い切り。
+  out.push(`The character's overall body plan MUST clearly be: ${p.bodyHint}. This body shape is the single most important thing — keep it obvious in the silhouette from a clear side or three-quarter view.`);
+  // ★課題①対策: 付属肢はフォルムとH2特徴からのみ生えさせる（レア度で勝手に足さない）。禁止語は並べず肯定形で。
+  out.push('Any bumps, limbs or protrusions on its outline come only from this body form itself and from its identifying feature — the overall shape always stays true to the body plan above.');
+
+  // H2: 形に出る特徴（シルエットに必ず出す）
+  if (H.h2 && p.featEn) {
+    out.push(`The silhouette must clearly show this identifying feature: ${p.featEn}. Make this feature stick out of the outline so the character is recognizable by shape alone.`);
+  }
+
+  // H3: レア度×格（シルエット段階化）
+  if (H.h3) {
+    out.push(SIL_BY_RARITY[rar] || SIL_BY_RARITY.common);
+    out.push(`Rarity: ${rar}. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects.`);
+  }
+
+  // シルエット可読性ガード（フォルムファーストの中核・H1/H2が効く前提なので常時）
+  out.push('Above all, the design must stay recognizable purely as its black silhouette (shape-first readability).');
+
+  // H4: フラット塗り
+  if (H.h4) {
+    out.push('Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering.');
+  }
+
+  // 差別化変数（motif / atmosphere）
+  if (p.motif) out.push(`Creature concept / motif: ${p.motif}.`);
+  if (p.atmo)  out.push(`Overall mood: ${p.atmo}.`);
+
+  // H5: 単一被写体・浮遊物ゼロ
+  if (H.h5) {
+    out.push('The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it.');
+  }
+
+  // 最小限の否定（画風・構図レベルのみ）
+  out.push('Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.');
+
+  return out.filter(Boolean).join(' ');
+}
+
+// ============================================================
+// パラメータ生成
+// ============================================================
+function pickParams() {
+  const H = { h1:$('h1').checked, h2:$('h2').checked, h3:$('h3').checked, h4:$('h4').checked, h5:$('h5').checked, h6:$('h6').checked };
+  // フォルム
+  let bodyJa, bodyHint;
+  if (H.h1) {
+    const sel = $('body').value;
+    const b = sel ? BODY14.find(x => x.id === sel) : rand(BODY14);
+    bodyJa = b.ja; bodyHint = b.hint;
+  } else {
+    const b = rand(BODY_OLD);
+    bodyJa = '(旧)' + b.id; bodyHint = b.hint;
+  }
+  // 特徴
+  let featJa = '', featEn = '';
+  if (H.h2) {
+    const sel = $('feat').value;
+    const f = sel ? FEATURES.find(x => x.id === sel) : rand(FEATURES);
+    featJa = f.ja; featEn = f.en;
+  }
+  // レア度
+  const forced = $('rarity').value;
+  const rarity = forced || rand(RARITY).id;
+  const motif = Math.random() < 0.7 ? rand(motifPool) : '';
+  const atmo  = Math.random() < 0.6 ? rand(atmoPool) : '';
+  return { H, bodyJa, bodyHint, featJa, featEn, rarity, motif, atmo };
+}
+
+// 現在のトグル状態を読む
+function readH() { return { h1:$('h1').checked, h2:$('h2').checked, h3:$('h3').checked, h4:$('h4').checked, h5:$('h5').checked, h6:$('h6').checked }; }
+// 固定条件でパラメータを1件作る（sweep用・非ランダム）
+function makeParams(H, o) {
+  return { H, bodyJa:o.bodyJa, bodyHint:o.bodyHint, featJa:o.featJa||'', featEn:o.featEn||'', rarity:o.rarity, motif:o.motif||'', atmo:o.atmo||'' };
+}
+const featById = id => FEATURES.find(f => f.id === id);
+const bodyById14 = id => BODY14.find(b => b.id === id);
+// 特徴総当りで使う代表7種（none＝特徴なしの基準を必ず含める）
+const FEATURE_SWEEP = ['', 'ears_long', 'tail_fluffy', 'horn_2', 'wings', 'fins', 'crest'];
+
+// 実験モードのパラメータ配列を返す（none なら null＝通常ランダム）。
+// 設計思想: 背景（他条件）を固定し、知りたい1軸だけを総当りする＝1ストリップ=1つの問いの答え。
+function sweepList() {
+  const mode = $('sweep').value;
+  if (!mode) return null;
+  const H = readH();
+  const selRar  = $('rarity').value;
+  const selBody = $('body').value;
+  const selFeat = $('feat').value;
+
+  if (mode === 'form') {
+    // 主役=H1。ON:新14フォルム総当り / OFF:旧10フォルム総当り（＝H1のA/B）。
+    //   特徴(H2)は自動OFF・レア度=common固定にして"フォルムだけ"で見分けられるかを見る。
+    const rar = selRar || 'common';
+    const forms = H.h1 ? BODY14 : BODY_OLD.map(b => ({ ja:'(旧)'+b.id, hint:b.hint }));
+    return forms.map(b => makeParams({ ...H, h2:false }, { bodyJa:b.ja, bodyHint:b.hint, rarity:rar, featJa:'', featEn:'' }));
+  }
+  if (mode === 'rarity') {
+    // 主役=H3（ラダーが必ず効くよう強制ON）。1フォルム＋1特徴を固定して格の上がり方だけ見る。
+    //   翼を持たないフォルム（ヘビ/魚）を選べば課題①（高レアで翼が生えないか）も同時に確認できる。
+    const effH = { ...H, h3:true };
+    const b = (effH.h1 && selBody) ? bodyById14(selBody) : bodyById14('quadruped');
+    const f = (effH.h2 && selFeat) ? featById(selFeat) : (effH.h2 ? featById('tail_long') : null);
+    return RARITY.map(r => makeParams(effH, {
+      bodyJa:b.ja, bodyHint:b.hint, rarity:r.id,
+      featJa:f?f.ja:'', featEn:f?f.en:'' }));
+  }
+  if (mode === 'feature') {
+    // 主役=H2（各特徴を自動でON/OFFして振る）。1フォルム＋common固定。丸系が最も潰れやすいので既定round。
+    const b = (H.h1 && selBody) ? bodyById14(selBody) : bodyById14('round');
+    return FEATURE_SWEEP.map(fid => {
+      const f = fid ? featById(fid) : null;
+      return makeParams({ ...H, h2: !!fid }, {
+        bodyJa:b.ja, bodyHint:b.hint, rarity:'common',
+        featJa:f?f.ja:'(なし)', featEn:f?f.en:'' });
+    });
+  }
+  return null;
+}
+
+// sweep選択時に「主役の軸／固定される条件」を画面に明示する（地雷回避のガイド）。
+function updateSweepHint() {
+  const el = $('sweephint'); if (!el) return;
+  const mode = $('sweep').value;
+  const H = readH();
+  const map = {
+    '':      '',
+    form:    `主役=H1。いま ${H.h1 ? 'ON＝新14フォルムを総当り' : 'OFF＝旧10フォルムを総当り'}。特徴(H2)は自動OFF・レア度=common固定。背景としてH4/H5はONのままでOK。`,
+    rarity:  `主役=H3（自動ON）。フォルムと特徴を1つ固定して common→rare→epic→legend を生成。翼が無いフォルム（細長・ヘビ / 魚・水棲）を選ぶと課題①も同時チェック。`,
+    feature: `主役=H2（各特徴を自動で振る）。フォルム1つ＋common固定。基準"(なし)"からどれだけ形が割れるかを見る。`,
+  };
+  el.textContent = map[mode] || '';
+  // 主役トグルは自動制御なので視覚的に薄くする
+  ['h1','h2','h3'].forEach(id => {
+    const tog = $(id).closest('.tog');
+    const isSubject = (mode === 'form' && id === 'h1') || (mode === 'rarity' && id === 'h3') || (mode === 'feature' && id === 'h2');
+    tog.style.outline = isSubject ? '2px solid #1565c0' : 'none';
+    tog.title = isSubject ? 'この軸がsweepの主役（自動制御）' : '';
+  });
+}
+
+// ============================================================
+// 囲まれた背景（白ポケット）補正
+// seed-fill式cutoutは、キャラに完全に囲まれた白（例: コイル状のヘビの内側）を抜けず不透明のまま残す。
+// → シルエットが黒く塗り潰され、面積・輪郭・ソリディティの実測も歪む。
+// ここで「不透明かつ白に近い」画素の連結成分のうち一定面積以上を透明化して補正する canvas を返す。
+// ※本番 imagefx.js は変更せず、ラボの計測/シルエット表示だけを正す。
+// ============================================================
+function correctedCanvas(dataUrl, MAX = 520) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const s = Math.min(1, MAX / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * s)), h = Math.max(1, Math.round(img.height * s));
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, w, h);
+      const im = cx.getImageData(0, 0, w, h); const d = im.data; const N = w * h;
+      // 不透明かつ白に近い＝囲まれた背景候補（TOLは純白付近に絞る＝キャラの淡色は残す）
+      const bgw = new Uint8Array(N); const TOL = 58, tol2 = TOL*TOL;
+      for (let i = 0; i < N; i++) {
+        if (d[i*4+3] > 40) {
+          const dr = d[i*4]-255, dg = d[i*4+1]-255, db = d[i*4+2]-255;
+          if (dr*dr + dg*dg + db*db < tol2) bgw[i] = 1;
+        }
+      }
+      // 連結成分（4近傍）ごとに面積を測り、一定以上（コイルの穴など）を透明化。ごく小さな白ツヤは残す。
+      const seen = new Uint8Array(N); const minArea = Math.max(6, Math.floor(N * 0.0002)); const stack = [];
+      for (let i0 = 0; i0 < N; i0++) {
+        if (!bgw[i0] || seen[i0]) continue;
+        stack.length = 0; stack.push(i0); seen[i0] = 1; const comp = [i0];
+        while (stack.length) {
+          const p = stack.pop(); const x = p % w;
+          const nb = [ x > 0 ? p-1 : -1, x < w-1 ? p+1 : -1, p-w, p+w ];
+          for (const q of nb) { if (q < 0 || q >= N) continue; if (bgw[q] && !seen[q]) { seen[q] = 1; stack.push(q); comp.push(q); } }
+        }
+        if (comp.length >= minArea) { for (const q of comp) d[q*4+3] = 0; }
+      }
+      cx.putImageData(im, 0, 0);
+      resolve(cv);
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+// ============================================================
+// 指標（character_complexity.py と同式）: contour / solidity / symmetry
+// 入力: 透過PNG(dataUrl)。囲まれた白を補正した canvas から alpha>40 をマスクに。
+// ============================================================
+async function analyze(dataUrl) {
+  const cv = await correctedCanvas(dataUrl);
+  if (!cv) return null;
+  const w = cv.width, h = cv.height;
+  const data = cv.getContext('2d').getImageData(0, 0, w, h).data;
+  const mask = new Uint8Array(w * h); let area = 0;
+  for (let i = 0; i < w * h; i++) { if (data[i*4+3] > 40) { mask[i] = 1; area++; } }
+  if (area < 5) return null;
+  // perimeter（4近傍のどれかが背景 or 画像外）
+  let perim = 0;
+  const at = (x, y) => (x < 0 || y < 0 || x >= w || y >= h) ? 0 : mask[y*w+x];
+  const border = [];
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!mask[y*w+x]) continue;
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    if (!at(x-1,y) || !at(x+1,y) || !at(x,y-1) || !at(x,y+1)) { perim++; border.push([x, y]); }
+  }
+  const contour = perim / (2 * Math.sqrt(Math.PI * area));
+  const hullArea = convexHullArea(border) || area;
+  const solidity = Math.min(1, area / hullArea);
+  const bw = x1 - x0 + 1;
+  let inter = 0, uni = 0;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const a = mask[y*w+x];
+    const b = mask[y*w + (x0 + (bw - 1 - (x - x0)))];
+    if (a || b) uni++;
+    if (a && b) inter++;
+  }
+  const symmetry = uni ? inter / uni : 0;
+  return { contour, solidity, symmetry, area, occupancy: area / (w*h) };
+}
+function convexHullArea(pts) {
+  if (pts.length < 3) return 0;
+  const p = pts.map(a => a.slice()).sort((a, b) => a[0]-b[0] || a[1]-b[1]);
+  const cross = (o,a,b) => (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]);
+  const lower = [];
+  for (const q of p) { while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], q) <= 0) lower.pop(); lower.push(q); }
+  const upper = [];
+  for (let i = p.length-1; i >= 0; i--) { const q = p[i]; while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], q) <= 0) upper.pop(); upper.push(q); }
+  const hull = lower.slice(0, -1).concat(upper.slice(0, -1));
+  let a = 0;
+  for (let i = 0; i < hull.length; i++) { const [x1,y1] = hull[i], [x2,y2] = hull[(i+1)%hull.length]; a += x1*y2 - x2*y1; }
+  return Math.abs(a) / 2;
+}
+
+// 黒シルエット canvas を作る（囲まれた白を透明化した補正canvasから、透過を保って rgb=0）
+async function silhouetteCanvas(dataUrl) {
+  const cv = await correctedCanvas(dataUrl);
+  if (!cv) return null;
+  const cx = cv.getContext('2d'); const im = cx.getImageData(0, 0, cv.width, cv.height); const d = im.data;
+  for (let i = 0; i < d.length; i += 4) { if (d[i+3] > 40) { d[i]=d[i+1]=d[i+2]=17; d[i+3]=255; } else { d[i+3]=0; } }
+  cx.putImageData(im, 0, 0);
+  return cv;
+}
+
+// ============================================================
+// UI 初期化
+// ============================================================
+(function fillSelects(){
+  const bodySel = $('body'); bodySel.innerHTML = '<option value="">おまかせ（14からランダム）</option>' +
+    BODY14.map(b => `<option value="${b.id}">${b.ja}</option>`).join('');
+  const featSel = $('feat'); featSel.innerHTML = '<option value="">おまかせ（ランダム）</option>' +
+    FEATURES.map(f => `<option value="${f.id}">${f.ja}</option>`).join('');
+})();
+document.querySelectorAll('.tog input').forEach(cb => {
+  const sync = () => { cb.closest('.tog').classList.toggle('on', cb.checked); updateSweepHint(); };
+  cb.addEventListener('change', sync); sync();
+});
+$('sweep').addEventListener('change', updateSweepHint);
+updateSweepHint();
+(function showGasInfo(){
+  let host = '(未設定)';
+  try { host = CONFIG.GAS_URL ? new URL(CONFIG.GAS_URL).pathname.slice(0, 40) + '…' : '(未設定)'; } catch(_) {}
+  $('gasinfo').textContent = `このページ: ${location.origin || location.href}｜GAS: ${CONFIG.GAS_URL ? 'set' : '未設定'}（${host}）`;
+})();
+function updateEst() {
+  const n = +$('n').value || 0, count = +$('count').value || 1;
+  $('est').textContent = `推定コスト目安: 約 $${(n*count*0.2).toFixed(1)}（$0.2/枚 × ${n}体 × ${count}枚）／プリペイド残高を消費`;
+}
+['n','count'].forEach(id => $(id).addEventListener('input', updateEst)); updateEst();
+
+async function connTest() {
+  if (!drive) { alert('config.js の GAS_URL が未設定です'); return; }
+  $('gasinfo').textContent = '接続テスト中…';
+  try {
+    const res = await drive.generateCharacters({ prompt: 'a simple cute round mascot, flat, plain white background', count: 1 });
+    const n = (res && res.images && res.images.length) || 0;
+    $('gasinfo').textContent = `✅ 接続OK: 画像 ${n} 枚を受信（source=${res.source || 'nanobanana'}）`;
+  } catch (e) {
+    $('gasinfo').textContent = `❌ 接続失敗: ${(e && e.message) || e} ／ GAS_URL=${CONFIG.GAS_URL}`;
+  }
+}
+$('conntest').addEventListener('click', connTest);
+
+// ============================================================
+// カード描画 + 判定
+// ============================================================
+function fmt(v) { return (v == null) ? '—' : v.toFixed(2); }
+function band(v, range) {
+  if (v == null) return 'b-info';
+  if (v >= range[0] && v <= range[1]) return 'b-ok';
+  const near = (v >= range[0]*0.9 && v <= range[1]*1.1);
+  return near ? 'b-warn' : 'b-bad';
+}
+function metricsHtml(m, rarity) {
+  if (!m) return '<span class="pill b-info">計測不可</span>';
+  const t = TARGETS[rarity] || TARGETS.common;
+  const cell = (label, v, range) => `<span><em>${label}</em> <span class="pill ${band(v, range)}">${fmt(v)}</span><em>目標${range[0]}〜${range[1]}</em></span>`;
+  return `<div class="metrics">${cell('輪郭', m.contour, t.contour)}${cell('ソリ', m.solidity, t.solidity)}${cell('対称', m.symmetry, t.symmetry)}</div>`;
+}
+
+let results = [], stop = false, opts = {}, doneCount = 0;
+
+function card(i, p) {
+  const el = document.createElement('div'); el.className = 'card'; el.id = 'c'+i;
+  const H = p.H;
+  const flags = ['h1','h2','h3','h4','h5','h6'].filter(k => H[k]).map(k => k.toUpperCase()).join('+') || 'none';
+  el.innerHTML = `<div class="imgs" id="c${i}-imgs"><div style="flex:1;padding:20px;color:#aaa">生成中…</div></div>
+    <div class="meta">
+      <b>#${i+1}</b> <span class="pill b-info">${p.rarity}</span> フォルム:${p.bodyJa}${p.featJa ? '｜特徴:'+p.featJa : ''}<br>
+      <span style="color:var(--sub)">ON: ${flags}${p.motif ? '｜motif:'+p.motif : ''}${p.atmo ? '｜'+p.atmo : ''}</span>
+      <span id="c${i}-pills"></span>
+      <div id="c${i}-metrics"></div>
+      <details><summary>プロンプトを見る</summary><div class="prompt" id="c${i}-prompt"></div></details>
+    </div>`;
+  $('grid').appendChild(el);
+}
+
+async function renderResult(i, p, rawList) {
+  const H = p.H;
+  const imgsEl = $('c'+i+'-imgs'); const html = [];
+  let firstMetrics = null, firstRr = 0;
+  for (let k = 0; k < rawList.length; k++) {
+    const raw = rawList[k];
+    const cut = await cutoutBackground(raw, { tolerance: opts.tol });
+    if (k === 0) firstRr = cut.removedRatio;
+    html.push(`<figure><img src="${raw}"><figcaption>raw ${k+1}</figcaption></figure>`);
+    html.push(`<figure><img class="cut" src="${cut.url}"><figcaption>cutout ${(cut.removedRatio*100).toFixed(0)}%</figcaption></figure>`);
+    if (H.h6) {
+      const m = await analyze(cut.url);
+      if (k === 0) firstMetrics = m;
+      // シルエット canvas はプレースホルダを置き、imgsEl 反映後に実描画する
+      html.push(`<figure data-sil="${k}"><canvas class="sil" id="c${i}-sil${k}"></canvas><figcaption>silhouette</figcaption></figure>`);
+    }
+  }
+  imgsEl.innerHTML = html.join('');
+  // シルエット canvas を実描画
+  if (H.h6) {
+    for (let k = 0; k < rawList.length; k++) {
+      const cut = await cutoutBackground(rawList[k], { tolerance: opts.tol });
+      const sc = await silhouetteCanvas(cut.url);
+      const target = $(`c${i}-sil${k}`);
+      if (sc && target) { target.width = sc.width; target.height = sc.height; target.getContext('2d').drawImage(sc, 0, 0); }
+    }
+  }
+  // ピル（cutout採用 + QC合否）
+  const pills = [`<span class="pill b-ok">実API</span>`, `<span class="pill ${firstRr>=0.12?'b-ok':'b-warn'}">cutout ${(firstRr*100).toFixed(0)}%</span>`];
+  if (H.h6 && firstMetrics) {
+    const t = TARGETS[p.rarity] || TARGETS.common;
+    const inBand = v => v != null;
+    const c = band(firstMetrics.contour, t.contour), s = band(firstMetrics.solidity, t.solidity), sy = band(firstMetrics.symmetry, t.symmetry);
+    const passN = [c,s,sy].filter(x => x==='b-ok').length;
+    pills.push(`<span class="pill ${passN>=2?'b-ok':(passN===1?'b-warn':'b-bad')}">QC ${passN}/3 帯内</span>`);
+  }
+  $('c'+i+'-pills').innerHTML = ' ' + pills.join(' ');
+  if (H.h6) $('c'+i+'-metrics').innerHTML = metricsHtml(firstMetrics, p.rarity);
+  return { firstMetrics, firstRr };
+}
+
+// 404 / タイムアウト等の一時失敗に対する自動リトライ（指数バックオフ）。sweepの取りこぼしを減らす。
+async function genWithRetry(prompt, count, tries = 3) {
+  let lastErr;
+  for (let t = 0; t < tries; t++) {
+    try {
+      const res = await drive.generateCharacters({ prompt, count });
+      if (res && res.images && res.images.length) return res;
+      lastErr = new Error('画像0件');
+    } catch (e) { lastErr = e; }
+    if (t < tries - 1) await new Promise(r => setTimeout(r, 900 * (t + 1)));
+  }
+  throw lastErr;
+}
+
+async function runOne(i, preset) {
+  const p = preset || pickParams();
+  card(i, p);
+  const prompt = buildPromptV2(p, p.H);
+  $('c'+i+'-prompt').textContent = prompt;
+  const rec = { i, rarity: p.rarity, bodyJa: p.bodyJa, featJa: p.featJa, flags: p.H, motif: p.motif, atmo: p.atmo, prompt, metrics: null, removedRatio: null, error: null };
+  results[i] = rec;
+
+  if (opts.dry) {
+    // 無料モード: 既存キャラ絵で QC 指標だけ確認（プロンプトは表示済み）
+    const ch = rand(CHARACTERS);
+    const url = characterImageUrl(ch, 'normal');
+    try {
+      const r = await renderResult(i, p, [url]);
+      rec.metrics = r.firstMetrics; rec.removedRatio = r.firstRr; rec.dry = true;
+    } catch (e) { rec.error = String(e && e.message || e); $('c'+i+'-imgs').innerHTML = `<div class="err">${rec.error}</div>`; }
+    return;
+  }
+  if (!drive) { rec.error = 'GAS未設定'; $('c'+i+'-imgs').innerHTML = `<div class="err">config.js の GAS_URL 未設定</div>`; return; }
+  try {
+    const res = await genWithRetry(prompt, opts.count);
+    const imgs = ((res && res.images) || []).map(im => im.dataUrl || im);
+    if (!imgs.length) throw new Error('画像0件');
+    const r = await renderResult(i, p, imgs);
+    rec.metrics = r.firstMetrics; rec.removedRatio = r.firstRr; rec.source = res.source || 'nanobanana';
+  } catch (e) {
+    rec.error = String(e && e.message || e);
+    $('c'+i+'-imgs').innerHTML = `<div class="err">失敗: ${rec.error}</div>`;
+    $('c'+i+'-pills').innerHTML = `<span class="pill b-bad">ERROR</span>`;
+  }
+}
+
+function updateProgress(total) {
+  $('prog').style.width = (doneCount/total*100) + '%';
+  const errs = results.filter(r => r && r.error).length;
+  const gen = results.filter(r => r && r.metrics).length;
+  $('stats').innerHTML = `進捗 ${doneCount}/${total}｜指標計測 ${gen}｜エラー ${errs}`;
+}
+
+async function run(dry) {
+  const base = sweepList();  // 実験モード時は固定条件の配列、なければ null
+  // sweep時は 体数N を「各値の繰り返し回数」として使う（レア度ラダー等のノイズを平均で潰す）。
+  const reps = base ? Math.max(1, Math.min(+$('n').value || 1, 12)) : 1;
+  const sweep = base ? Array.from({ length: reps }, () => base).flat() : null;
+  const total = sweep ? sweep.length : Math.max(1, +$('n').value || 1);
+  opts = { dry, count: Math.max(1, +$('count').value || 1), tol: +$('tol').value || 48 };
+  const conc = dry ? 6 : Math.max(1, +$('conc').value || 3);
+  if (!dry && !drive) { alert('config.js の GAS_URL が未設定です'); return; }
+  const label = sweep ? `実験モード「${$('sweep').options[$('sweep').selectedIndex].text}」= ${total}枚` : `${total}体`;
+  if (!dry && !confirm(`${label} × ${opts.count}枚 を実生成します。推定コスト約 $${(total*opts.count*0.2).toFixed(1)}。続けますか？`)) return;
+  stop = false; results = []; doneCount = 0; $('grid').innerHTML = '';
+  $('start').disabled = true; $('dry').disabled = true; $('stop').disabled = false;
+  let next = 0;
+  async function worker() { while (!stop) { const my = next++; if (my >= total) break; await runOne(my, sweep ? sweep[my] : null); doneCount++; updateProgress(total); } }
+  await Promise.all(Array.from({ length: conc }, worker));
+  $('start').disabled = false; $('dry').disabled = false; $('stop').disabled = true;
+  $('stats').innerHTML += stop ? '｜⏹ 停止' : '｜✅ 完了';
+  window.__labResults = results;
+  console.log('[char-lab] results', results);
+  summarize();
+}
+
+// ざっくり集計（QC帯内率を仮説フラグ別に出す→効果の当たりを付ける）
+function summarize() {
+  const withM = results.filter(r => r && r.metrics);
+  if (!withM.length) return;
+  const inBand = (r) => {
+    const t = TARGETS[r.rarity] || TARGETS.common; const m = r.metrics;
+    return [ [m.contour,t.contour],[m.solidity,t.solidity],[m.symmetry,t.symmetry] ].filter(([v,rg]) => v>=rg[0] && v<=rg[1]).length;
+  };
+  const avg = arr => arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length) : 0;
+  const s = { n: withM.length, qc: avg(withM.map(inBand)), contour: avg(withM.map(r=>r.metrics.contour)), solidity: avg(withM.map(r=>r.metrics.solidity)), symmetry: avg(withM.map(r=>r.metrics.symmetry)) };
+  $('stats').innerHTML += `｜平均 QC ${s.qc.toFixed(1)}/3 ・輪郭 ${s.contour.toFixed(2)} ・ソリ ${s.solidity.toFixed(2)} ・対称 ${s.symmetry.toFixed(2)}`;
+}
+
+async function downloadZip() {
+  if (typeof JSZip === 'undefined') { alert('JSZip 読み込み失敗'); return; }
+  const cards = document.querySelectorAll('.card');
+  if (!cards.length) { alert('先に生成してください'); return; }
+  const zip = new JSZip(); let count = 0;
+  cards.forEach(card => {
+    const idx = +String(card.id).replace(/\D/g,'') || 0;
+    card.querySelectorAll('img').forEach((img, k) => {
+      const m = String(img.src).match(/^data:image\/(\w+);base64,(.+)$/);
+      if (!m) return;
+      const kind = img.classList.contains('cut') ? 'cut' : 'raw';
+      zip.file(`${String(idx+1).padStart(3,'0')}_${kind}${k}.${m[1]}`, m[2], { base64: true }); count++;
+    });
+    card.querySelectorAll('canvas.sil').forEach((cv, k) => {
+      const m = cv.toDataURL('image/png').match(/^data:image\/png;base64,(.+)$/);
+      if (m) { zip.file(`${String(idx+1).padStart(3,'0')}_sil${k}.png`, m[1], { base64: true }); count++; }
+    });
+  });
+  zip.file('results.json', JSON.stringify(results.map(r => ({ ...r, prompt: r.prompt })), null, 2));
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `char-lab_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.zip`; a.click();
+  $('stats').innerHTML += `｜⬇ ${count}枚をZIP保存`;
+}
+
+$('start').addEventListener('click', () => run(false));
+$('dry').addEventListener('click', () => run(true));
+$('stop').addEventListener('click', () => { stop = true; $('stop').disabled = true; });
+$('zip').addEventListener('click', downloadZip);
+</script>
+</body>
+</html>

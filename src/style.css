@@ -2869,6 +2869,14 @@ body.ar-open { overflow: hidden; }
 
 /* --- 段階タップ式ピッカー（Phase B: STEP1のselect代替） --- */
 .selector-row-hidden { display: none !important; }
+/* 駅から見た方位を示す矢印バッジ（距離・住所の文字表示の代わり） */
+.spot-compass {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; margin-left: 6px; vertical-align: middle;
+  border-radius: 50%; background: #eaf6ef; color: var(--green-mid);
+}
+.spot-compass svg { width: 15px; height: 15px; display: block; }
+
 .picker-stage { margin-bottom: 14px; }
 /* 見出し横の「？」で説明文を出し入れする共通部品（既定表示の文字数を0にする） */
 .sec-head-with-hint { display: flex; align-items: center; gap: 8px; }

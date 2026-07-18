@@ -1,5 +1,5 @@
 import { CONFIG } from '../config.js?v=106';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, fetchOpeningHours, fetchEditorialSummary, isPlaceOpenInWindow, MAP_STYLE } from './utils/maps.js?v=106';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, bearingDeg, compass8, fetchOpeningHours, fetchEditorialSummary, isPlaceOpenInWindow, MAP_STYLE } from './utils/maps.js?v=106';
 import { fetchOriginStory, fetchSpotFacts, generateCharacterBlurb, tidyMemo, transcribeAudio, setAiBackend } from './utils/ai.js?v=106';
 import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=106';
 import { generateMapPdf, renderMapPreview, buildStageMedia } from './utils/pdf.js?v=106';
@@ -2071,6 +2071,18 @@ function renderSpotsList(map) {
       ? `${(distMeters / 1000).toFixed(1)}km`
       : `${distMeters}m`;
 
+    // 駅から見た方位を矢印で示す（距離・住所の文字表示をやめ、向きを図で伝える）。
+    // 真北を上にした矢印を方位角ぶん回転させるだけなので、8方位ぶんの画像は不要。
+    const bearing = state.stationLocation
+      ? bearingDeg(toLL(state.stationLocation), { lat: spot.lat, lng: spot.lng })
+      : null;
+    const compassHtml = bearing == null ? '' : `
+      <span class="spot-compass" title="${escapeHtml(`${t('distanceFromStation')} ${compass8(bearing, LANG)} ${distLabel}`)}" aria-label="${escapeHtml(compass8(bearing, LANG))}">
+        <svg viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate(${bearing.toFixed(0)}deg)">
+          <path d="M12 2.5 L18 21 L12 16.6 L6 21 Z" fill="currentColor"/>
+        </svg>
+      </span>`;
+
     // カード生成（史跡は recommended 装飾でハイライト、ただし選択は任意）
     const card = document.createElement('div');
     card.className = `spot-card${spot.recommended ? ' recommended' : ''}`;
@@ -2081,8 +2093,7 @@ function renderSpotsList(map) {
       <span class="spot-check">⬜</span>
       <div class="spot-info">
         <div class="spot-name">${spot.name}${spot.recommended ? ` <span class="spot-badge">${escapeHtml(t('badgeRequired'))}</span>` : ''}</div>
-        <span class="spot-category ${cat.cls}">${cat.icon} ${escapeHtml(catLabel(spot.category))}</span>
-        <div class="spot-desc">${t('distanceFromStation')} ${distLabel} ・ ${spot.address || ''}</div>
+        <span class="spot-category ${cat.cls}">${cat.icon} ${escapeHtml(catLabel(spot.category))}</span>${compassHtml}
       </div>
       <button class="spot-delete" type="button" title="${escapeHtml(t('spotDeleteTitle'))}" aria-label="${escapeHtml(t('spotDeleteLabel'))}">🗑</button>
     `;
@@ -2375,7 +2386,7 @@ function renderRouteStepUI() {
     parts.push(`
       <div class="route-spot-item">
         <span class="route-spot-num">${i + 1}</span>
-        <span>${cat.icon} <strong>${escapeHtml(s.name)}</strong> — ${escapeHtml(s.address || '')}</span>
+        <span>${cat.icon} <strong>${escapeHtml(s.name)}</strong></span>
       </div>`);
   });
   const lastLeg = legs[legs.length - 1];

@@ -508,6 +508,25 @@ export function haversine(a, b) {
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
 }
 
+// a から b を見た方位角（度・真北0°から時計回り）。スポットが駅のどちら側にあるかを矢印で示すために使う。
+export function bearingDeg(a, b) {
+  const toRad = d => d * Math.PI / 180;
+  const p1 = toRad(a.lat), p2 = toRad(b.lat), dL = toRad(b.lng - a.lng);
+  const y = Math.sin(dL) * Math.cos(p2);
+  const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dL);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+// 方位角 → 8方位の名前（読み上げ・ツールチップ用。画面には文字として出さない）
+const DIR8 = {
+  ja: ['北', '北東', '東', '南東', '南', '南西', '西', '北西'],
+  en: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+};
+export function compass8(deg, lang) {
+  const names = DIR8[lang === 'en' ? 'en' : 'ja'];
+  return names[Math.round(deg / 45) % 8];
+}
+
 // Directions API でルート取得（駅 → スポット1 → ... → スポットN → 駅 のループ）
 export function getDirections(origin, orderedSpots) {
   return new Promise((resolve, reject) => {

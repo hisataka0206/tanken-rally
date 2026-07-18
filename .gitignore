@@ -12,6 +12,10 @@ compare_*.png
 sil_holefix_*.png
 src/assets/characters/char-lab_*.zip
 
+# thesis: 正規化シルエット画像（生成物・analysis/make_silhouettes.py で再生成可能）
+# 測定値そのものは thesis/data/runs/*/results.json に残るのでコミット対象
+thesis/data/silhouettes/
+
 # キャラクター原画シート（ローカル保管のみ。切り出し済み素材は src/assets/characters/ にコミット）
 img/
 

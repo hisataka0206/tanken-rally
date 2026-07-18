@@ -23,6 +23,10 @@
 (function () {
   const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'TITLE', 'RP']);
   const strip = (s) => String(s || '').replace(/\s/g, '');
+  // 絵文字と矢印は「アイコン」であって読む文字ではないので、本文の字数から分離する。
+  // （🍰 や ← を1〜2字として数えると、アイコン化した画面ほど数字が悪化して判断を誤る）
+  const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{2190}-\u{21FF}]/gu;
+  const splitIcon = (s) => ({ icons: (s.match(EMOJI) || []).length, text: s.replace(EMOJI, '').length });
 
   // 要素そのものが視覚的に隠されているか
   function selfHidden(el) {
@@ -61,6 +65,7 @@
   function collect(root) {
     const items = [];
     let ruby = 0;
+    let icons = 0;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(n) {
         if (!strip(n.nodeValue)) return NodeFilter.FILTER_REJECT;
@@ -73,9 +78,12 @@
       if (!visible(n)) continue;
       const text = strip(n.nodeValue);
       if (n.parentElement.tagName === 'RT') { ruby += text.length; continue; }  // ふりがなは別枠
+      const split = splitIcon(text);
+      icons += split.icons;
+      if (split.text === 0) continue;                                            // アイコンだけの要素は字数0
       const owner = n.parentElement;
       items.push({
-        chars: text.length,
+        chars: split.text,
         text: n.nodeValue.trim().slice(0, 40),
         where: owner.id ? '#' + owner.id : owner.tagName.toLowerCase() + (owner.className ? '.' + String(owner.className).split(/\s+/)[0] : ''),
       });
@@ -86,7 +94,7 @@
       const text = strip(el.placeholder);
       if (text) items.push({ chars: text.length, text: '[placeholder] ' + el.placeholder.slice(0, 30), where: el.id ? '#' + el.id : 'input' });
     });
-    return { items, ruby };
+    return { items, ruby, icons };
   }
 
   window.tekutanMeasure = function tekutanMeasure() {
@@ -100,13 +108,13 @@
 
     const result = [];
     screens.forEach((el) => {
-      const { items, ruby } = collect(el);
+      const { items, ruby, icons } = collect(el);
       const total = items.reduce((a, b) => a + b.chars, 0);
-      result.push({ screen: '#' + el.id, chars: total, ruby, items: items.sort((a, b) => b.chars - a.chars) });
+      result.push({ screen: '#' + el.id, chars: total, ruby, icons, items: items.sort((a, b) => b.chars - a.chars) });
     });
 
     result.forEach((r) => {
-      console.group(`${r.screen} — 見えている文字 ${r.chars}字（ふりがな ${r.ruby}字は別枠）`);
+      console.group(`${r.screen} — 読む文字 ${r.chars}字（ふりがな ${r.ruby}字 / アイコン ${r.icons}個 は別枠）`);
       console.table(r.items.map((i) => ({ 字数: i.chars, 場所: i.where, 文言: i.text })));
       console.groupEnd();
     });

@@ -1796,6 +1796,12 @@ function fitMapToSpots(map, origin, spots) {
 }
 
 function showStep(stepId) {
+  // 安全網: 画面遷移時に、取り残されたオーバーレイ（透明背景でもクリックを奪う）を必ず閉じる。
+  //   チャージェン/ローディングが閉じきらず操作不能になる事故を防ぐ。
+  ['chargen-modal', 'chargen-pick-modal', 'welcome-modal', 'resume-ask-modal'].forEach(id => {
+    const m = document.getElementById(id); if (m) m.classList.add('hidden');
+  });
+  hideLoadingOverlay();
   if (stepId !== 'step-photos') stopStageWhere(); // 撮影画面を離れたら現在地監視を止める
   // レポート画面から離れる時は自動保存をフラッシュ（保存漏れ防止）
   if (stepId !== 'step-report') {
@@ -3675,36 +3681,71 @@ function onChargenPick(idx) {
   chargenSetPhase('reveal');
 }
 
-async function onChargenSave() {
+function onChargenSave() {
   if (!_chargenChosen || !_chargenChosenName) return;
-  // 史実ファクトの取得が間に合っていなければ最大3秒だけ待つ（間に合わなければテンプレ説明へフォールバック）。
-  if (state.charGen && state.charGen.factsPromise && !state.charGen.spotFacts) {
-    try { await Promise.race([state.charGen.factsPromise, new Promise(r => setTimeout(r, 3000))]); } catch (_) { /* no-op */ }
-  }
   const p = state.charGen.params || {};
   const hs = (state.charGen && state.charGen.historicSpot) || null;
-  const facts = (state.charGen && state.charGen.spotFacts) || null;
   const v0 = _chargenChosen.vocab || {};
 
-  // 説明文ジェネレーター: 「素材①キャラ探検データ × 素材②スポット」を1つの説明文に融合。
-  //   史跡が紐づいていれば必ず生成する（史実が薄い時は場所の種類・雰囲気を性格に溶かす）。
-  //   史跡が無い時だけテンプレ(buildGeneratedStory)へフォールバック。
+  // ★まず「説明文なし」で保存して即・完了画面へ遷移する（お祝いの瞬間を待たせない）。
+  //   説明文の生成（史実取得＋LLM、最大10秒級）と Drive 同期は、遷移後に裏で行い、
+  //   同じ genId でレコードを上書きして図鑑に反映する。
+  const genId = 'gen_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const baseVocab = {
+    ...v0,
+    historicSpot: hs ? hs.name : '',
+    historicSpotCat: hs ? (hs.category || '') : '',
+    description: '',   // あとで裏で埋める
+    spotSource: '',
+  };
+  const rec = saveGeneratedCharacter({
+    genId,
+    name: _chargenChosenName,
+    station: p.station,
+    spots: p.spots,
+    distanceKm: p.distanceKm,
+    rarityId: _chargenChosen.rarityId,
+    bodyId: _chargenChosen.bodyId,
+    impressionId: _chargenChosen.impressionId,
+    vocab: baseVocab,
+    baseCharId: _chargenChosen.baseCharId,
+    colorFilter: _chargenChosen.colorFilter,
+    imageDataUrl: _chargenChosen.imageDataUrl,
+  });
+  state.charGen.consumed = true;
+  patchSessionState({ charGenDone: true }); // #11: この探検では生成済み→再開しても再生成不可
+  if (state.charGen.earlyBird) { markEarlyBirdUsed(); console.info('[chargen] 早期ボーナス（エピック）を消費'); }
+
+  // 先に画面遷移（ここまでは同期・一瞬）
+  $('chargen-done-msg').textContent = t('chargenDoneFmt').replace('{name}', rec.name);
+  chargenSetPhase('done');
+  updateChargenEntry();
+  if (!$('zukan-modal').classList.contains('hidden')) renderZukanGrid(loadCollection());
+
+  // 裏で仕上げ（説明文生成 → レコード更新 → Drive同期）。遷移はブロックしない。
+  finalizeGeneratedCharacter(genId, rec, p, hs, v0).catch(e => console.warn('[chargen] 仕上げ失敗（キャラは保存済）:', e));
+}
+
+// 説明文の融合生成と Drive 同期を「遷移後」に非同期で行い、同じ genId でレコードを上書きする。
+async function finalizeGeneratedCharacter(genId, rec, p, hs, v0) {
+  // 史実ファクトの取得を待つ（最大3秒）
+  if (state.charGen && state.charGen.factsPromise && !state.charGen.spotFacts) {
+    try { await Promise.race([state.charGen.factsPromise, new Promise(r => setTimeout(r, 3000))]); } catch (_) {}
+  }
+  const facts = (state.charGen && state.charGen.spotFacts) || null;
   const core = (s) => String(s || '').split(/[・･]/)[0].trim();
   let description = '';
   let spotSource = '';
   if (hs && hs.name) {
-    // 冒頭フレーズ（0スポット/0kmのテスト生成でも自然な日本語になるよう組み立てる）
     const town = String(p.station || '').replace(/駅$/, '') || 'どこかの町';
     const nSpots = (p.spots || []).length;
     const km = Math.max(0, Math.round((p.distanceKm || 0) * 10) / 10);
     const adventure = nSpots > 0
       ? `${town}の町を${nSpots}か所めぐって、${km}kmあるいた探検`
       : `${town}の町をあるいた探検`;
-    // お祝いの瞬間が固まらないよう最大8秒で打ち切り（間に合わなければテンプレ説明へフォールバック）。
     description = await Promise.race([
       generateCharacterBlurb({
-        name: _chargenChosenName,
-        adventure,
+        name: rec.name, adventure,
         itemHint: core(v0.decoration) || core(v0.motif),
         animal: core(v0.motif),
         personality: [core(v0.atmosphere), core(v0.expression)].filter(Boolean).join('・'),
@@ -3714,49 +3755,23 @@ async function onChargenSave() {
       }),
       new Promise(r => setTimeout(() => r(''), 8000)),
     ]);
-    // 出典は Wikipedia等で裏取りできた時だけ表示（雰囲気だけの融合には出典を付けない）
     if (description && facts && facts.facts) spotSource = facts.source || '';
   }
-
-  const enrichedVocab = {
-    ...v0,
-    historicSpot: hs ? hs.name : '',
-    historicSpotCat: hs ? (hs.category || '') : '',
-    description: description || '',   // 融合説明文（あれば図鑑の本文に使う）
-    spotSource: spotSource || '',     // 史実の出典（融合できた時のみ）
-  };
-  const rec = saveGeneratedCharacter({
-    name: _chargenChosenName,
-    station: p.station,
-    spots: p.spots,
-    distanceKm: p.distanceKm,
-    rarityId: _chargenChosen.rarityId,
-    bodyId: _chargenChosen.bodyId,
-    impressionId: _chargenChosen.impressionId,
-    vocab: enrichedVocab,
-    baseCharId: _chargenChosen.baseCharId,
-    colorFilter: _chargenChosen.colorFilter,
-    imageDataUrl: _chargenChosen.imageDataUrl,
-  });
-  state.charGen.consumed = true;
-  patchSessionState({ charGenDone: true }); // #11: この探検では生成済み→再開しても再生成不可
-  // 早期ボーナスを使い切ったら、このアカウントでは以後の探検は通常ゲートに戻す
-  if (state.charGen.earlyBird) { markEarlyBirdUsed(); console.info('[chargen] 早期ボーナス（エピック）を消費'); }
-  // #10 端末間同期: 実API画像を持つ生成キャラをサーバ保存（画像=Drive／メタ=Sheets）。
-  //   fire-and-forget（失敗してもローカルには保存済み）。モック（画像なし）は同期しない。
-  if (drive && rec.imageDataUrl) {
+  // 同じ genId でレコードを上書き（説明文を追記）
+  const enrichedVocab = { ...(rec.vocab || {}), description: description || '', spotSource: spotSource || '' };
+  const rec2 = saveGeneratedCharacter({ ...rec, genId, vocab: enrichedVocab });
+  // 図鑑が開いていれば再描画（説明文が入った状態に）
+  if (!$('zukan-modal').classList.contains('hidden')) renderZukanGrid(loadCollection());
+  // Drive/Sheets 同期（実API画像を持つときだけ・fire-and-forget）
+  if (drive && rec2.imageDataUrl) {
     drive.saveGeneratedCharacter({
       userId: accountUserId() || getExplorerId(),
-      genId: rec.genId, name: rec.name, station: rec.station,
-      rarityId: rec.rarityId, vocab: rec.vocab,
-      distanceKm: rec.distanceKm || 0, spotCount: (rec.spots || []).length, // ストーリー生成用
-      imageDataUrl: rec.imageDataUrl, createdAt: rec.createdAt,
+      genId: rec2.genId, name: rec2.name, station: rec2.station,
+      rarityId: rec2.rarityId, vocab: rec2.vocab,
+      distanceKm: rec2.distanceKm || 0, spotCount: (rec2.spots || []).length,
+      imageDataUrl: rec2.imageDataUrl, createdAt: rec2.createdAt,
     }).catch(e => console.warn('[chargen] 生成キャラのサーバ保存失敗（ローカルには保存済）:', e));
   }
-  $('chargen-done-msg').textContent = t('chargenDoneFmt').replace('{name}', rec.name);
-  chargenSetPhase('done');
-  updateChargenEntry(); // 消費済みになったので「発見」ボタンを隠す
-  if (!$('zukan-modal').classList.contains('hidden')) renderZukanGrid(loadCollection());
 }
 
 async function onSubmitScore() {

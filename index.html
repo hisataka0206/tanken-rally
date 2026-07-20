@@ -47,6 +47,19 @@
     </div>
 
     <!-- 起動時ログインゲート（なまえ＋あいことば）。未ログイン時のみ表示してアプリを覆う -->
+    <!-- 「探検をはじめる」で中断中の探検があるとき聞く（トップに常設文字を増やさない） -->
+    <div id="resume-ask-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="resume-ask-title">
+      <div class="modal-backdrop" data-action="resume-ask-close"></div>
+      <div class="modal-content resume-ask-content">
+        <h3 id="resume-ask-title" class="resume-ask-title" data-i18n="resumeAskTitle">とちゅうの たんけんが あるよ</h3>
+        <p class="resume-ask-station" id="resume-ask-station"></p>
+        <div class="modal-actions resume-ask-actions">
+          <button id="resume-ask-continue" class="btn-primary" type="button" data-i18n="resumeAskContinue">つづきから</button>
+          <button id="resume-ask-new" class="btn-secondary" type="button" data-i18n="resumeAskNew">あたらしく はじめる</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 新規登録直後のお祝い（スターターのルッキー入手）。JSで表示・画像差し込み。 -->
     <div id="welcome-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="welcome-modal-title">
       <div class="modal-backdrop"></div>
@@ -124,17 +137,6 @@
           <!-- 標語はヘッダーに常時表示しているため、ここでの重複表示は削除 -->
         </div>
         <p class="home-hello" id="home-hello"></p>
-        <!-- リログ後の「前回のつづき」提示（課題1）。進行中の探検があるときだけJSで表示。 -->
-        <div id="home-resume" class="home-resume hidden">
-          <div class="home-resume-text">
-            <span class="home-resume-eyebrow" data-i18n="resumeBannerEyebrow">とちゅうの たんけんが あるよ</span>
-            <span class="home-resume-station" id="home-resume-station"></span>
-          </div>
-          <div class="home-resume-actions">
-            <button id="home-resume-continue" class="btn-primary" type="button" data-i18n="resumeBannerContinue">つづきから</button>
-            <button id="home-resume-dismiss" class="home-resume-x" type="button" aria-label="とじる" data-i18n-title="resumeBannerDismiss">✕</button>
-          </div>
-        </div>
         <!-- 登録直後だけ出る歓迎メッセージ（感謝＋第一発見者になってね）。既定は非表示。 -->
         <div id="home-welcome" class="home-welcome hidden">
           <p class="home-welcome-title" data-i18n="welcomeHomeTitle">ようこそ、テクタンへ！</p>
@@ -421,9 +423,10 @@
           <div class="report-action-group">
             <button id="tidy-memos-btn" class="btn-secondary" data-i18n="btnTidyMemos" data-i18n-title="tidyMemosTitle" title="写真のひと言メモを整える">メモをすっきり</button>
             <!-- キャラ発見（条件クリア時のみ表示。生成→発見の世界観） -->
-            <button id="chargen-start-btn" type="button" class="btn-secondary chargen-start-btn hidden" data-i18n="chargenStart">✨ なかまを 発見</button>
+            <button id="chargen-start-btn" type="button" class="btn-secondary chargen-start-btn hidden" data-i18n="chargenStart">なかまを 発見</button>
             <!-- 探検の締め＝完了ボタンを主役（primary）に。PDFは任意なので控えめ（secondary）へ。 -->
-            <button id="submit-score-btn" class="btn-primary title-with-icon"><img class="ui-icon" src="src/assets/icons/icon-trophy.svg" alt="" aria-hidden="true"> <span data-i18n="btnSubmitScore">たんけん完了！</span></button>
+            <!-- ボタンはアイコンなしで統一（イラスト混在をやめる） -->
+            <button id="submit-score-btn" class="btn-primary" data-i18n="btnSubmitScore">たんけん完了！</button>
             <button id="report-pdf-btn" class="btn-secondary" data-i18n="btnReportPdf" data-i18n-title="reportPdfTitle" title="PDFにして印刷すると、B3ポスターサイズのたんけんノートになるよ。">PDF出力</button>
           </div>
         </div>

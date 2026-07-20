@@ -2218,15 +2218,16 @@ body {
     flex: 1 1 0;
     min-width: 0;
   }
-  /* レポート画面：3ボタンが詰まらないように、PDFを主役に大きく */
+  /* レポート画面：ボタンは中央揃えの縦積みで統一（アイコン混在なし） */
   .step-actions-report .report-action-group {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     gap: 8px;
   }
-  .step-actions-report .report-action-group #submit-score-btn {
-    grid-column: 1 / -1;  /* 完了ボタンを2列ぶち抜きで主役に */
+  .step-actions-report .report-action-group > button {
     width: 100%;
+    max-width: 320px;
   }
   /* スポット一覧と地図のレイアウト：縦積み */
   .spots-layout {
@@ -2929,23 +2930,12 @@ body.ar-open { overflow: hidden; }
 .where-btn-icon .ui-icon { width: 22px; height: 22px; }
 .photo-reenter-row { justify-content: center; margin-top: 8px; }
 
-/* リログ後の「前回のつづき」バナー（課題1）。誤って新規探検を始めるのを防ぐため目立たせる。 */
-.home-resume {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  max-width: 440px; margin: 6px auto 14px; padding: 12px 14px;
-  background: #eef8fe; border: 2px solid var(--sky-deep, #56b6e8); border-radius: 16px;
-  box-shadow: 0 3px 0 rgba(86,182,232,.35);
-}
-.home-resume.hidden { display: none; }
-.home-resume-text { display: flex; flex-direction: column; text-align: left; min-width: 0; }
-.home-resume-eyebrow { font-size: 12px; font-weight: 800; color: #2f8fc0; }
-.home-resume-station { font-size: 16px; font-weight: 800; color: var(--green-dark, #0F7A4D); }
-.home-resume-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
-.home-resume-actions .btn-primary { padding: 10px 18px; font-size: 15px; }
-.home-resume-x {
-  width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid #cdd8d3;
-  background: #fff; color: #8a8577; font-size: 14px; cursor: pointer; flex: 0 0 auto;
-}
+/* 「探検をはじめる」で中断中の探検を再開するか聞くダイアログ（課題1・トップに常設文字を増やさない） */
+.resume-ask-content { max-width: 360px; text-align: center; }
+.resume-ask-title { font-size: 18px; color: var(--green-dark, #0F7A4D); margin: 4px 0 6px; }
+.resume-ask-station { font-size: 20px; font-weight: 800; color: #2f8fc0; margin: 0 0 14px; }
+.resume-ask-actions { flex-direction: column; align-items: center; gap: 8px; }
+.resume-ask-actions .btn-primary, .resume-ask-actions .btn-secondary { width: 100%; max-width: 260px; }
 
 /* 登録直後のお祝いモーダル（ルッキー入手） */
 .welcome-content { max-width: 380px; text-align: center; }
@@ -3207,16 +3197,17 @@ body.ar-open { overflow: hidden; }
 .step.active .step-actions > div .btn-secondary { flex: 1 1 40%; }
 .step.active .step-actions > div .btn-primary { flex: 1 1 100%; order: 9; }
 /* レポート画面: 保存/スコアを上段2分割・PDFを全幅・戻るは最下段全幅 */
-.step.active .step-actions-report { flex-wrap: wrap; }
+/* レポートのアクション：中央揃えの縦積みに統一（全ボタン同幅・アイコン混在なし） */
+.step.active .step-actions-report { flex-direction: column; align-items: center; }
 .step.active .step-actions-report .report-action-group {
-  flex: 1 1 100%;
   order: -1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  width: 100%;
 }
-.step.active .step-actions-report .report-action-group #submit-score-btn { grid-column: 1 / -1; width: 100%; }
-.step.active .step-actions-report > .btn-secondary { flex: 1 1 100%; }
+.step.active .step-actions-report .report-action-group > button { width: 100%; max-width: 320px; }
+.step.active .step-actions-report > .btn-secondary { width: 100%; max-width: 320px; }
+/* 「たんけん完了！」は締めなので一番下に置く */
+.step.active .step-actions-report .report-action-group #submit-score-btn { order: 9; }
 
 /* ===== キャラ自動生成（chargen） ===== */
 .chargen-entry {

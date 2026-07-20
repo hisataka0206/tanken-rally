@@ -3268,28 +3268,18 @@ async function onResumeSession() {
       console.info('[resume] Driveから過去のノートを復元しました');
     }
 
-    // 5) STEP 4 ヘ：セッション情報を見やすく表示
+    // 5) STEP 4 ヘ：セッション情報パネル。
+    //   内部情報（フォルダ名＋ランダムID・件数・訪問順）はユーザーに不要なので出さない。
+    //   順路は写真画面下部のルート概要で見られる。復元に失敗したときの警告だけ残す。
     const info = $('photos-session-info');
-    const localStation = localizeStationName(state.stationName || '', LANG);
-    const stationLabel = localStation
-      ? `${t('reportStationFmt').replace('{name}', localStation)} / `
-      : '';
-    const folderLink = `<a href="${session.folderUrl}" target="_blank" style="color:#2e7d32">${escapeHtml(session.folderName)}</a>`;
-    const counts = t('sessionStatsFmt')
-      .replace('{photos}', state.uploadedPhotos.length)
-      .replace('{spots}', state.orderedSpots.length);
-
-    let html = `${t('sessionResumedHeader')} ${stationLabel}${folderLink}（${counts}）`;
-    if (state.orderedSpots.length) {
-      const spotsLine = state.orderedSpots.map((s, i) => `${i + 1}. ${s.name}`).join(' → ');
-      html += `<br/><span style="font-size:12px;color:#2e7d32;">${t('sessionVisitedLabel')} ${spotsLine}</span>`;
-    }
+    let html = '';
     if (session.sheetWarning) {
-      html += `<br/><span style="font-size:12px;color:#c62828;">${t('sessionWarnSpotsFmt').replace('{reason}', escapeHtml(session.sheetWarning))}</span>`;
+      html = `<span style="font-size:12px;color:#c62828;">${t('sessionWarnSpotsFmt').replace('{reason}', escapeHtml(session.sheetWarning))}</span>`;
     } else if (state.orderedSpots.length === 0) {
-      html += `<br/><span style="font-size:12px;color:#c62828;">${t('sessionWarnNotFound')}</span>`;
+      html = `<span style="font-size:12px;color:#c62828;">${t('sessionWarnNotFound')}</span>`;
     }
     info.innerHTML = html;
+    info.classList.toggle('hidden', !html);
 
     // タグ編集モーダルの選択肢を再構築（駅スタート → スポット → 駅ゴール）
     buildTagModalOptions();
@@ -4866,7 +4856,34 @@ $('photo-input').addEventListener('change', onPhotoInputChange);
 $('photo-camera-input').addEventListener('change', onPhotoInputChange);
 
 // トップ画面（#3）の3つの入口＋ホームに戻るボタン
-$('home-start').addEventListener('click', () => showStep('step-station'));
+// 「探検をはじめる」: 中断中の探検があれば、まず再開するか聞く（トップに常設文字を増やさない）。
+$('home-start').addEventListener('click', () => {
+  const active = loadActiveSession();
+  if (active) {
+    const st = $('resume-ask-station');
+    if (st) st.textContent = localizeStationName(active.stationName || '', LANG);
+    $('resume-ask-modal').classList.remove('hidden');
+    return;
+  }
+  showStep('step-station');
+});
+// 再開ダイアログ: つづきから / あたらしく / 閉じる
+$('resume-ask-continue')?.addEventListener('click', () => {
+  const active = loadActiveSession();
+  $('resume-ask-modal').classList.add('hidden');
+  if (!active) { showStep('step-station'); return; }
+  showLoadingOverlay(t('historyOpening', 'たんけんを ひらいています…'));
+  $('resume-session-input').value = active.sessionId;
+  onResumeSession();
+});
+$('resume-ask-new')?.addEventListener('click', () => {
+  clearActiveSession(); // 中断中の探検は明示的に捨てて新規へ
+  $('resume-ask-modal').classList.add('hidden');
+  showStep('step-station');
+});
+$('resume-ask-modal')?.addEventListener('click', e => {
+  if (e.target.dataset.action === 'resume-ask-close') $('resume-ask-modal').classList.add('hidden');
+});
 $('home-history').addEventListener('click', openHistory);
 $('home-zukan').addEventListener('click', openZukan);
 $('home-grow').addEventListener('click', openGrowTeaser);
@@ -5418,7 +5435,11 @@ $('tidy-memos-btn').addEventListener('click', onTidyMemos);
 $('submit-score-btn').addEventListener('click', openScoreModal);
 $('score-submit-btn').addEventListener('click', onSubmitScore);
 $('score-modal').addEventListener('click', e => {
-  if (e.target.dataset.action === 'close') $('score-modal').classList.add('hidden');
+  if (e.target.dataset.action === 'close') {
+    // 探検完了→スコア表示→閉じる で探検はおしまい。トップ画面に戻す。
+    $('score-modal').classList.add('hidden');
+    showStep('step-home');
+  }
 });
 
 // キャラ自動生成（表出フロー）
@@ -5516,18 +5537,6 @@ function initLoginGate() {
   $('login-submit-btn').addEventListener('click', onLoginSubmit);
   // お祝いモーダルの「はじめる」：閉じるだけ（トップの歓迎メッセージは残す）
   $('welcome-continue-btn')?.addEventListener('click', () => $('welcome-modal')?.classList.add('hidden'));
-  // トップの「つづきから」：進行中の探検を履歴経由で再開する（課題1）
-  $('home-resume-continue')?.addEventListener('click', () => {
-    const active = loadActiveSession();
-    if (!active) { $('home-resume')?.classList.add('hidden'); return; }
-    $('resume-session-input').value = active.sessionId;
-    onResumeSession();
-  });
-  // 「✕」：つづき提示を消す（この端末ではもう出さない。履歴からはいつでも開ける）
-  $('home-resume-dismiss')?.addEventListener('click', () => {
-    clearActiveSession();
-    $('home-resume')?.classList.add('hidden');
-  });
   const switchLine = document.querySelector('.login-switch');
   if (switchLine) switchLine.classList.add('hidden'); // 統合フローでモード切替は不要
   $('login-pin-toggle').addEventListener('click', () => {
@@ -5651,19 +5660,7 @@ function enterApp() {
   showStep('step-home');
   // 新規登録なら、ルッキー入手のお祝い→トップの歓迎メッセージを一度だけ出す
   if (_justRegistered) { _justRegistered = false; showWelcomeCelebration(); }
-  else renderResumePrompt(); // リログ後に「前回のつづき」を提示（課題1）
-}
-
-// 進行中の探検があれば、トップに大きく「つづきから」を出す。
-// 子どもがリログ後に新規探検を始めてしまい記録が断片化するのを防ぐ。
-function renderResumePrompt() {
-  const banner = $('home-resume');
-  if (!banner) return;
-  const active = loadActiveSession();
-  if (!active) { banner.classList.add('hidden'); return; }
-  const st = $('home-resume-station');
-  if (st) st.textContent = localizeStationName(active.stationName || '', LANG);
-  banner.classList.remove('hidden');
+  hideResumeIndicator(); // トップでは「再開中」インジケータを出さない（意味が伝わりにくいため）
 }
 
 // 登録直後のお祝い演出。インタースティシャルでルッキー入手を見せ、

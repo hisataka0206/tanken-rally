@@ -124,6 +124,17 @@
           <!-- 標語はヘッダーに常時表示しているため、ここでの重複表示は削除 -->
         </div>
         <p class="home-hello" id="home-hello"></p>
+        <!-- リログ後の「前回のつづき」提示（課題1）。進行中の探検があるときだけJSで表示。 -->
+        <div id="home-resume" class="home-resume hidden">
+          <div class="home-resume-text">
+            <span class="home-resume-eyebrow" data-i18n="resumeBannerEyebrow">とちゅうの たんけんが あるよ</span>
+            <span class="home-resume-station" id="home-resume-station"></span>
+          </div>
+          <div class="home-resume-actions">
+            <button id="home-resume-continue" class="btn-primary" type="button" data-i18n="resumeBannerContinue">つづきから</button>
+            <button id="home-resume-dismiss" class="home-resume-x" type="button" aria-label="とじる" data-i18n-title="resumeBannerDismiss">✕</button>
+          </div>
+        </div>
         <!-- 登録直後だけ出る歓迎メッセージ（感謝＋第一発見者になってね）。既定は非表示。 -->
         <div id="home-welcome" class="home-welcome hidden">
           <p class="home-welcome-title" data-i18n="welcomeHomeTitle">ようこそ、テクタンへ！</p>
@@ -411,8 +422,9 @@
             <button id="tidy-memos-btn" class="btn-secondary" data-i18n="btnTidyMemos" data-i18n-title="tidyMemosTitle" title="写真のひと言メモを整える">メモをすっきり</button>
             <!-- キャラ発見（条件クリア時のみ表示。生成→発見の世界観） -->
             <button id="chargen-start-btn" type="button" class="btn-secondary chargen-start-btn hidden" data-i18n="chargenStart">✨ なかまを 発見</button>
-            <button id="submit-score-btn" class="btn-secondary title-with-icon"><img class="ui-icon" src="src/assets/icons/icon-trophy.svg" alt="" aria-hidden="true"> <span data-i18n="btnSubmitScore">スコア</span></button>
-            <button id="report-pdf-btn" class="btn-primary" data-i18n="btnReportPdf" data-i18n-title="reportPdfTitle" title="PDFにして印刷すると、B3ポスターサイズのたんけんノートになるよ。">PDF出力</button>
+            <!-- 探検の締め＝完了ボタンを主役（primary）に。PDFは任意なので控えめ（secondary）へ。 -->
+            <button id="submit-score-btn" class="btn-primary title-with-icon"><img class="ui-icon" src="src/assets/icons/icon-trophy.svg" alt="" aria-hidden="true"> <span data-i18n="btnSubmitScore">たんけん完了！</span></button>
+            <button id="report-pdf-btn" class="btn-secondary" data-i18n="btnReportPdf" data-i18n-title="reportPdfTitle" title="PDFにして印刷すると、B3ポスターサイズのたんけんノートになるよ。">PDF出力</button>
           </div>
         </div>
       </div>

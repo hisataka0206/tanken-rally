@@ -17,7 +17,7 @@ import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, lo
 import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout, validateCredentials } from './utils/auth.js?v=106';
 import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
 import { initShell, updateShell } from './utils/shell.js?v=106';
-import { evaluateEligibility, startGeneration, rarityById, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, genRecTimeMs, generatedImageUrl, buildGeneratedStory, generatedPersonality, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, setServerGenerated, driveThumbUrl } from './utils/chargen.js?v=106';
+import { evaluateEligibility, startGeneration, rarityById, bumpRarity, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, genRecTimeMs, generatedImageUrl, buildGeneratedStory, generatedPersonality, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, setServerGenerated, driveThumbUrl } from './utils/chargen.js?v=106';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -1241,6 +1241,22 @@ function loadSessionState() {
   try { return JSON.parse(localStorage.getItem(sessionStateKey()) || '{}') || {}; }
   catch (_) { return {}; }
 }
+
+// ===== アクティブ探検ポインタ（課題1: リログ後の記録断片化を防ぐ）=====
+// sessionId はリロードで消えるため、進行中の探検を「ユーザー単位の安定キー」に控えておく。
+// 起動時にこれがあれば、トップで「前回のつづき」を大きく提示し、新規作成の誤操作を防ぐ。
+function activeSessionKey() { return 'tekutan_active_session_' + (accountUserId() || getExplorerId()); }
+function saveActiveSession(sessionId, stationName) {
+  try { localStorage.setItem(activeSessionKey(), JSON.stringify({ sessionId, stationName: stationName || '', at: Date.now() })); }
+  catch (_) {}
+}
+function loadActiveSession() {
+  try { const v = JSON.parse(localStorage.getItem(activeSessionKey()) || 'null'); return (v && v.sessionId) ? v : null; }
+  catch (_) { return null; }
+}
+function clearActiveSession() {
+  try { localStorage.removeItem(activeSessionKey()); } catch (_) {}
+}
 function patchSessionState(patch) {
   try { localStorage.setItem(sessionStateKey(), JSON.stringify({ ...loadSessionState(), ...patch })); }
   catch (_) { /* no-op */ }
@@ -1373,6 +1389,9 @@ function renderHistory(items) {
       const sid = btn.dataset.sid;
       if (!sid) return;
       $('history-modal').classList.add('hidden');
+      // 特定の探検を開くときは、無反応に見えて誤操作と思われないよう即ローディングを出す（課題2）。
+      // 消すのは onResumeSession 側（成功/失敗どちらでも finally で消す）。
+      showLoadingOverlay(t('historyOpening', 'たんけんを ひらいています…'));
       $('resume-session-input').value = sid;
       onResumeSession();
     });
@@ -2590,6 +2609,8 @@ async function onStartExplore() {
   try {
     state.sessionId = generateSessionId();
     state.sessionSaved = false; // この探検の履歴保存フラグをリセット
+    // リログしても「前回のつづき」を提示できるよう、進行中の探検を控える（課題1）
+    saveActiveSession(state.sessionId, state.stationName);
 
     // タグモーダル用のセレクターを構築（駅スタート → スポット → 駅ゴール）
     buildTagModalOptions();
@@ -3150,6 +3171,7 @@ async function onResumeSession() {
     state.driveSession = session;
     state.sessionId = sessionId;
     state.sessionSaved = true; // 再開＝既に履歴にある。二重保存しない
+    saveActiveSession(sessionId, state.stationName); // 再開した探検を「つづき」の対象として更新（課題1）
     // 再開時: このセッションの AR 抽選・捕獲済み・救済使用・スタート/レア確定を復元（#4 乱獲防止）
     restoreSessionGameState();
 
@@ -3285,6 +3307,7 @@ async function onResumeSession() {
     errEl.textContent = e.message || t('errResumeFailed');
     errEl.classList.remove('hidden');
   } finally {
+    hideLoadingOverlay(); // 「つづき」タップで出したローディングを必ず閉じる（課題2）
     if (btn) {
       btn.textContent = original;
       btn.disabled = false;
@@ -3415,10 +3438,11 @@ function calculateScore() {
   const execScoreRaw = _internalBreakdown.photo + _internalBreakdown.tagged
     + _internalBreakdown.cmtNum + _internalBreakdown.cmtChar
     + _internalBreakdown.within60 + _internalBreakdown.pace + _internalBreakdown.capture;
-  // 「いまどこ？」使用ぶんを実行点から減点（計画点は不変・実行点は0未満にしない）。
+  // 「いまどこ？」は減点しない（罰ではなく報酬に切替）。未使用だと生成キャラのレア度が1段上がる
+  //   ＝「自力で道を見つけたごほうび」。ボーナス適用は maybeStartCharGen 側で行う。
   const whereUses = loadSessionState().whereUses || 0;
-  const wherePenalty = Math.min(execScoreRaw, whereUses * WHERE_PENALTY_PER_USE);
-  const execScore = execScoreRaw - wherePenalty;
+  const wherePenalty = 0;
+  const execScore = execScoreRaw;
 
   // 計画点の 0〜100 正規化（満点基準は駅・ルートごとに動的）。
   //   avgMovePerSpot = そのルートの1スポットあたり平均移動時間（＝スポットの近さ）。
@@ -3564,6 +3588,9 @@ function openScoreModal() {
   $('score-phase-input').classList.remove('hidden');
   $('score-phase-ranking').classList.add('hidden');
   $('score-modal').classList.remove('hidden');
+  // スコアを見た＝この探検は完了とみなす。トップの「つづき」提示を消す（課題1・完了の明確化）。
+  // PDFを出さない子でもここで完了扱いになる。
+  clearActiveSession();
 }
 
 // ===== キャラ自動生成: 表出フロー（3体シルエット→選択→カラー登場→命名→登録）=====
@@ -4011,14 +4038,28 @@ function maybeStartCharGen() {
   state.charGen.earlyBird = earlyBird;
   state.charGen.eligible = elig.ok || adminBypass || earlyBird;
   state.charGen.consumed = !!loadSessionState().charGenDone; // #11: 既に今探検で生成済みなら再生成不可
-  state.charGen.rarityId = earlyBird ? EARLY_BIRD_RARITY_ID : elig.rarity.id;
-  console.info('[chargen] eligibility', elig.ok, elig.reasons, summary, adminBypass ? '(admin bypass)' : '', earlyBird ? '(early-bird: epic)' : '', state.charGen.consumed ? '(already generated)' : '');
+
+  // レア度の決定:
+  //   ・早期ボーナス → エピック固定（最優先）
+  //   ・「いまどこ？」を一度も使わなかった → 自力ボーナスでレア度を1段引き上げ
+  //   ・それ以外 → 距離ベース
+  const whereUses = loadSessionState().whereUses || 0;
+  const noWhereBonus = !earlyBird && whereUses === 0;
+  let rarityId = earlyBird ? EARLY_BIRD_RARITY_ID : elig.rarity.id;
+  if (noWhereBonus) rarityId = bumpRarity(rarityId);
+  state.charGen.rarityId = rarityId;
+  // 距離ベースと違うレア度にした場合は forceRarityId で生成側にも効かせる（見た目もそのレア度にする）
+  const forceRarityId = (rarityId !== elig.rarity.id) ? rarityId : null;
+
+  console.info('[chargen] eligibility', elig.ok, elig.reasons, summary,
+    adminBypass ? '(admin bypass)' : '', earlyBird ? '(early-bird: epic)' : '',
+    noWhereBonus ? `(no-where bonus → ${rarityId})` : '', state.charGen.consumed ? '(already generated)' : '');
   if (!state.charGen.eligible || state.charGen.consumed) return;
   const spots = (state.orderedSpots || []).map(s => s.name);
   const spotCats = (state.orderedSpots || []).map(s => s.category).filter(Boolean); // 提案A: スポット連動モチーフ用
   state.charGen.params = {
     station: state.stationName, spots, spotCats, distanceKm: summary.distanceKm, userPicks: null,
-    forceRarityId: earlyBird ? EARLY_BIRD_RARITY_ID : null, // 早期ボーナスは距離に関係なくエピック
+    forceRarityId,
   };
   // このキャラに「行ったスポットの史跡」を1つ紐づける（史跡カテゴリ優先・無ければ先頭のスポット）。
   // 実際の史跡ストーリー取得は startCharGenBg で非同期に行う。
@@ -4720,6 +4761,8 @@ async function onReportPdf() {
 
     const fname = `tanken-note_${state.stationName || 'unknown'}_${new Date().toISOString().slice(0,10)}.pdf`;
     pdf.save(fname);
+    // ノートをPDF化＝この探検は完了。トップの「つづき」提示は消す（課題1）
+    clearActiveSession();
   } catch (e) {
     console.error(e);
     alert(t('errPdfFailedFmt').replace('{err}', e.message || e));
@@ -5301,7 +5344,7 @@ $('wizard-skip').addEventListener('click', () => showWizardStage(totalWizardStag
   const reenterBtn = $('wizard-reenter');
   if (reenterBtn) reenterBtn.addEventListener('click', () => showWizardStage(0));
 }
-// いまどこ？（緊急避難的な導線。使うと実行点から少し減点）
+// いまどこ？（迷ったときの救済導線。減点はしない。一度も使わなければ生成キャラのレア度が1段上がる）
 $('where-btn').addEventListener('click', () => {
   // 使用回数をカウント（実行点から減点する。セッションに永続化して再開後も引き継ぐ）
   const used = (loadSessionState().whereUses || 0) + 1;
@@ -5473,6 +5516,18 @@ function initLoginGate() {
   $('login-submit-btn').addEventListener('click', onLoginSubmit);
   // お祝いモーダルの「はじめる」：閉じるだけ（トップの歓迎メッセージは残す）
   $('welcome-continue-btn')?.addEventListener('click', () => $('welcome-modal')?.classList.add('hidden'));
+  // トップの「つづきから」：進行中の探検を履歴経由で再開する（課題1）
+  $('home-resume-continue')?.addEventListener('click', () => {
+    const active = loadActiveSession();
+    if (!active) { $('home-resume')?.classList.add('hidden'); return; }
+    $('resume-session-input').value = active.sessionId;
+    onResumeSession();
+  });
+  // 「✕」：つづき提示を消す（この端末ではもう出さない。履歴からはいつでも開ける）
+  $('home-resume-dismiss')?.addEventListener('click', () => {
+    clearActiveSession();
+    $('home-resume')?.classList.add('hidden');
+  });
   const switchLine = document.querySelector('.login-switch');
   if (switchLine) switchLine.classList.add('hidden'); // 統合フローでモード切替は不要
   $('login-pin-toggle').addEventListener('click', () => {
@@ -5596,6 +5651,19 @@ function enterApp() {
   showStep('step-home');
   // 新規登録なら、ルッキー入手のお祝い→トップの歓迎メッセージを一度だけ出す
   if (_justRegistered) { _justRegistered = false; showWelcomeCelebration(); }
+  else renderResumePrompt(); // リログ後に「前回のつづき」を提示（課題1）
+}
+
+// 進行中の探検があれば、トップに大きく「つづきから」を出す。
+// 子どもがリログ後に新規探検を始めてしまい記録が断片化するのを防ぐ。
+function renderResumePrompt() {
+  const banner = $('home-resume');
+  if (!banner) return;
+  const active = loadActiveSession();
+  if (!active) { banner.classList.add('hidden'); return; }
+  const st = $('home-resume-station');
+  if (st) st.textContent = localizeStationName(active.stationName || '', LANG);
+  banner.classList.remove('hidden');
 }
 
 // 登録直後のお祝い演出。インタースティシャルでルッキー入手を見せ、

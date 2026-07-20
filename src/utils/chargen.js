@@ -9,7 +9,7 @@
 
 import { CHARACTERS, characterImageUrl } from './characters.js?v=106';
 import { getExplorerId } from './collection.js?v=106';
-import { AXIS_BODY, AXIS_FEATURE, AXIS_IMPRESSION, bodyById, featureById, impressionById, axisLabel, featuresForBody } from '../data/archetypes.js?v=106';
+import { AXIS_BODY, AXIS_FEATURE, AXIS_IMPRESSION, bodyById, featureById, impressionById, axisLabel, featuresForBody, archetypeForMotif, NEUTRAL_BODY_IDS, decorationForBody } from '../data/archetypes.js?v=106';
 import { makeVocabPicks, VOCAB } from '../data/vocab.js?v=106';
 import { cutoutBackground } from './imagefx.js?v=106';
 import { STATION_NAMES_KANA, STATION_NAMES_EN } from '../data/cities.js?v=106';
@@ -77,6 +77,12 @@ export function rarityForDistance(km) {
   return tier;
 }
 export function rarityById(id) { return RARITY_TIERS.find(t => t.id === id) || RARITY_TIERS[0]; }
+// レア度を1段引き上げる（legend が上限）。「今どこ」未使用ボーナス等で使う。
+export function bumpRarity(id) {
+  const i = RARITY_TIERS.findIndex(t => t.id === id);
+  if (i < 0) return id;
+  return RARITY_TIERS[Math.min(i + 1, RARITY_TIERS.length - 1)].id;
+}
 
 // ===== 作成可否（ゲート）=====
 // summary: { execScore, spotsWithPhotos, distinctGpsPoints, distanceKm, timeSpreadMin }
@@ -313,11 +319,35 @@ export async function startGeneration(params) {
     }
     return vv;
   });
-  const bodies = pickDistinct(AXIS_BODY, count);
+  // フォルム＋特徴は「モチーフから導く」（課題4）。
+  //   モチーフ＝フォルム＋特徴の組み合わせで表現される、という設計思想。
+  //   ・動物モチーフ → 対応表からフォルムと特徴を両方取る（噛み合う）
+  //   ・非動物/未対応 → 中立フォルムを重複回避で割り当て、特徴は付けない（モチーフはprompt側で表現）
+  const usedNeutral = [];
+  const bodies = []; const features = [];
+  perCandidate.forEach(v => {
+    const arch = archetypeForMotif(v.motif);
+    let body;
+    if (arch) {
+      body = bodyById(arch.bodyId) || AXIS_BODY[0];
+      features.push(arch.featureId ? featureById(arch.featureId) : null);
+    } else {
+      // 中立フォルムを重複回避で選ぶ（特定の動物を主張しない体型）
+      const pool = NEUTRAL_BODY_IDS.filter(id => !usedNeutral.includes(id));
+      const src = pool.length ? pool : NEUTRAL_BODY_IDS;
+      const id = src[Math.floor(Math.random() * src.length)];
+      usedNeutral.push(id);
+      body = bodyById(id) || AXIS_BODY[0];
+      features.push(null); // 非動物は付属特徴を付けない
+    }
+    bodies.push(body);
+    // ★装飾はフォルムから導出（独立ランダムを廃止＝課題4の核心）。
+    //   roster分析で decoration は shape の言い換え＝形から一意に決まるため、v.decoration を上書きする。
+    const deco = decorationForBody(body.id);
+    if (deco) v.decoration = deco;
+  });
   // 早期ボーナス等でレア度を固定したい場合は forceRarityId を優先（無ければ距離から算出）。
   const rarity = p.forceRarityId ? rarityById(p.forceRarityId) : rarityForDistance(p.distanceKm);
-  // 各フォルムに相性の良い「形に出る特徴」を1つ割り当てる（H2＝シルエットの個体差の主役）。
-  const features = bodies.map(b => pickFeatureForBody(b ? b.id : null));
 
   // ★3体それぞれを「別の語彙＋別のフォルム(body)＋別の特徴」で個別に生成する（同じプロンプト×3をやめる）。
   //   これで3体のシルエットがはっきり別物になる。各1枚を並行生成。

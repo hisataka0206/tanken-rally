@@ -2224,8 +2224,8 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
-  .step-actions-report .report-action-group #report-pdf-btn {
-    grid-column: 1 / -1;  /* 2列ぶん使う */
+  .step-actions-report .report-action-group #submit-score-btn {
+    grid-column: 1 / -1;  /* 完了ボタンを2列ぶち抜きで主役に */
     width: 100%;
   }
   /* スポット一覧と地図のレイアウト：縦積み */
@@ -2876,17 +2876,22 @@ body.ar-open { overflow: hidden; }
   font-size: 13px;
 }
 .photo-route-summary.hidden { display: none; }
-/* タップでそのスポットの撮影へ飛べることを、カメラアイコンで示す（文字は足さない） */
+/* 各スポット行を「押せるボタン」に見せる（静止時から白カード＋枠＋影で触れると分かる）。
+   右端のカメラアイコンで「タップ＝そこで撮る」を示す（文字は足さない）。 */
 .photo-route-summary .route-jump {
-  cursor: pointer; border-radius: 10px; padding: 6px 8px;
-  transition: background .15s ease;
+  cursor: pointer; border-radius: 12px; padding: 10px 12px;
+  background: #fff; border: 1.5px solid #cfe0d8;
+  box-shadow: 0 2px 0 rgba(0,0,0,.05);
+  transition: background .15s ease, transform .08s ease;
 }
 .photo-route-summary .route-jump::after {
-  content: '📷'; margin-left: auto; padding-left: 8px; font-size: 15px; opacity: .55;
+  content: '📷'; margin-left: auto; padding-left: 8px; font-size: 16px; opacity: .7;
 }
 .photo-route-summary .route-jump:hover,
-.photo-route-summary .route-jump:focus-visible { background: #e8f4fb; outline: none; }
-.photo-route-summary .route-jump:active { transform: scale(0.99); }
+.photo-route-summary .route-jump:focus-visible { background: #eef8fe; border-color: var(--sky-deep, #56b6e8); outline: none; }
+.photo-route-summary .route-jump:active { transform: translateY(1px); box-shadow: none; }
+/* 駅（S/G）の行はカードにせず、区切りとして控えめに */
+.photo-route-summary .route-station.route-jump { background: #f2f7f4; box-shadow: none; }
 
 /* 目安時間を超えたら推定時間だけを赤くする。警告文で数字を繰り返さず、色でどの値が問題かを示す */
 .route-stats .stat-over strong { color: #d9534f; }
@@ -2923,6 +2928,24 @@ body.ar-open { overflow: hidden; }
 }
 .where-btn-icon .ui-icon { width: 22px; height: 22px; }
 .photo-reenter-row { justify-content: center; margin-top: 8px; }
+
+/* リログ後の「前回のつづき」バナー（課題1）。誤って新規探検を始めるのを防ぐため目立たせる。 */
+.home-resume {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  max-width: 440px; margin: 6px auto 14px; padding: 12px 14px;
+  background: #eef8fe; border: 2px solid var(--sky-deep, #56b6e8); border-radius: 16px;
+  box-shadow: 0 3px 0 rgba(86,182,232,.35);
+}
+.home-resume.hidden { display: none; }
+.home-resume-text { display: flex; flex-direction: column; text-align: left; min-width: 0; }
+.home-resume-eyebrow { font-size: 12px; font-weight: 800; color: #2f8fc0; }
+.home-resume-station { font-size: 16px; font-weight: 800; color: var(--green-dark, #0F7A4D); }
+.home-resume-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.home-resume-actions .btn-primary { padding: 10px 18px; font-size: 15px; }
+.home-resume-x {
+  width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid #cdd8d3;
+  background: #fff; color: #8a8577; font-size: 14px; cursor: pointer; flex: 0 0 auto;
+}
 
 /* 登録直後のお祝いモーダル（ルッキー入手） */
 .welcome-content { max-width: 380px; text-align: center; }
@@ -3192,7 +3215,7 @@ body.ar-open { overflow: hidden; }
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
-.step.active .step-actions-report .report-action-group #report-pdf-btn { grid-column: 1 / -1; width: 100%; }
+.step.active .step-actions-report .report-action-group #submit-score-btn { grid-column: 1 / -1; width: 100%; }
 .step.active .step-actions-report > .btn-secondary { flex: 1 1 100%; }
 
 /* ===== キャラ自動生成（chargen） ===== */

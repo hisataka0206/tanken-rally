@@ -89,6 +89,82 @@ export const AXIS_IMPRESSION = [
     promptHint: 'gentle and easygoing, soft smile' },
 ];
 
+// === モチーフ → フォルム＋特徴（課題4: モチーフと生成キャラの乖離をなくす）===
+//   「モチーフ＝フォルム＋特徴の組み合わせで表現される」という設計思想を明文化した対応表（v1）。
+//   フォルムと特徴をランダムに独立で割り当てると「モチーフ＝急須／フォルム＝四足」のような
+//   噛み合わない組み合わせが生まれるため、モチーフから両方を導く。
+//   値は [bodyId, featureId|null]。featureId=null は「付属特徴なし」。
+//   ※ 特徴軸は動物の付属器官（耳/尻尾/角/翼/ヒレ/触角/背びれ/冠羽）中心のため、
+//     モノ・植物・食べ物・天気などの非動物モチーフは中立フォルムに逃がし（下の NEUTRAL_BODY_IDS）、
+//     モチーフ自体はプロンプトの motif/decoration 行で表現する（フォルム＋特徴には押し込まない）。
+export const MOTIF_ARCHETYPE = {
+  // けもの
+  'ねこ': ['eared','tail_long'], 'いぬ': ['quadruped','tail_fluffy'], 'こいぬ': ['quadruped','ears_droop'],
+  'きつね': ['quadruped','tail_fluffy'], 'たぬき': ['quadruped','tail_fluffy'], 'うさぎ': ['eared','ears_long'],
+  'ねずみ': ['critter','tail_long'], 'りす': ['critter','tail_fluffy'], 'くま': ['quadruped','ears_round'],
+  'こぐま': ['critter','ears_round'], 'ひつじ': ['quadruped','horn_twist'], 'うし': ['quadruped','horn_2'],
+  'うま': ['quadruped','tail_long'], 'いのしし': ['quadruped','horn_1'], 'オオカミ': ['quadruped','tail_fluffy'],
+  'カバ': ['quadruped','ears_round'], 'ビーバー': ['quadruped','tail_long'], 'なまけもの': ['quadruped','tail_long'],
+  'ラッコ': ['critter','tail_long'], 'あしか': ['aqua','fins'], 'モモンガ': ['critter','wings'],
+  'こうもり': ['critter','wings'], 'もぐら': ['critter','ears_round'],
+  // とり
+  'とり': ['bird','wings'], 'ことり': ['bird','wings'], 'あひる': ['bird','wings'], 'ツバメ': ['bird','wings'],
+  'カラス': ['bird','wings'], 'はと': ['bird','wings'], 'ふくろう': ['bird','crest'], 'ペンギン': ['bird','wings'],
+  'わし': ['bigwing','wings'],
+  // みずのいきもの
+  'さかな': ['aqua','fins'], 'きんぎょ': ['aqua','fins'], 'かえる': ['critter',null], 'おたまじゃくし': ['aqua','tail_long'],
+  'かめ': ['aqua','backfin'], 'いるか': ['aqua','fins'], 'くじら': ['aqua','fins'],
+  'くらげ': ['multilimb','antennae'], 'ひとで': ['multilimb',null], 'さんご': ['multilimb',null],
+  'やどかり': ['multilimb',null], 'かに': ['multilimb',null], 'うに': ['round','backfin'], 'なまこ': ['serpent',null],
+  // は虫類
+  'へび': ['serpent',null], 'コブラ': ['serpent','crest'], 'とかげ': ['dragon','tail_long'], 'ワニ': ['dragon','backfin'],
+  // むし
+  'ちょうちょ': ['bug','wings'], 'くわがた': ['bug','horn_1'], 'かまきり': ['bug','antennae'], 'こおろぎ': ['bug','wings'],
+  'ほたる': ['bug','antennae'], 'とんぼ': ['bug','wings'], 'いもむし': ['serpent','antennae'], 'さなぎ': ['squat',null],
+  'はち': ['bug','wings'], 'あり': ['bug','antennae'], 'てんとうむし': ['round','antennae'],
+  // ふしぎ系（動物寄り）
+  'ドラゴン': ['dragon','wings'], 'ようせい': ['critter','wings'], 'せいれい': ['critter','wings'],
+  'おばけ': ['round',null], 'ロボット': ['upright',null],
+  // 明確に形のある非動物（中立フォルム）
+  'きのこ': ['squat',null], 'サボテン': ['upright',null], 'ぼんさい': ['squat',null],
+  'にんぎょう': ['upright',null], 'ぬいぐるみ': ['squat',null], 'たまご': ['round',null],
+  'みず・うみ': ['aqua','fins'],
+};
+
+// === フォルム → 特徴的な装飾（課題4・データ駆動）===
+//   roster分析で decoration_1 は shape の1:1の言い換えだった（upright→ちょくりつ 216/216 等）。
+//   ＝ポケモンの世界では「装飾は形から一意に決まる」。よって装飾は独立ランダムで引かず、
+//   フォルムから導出する（vocab.js decoration と同じ表記で対応づけ）。
+export const BODY_DECORATION = {
+  round:     'まるいフォルム',
+  squat:     'まるいフォルム',
+  quadruped: 'よつあしのすがた',
+  upright:   'ちょくりつのすがた',
+  critter:   'てあし・とくちょうてきなかお',
+  tailed:    'てあし・とくちょうてきなかお',
+  eared:     'よつあしのすがた',
+  bird:      'つばさ・はね',
+  bigwing:   'つばさ・はね',
+  bug:       'むしのはね',
+  aqua:      'ひれ',
+  serpent:   'ほそながい',
+  dragon:    'つの・うろこ模様',
+  multilimb: 'しょくしゅ・ひげ',
+};
+/** フォルム → 装飾語（無ければ null）。装飾はフォルムから導く（独立に引かない）。 */
+export function decorationForBody(bodyId) { return BODY_DECORATION[bodyId] || null; }
+
+// 非動物・未対応モチーフのための中立フォルム（特定の動物を主張しない汎用体型）。
+// これらにはフォルム＋特徴を強制せず、モチーフはプロンプトの motif 行で表現する。
+export const NEUTRAL_BODY_IDS = ['round','critter','squat','upright'];
+
+/** モチーフ → { bodyId, featureId } を返す（未対応なら null）。 */
+export function archetypeForMotif(motif) {
+  const pair = MOTIF_ARCHETYPE[motif];
+  if (!pair) return null;
+  return { bodyId: pair[0], featureId: pair[1] || null };
+}
+
 export function bodyById(id)       { return AXIS_BODY.find(b => b.id === id) || null; }
 export function featureById(id)    { return AXIS_FEATURE.find(f => f.id === id) || null; }
 export function impressionById(id) { return AXIS_IMPRESSION.find(i => i.id === id) || null; }

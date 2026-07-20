@@ -405,23 +405,19 @@ body {
   flex-wrap: wrap;
 }
 
-/* レポート画面（STEP5）のアクション行：右側3ボタンを横並びでバランスよく */
-.step-actions-report .report-action-group {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
+/* レポート画面（STEP5）のアクション：ツール（その場実行）とナビ（ページ移行）を分離。
+   縦にいたずらに伸ばさず、ツールは折り返しの横並びで詰める。 */
+.step-actions-report { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+.report-tools {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
 }
-.step-actions-report .report-action-group .btn-secondary,
-.step-actions-report .report-action-group .btn-primary {
-  white-space: nowrap;
-  padding: 10px 16px;
+.report-tools .btn-secondary { padding: 9px 16px; white-space: nowrap; }  /* 内容幅で詰める */
+.report-nav {
+  display: flex; align-items: center; gap: 10px;
+  border-top: 1px solid #eee; padding-top: 10px;
 }
-.step-actions-report .report-action-group .btn-primary {
-  /* PDFが主役。少し大きめに */
-  padding: 12px 22px;
-  font-size: 15px;
-}
+.report-nav .btn-icon-only { flex: 0 0 auto; }
+.report-nav #submit-score-btn { flex: 1 1 auto; padding: 13px 22px; font-size: 16px; }  /* 締めボタンを主役に */
 
 /* ===== 地名由来 ===== */
 .origin-story {
@@ -2218,17 +2214,8 @@ body {
     flex: 1 1 0;
     min-width: 0;
   }
-  /* レポート画面：ボタンは中央揃えの縦積みで統一（アイコン混在なし） */
-  .step-actions-report .report-action-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-  }
-  .step-actions-report .report-action-group > button {
-    width: 100%;
-    max-width: 320px;
-  }
+  /* レポート画面：ツールは折り返し横並び、ナビは1行（縦を伸ばさない） */
+  .report-tools .btn-secondary { flex: 0 1 auto; }
   /* スポット一覧と地図のレイアウト：縦積み */
   .spots-layout {
     grid-template-columns: 1fr;
@@ -3198,16 +3185,9 @@ body.ar-open { overflow: hidden; }
 .step.active .step-actions > div .btn-primary { flex: 1 1 100%; order: 9; }
 /* レポート画面: 保存/スコアを上段2分割・PDFを全幅・戻るは最下段全幅 */
 /* レポートのアクション：中央揃えの縦積みに統一（全ボタン同幅・アイコン混在なし） */
-.step.active .step-actions-report { flex-direction: column; align-items: center; }
-.step.active .step-actions-report .report-action-group {
-  order: -1;
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  width: 100%;
-}
-.step.active .step-actions-report .report-action-group > button { width: 100%; max-width: 320px; }
-.step.active .step-actions-report > .btn-secondary { width: 100%; max-width: 320px; }
-/* 「たんけん完了！」は締めなので一番下に置く */
-.step.active .step-actions-report .report-action-group #submit-score-btn { order: 9; }
+/* レポートのアクションは .report-tools（横並び）/.report-nav（1行）で構成。
+   旧 .report-action-group を前提にした縦積みルールは撤去（縦が伸びる原因だった）。 */
+.report-tools .chargen-start-btn { width: auto; }   /* ツール内では内容幅（後段の全幅指定より高い詳細度で上書き） */
 
 /* ===== キャラ自動生成（chargen） ===== */
 .chargen-entry {

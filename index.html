@@ -56,6 +56,7 @@
         <div class="modal-actions resume-ask-actions">
           <button id="resume-ask-continue" class="btn-primary" type="button" data-i18n="resumeAskContinue">つづきから</button>
           <button id="resume-ask-new" class="btn-secondary" type="button" data-i18n="resumeAskNew">あたらしく はじめる</button>
+          <button id="resume-ask-history" class="btn-secondary" type="button" data-i18n="resumeAskHistory">ほかの たんけんを さがす</button>
         </div>
       </div>
     </div>
@@ -418,16 +419,18 @@
           </div>
         </div>
 
-        <div class="step-actions step-actions-report">
-          <button id="back-to-photos" class="btn-secondary btn-icon-only" data-i18n-aria="btnBackPhotos">←</button>
-          <div class="report-action-group">
+        <div class="step-actions-report">
+          <!-- ツール：その場で実行（ページ移行しない）。折り返しの横並びで縦を詰める。 -->
+          <div class="report-tools">
             <button id="tidy-memos-btn" class="btn-secondary" data-i18n="btnTidyMemos" data-i18n-title="tidyMemosTitle" title="写真のひと言メモを整える">メモをすっきり</button>
             <!-- キャラ発見（条件クリア時のみ表示。生成→発見の世界観） -->
             <button id="chargen-start-btn" type="button" class="btn-secondary chargen-start-btn hidden" data-i18n="chargenStart">なかまを 発見</button>
-            <!-- 探検の締め＝完了ボタンを主役（primary）に。PDFは任意なので控えめ（secondary）へ。 -->
-            <!-- ボタンはアイコンなしで統一（イラスト混在をやめる） -->
-            <button id="submit-score-btn" class="btn-primary" data-i18n="btnSubmitScore">たんけん完了！</button>
             <button id="report-pdf-btn" class="btn-secondary" data-i18n="btnReportPdf" data-i18n-title="reportPdfTitle" title="PDFにして印刷すると、B3ポスターサイズのたんけんノートになるよ。">PDF出力</button>
+          </div>
+          <!-- ナビ：ページ移行する（戻る／探検を締める）。1行にまとめる。 -->
+          <div class="report-nav">
+            <button id="back-to-photos" class="btn-secondary btn-icon-only" data-i18n-aria="btnBackPhotos">←</button>
+            <button id="submit-score-btn" class="btn-primary" data-i18n="btnSubmitScore">たんけん完了！</button>
           </div>
         </div>
       </div>

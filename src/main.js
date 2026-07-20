@@ -3292,7 +3292,9 @@ async function onResumeSession() {
     // 空になる。裏で復元して埋める。画面表示はブロックしない（失敗しても撮影自体は使える）。
     ensureRouteStepReady().catch(e => console.warn('[resume] ルート復元に失敗（順路は非表示）:', e));
     // 再開中インジケータを表示（新しい駅で検索するまで出しっぱなし。#2 取り違え防止）
-    showResumeIndicator(localizeStationName(state.stationName, LANG));
+    // 「再開中の冒険」インジケータは廃止（意味が伝わりにくく、順路はルート概要で分かるため）。
+    // 取り違え防止は「探検をはじめる時に聞く」導線でカバー済み。
+    hideResumeIndicator();
   } catch (e) {
     errEl.textContent = e.message || t('errResumeFailed');
     errEl.classList.remove('hidden');
@@ -4880,6 +4882,11 @@ $('resume-ask-new')?.addEventListener('click', () => {
   clearActiveSession(); // 中断中の探検は明示的に捨てて新規へ
   $('resume-ask-modal').classList.add('hidden');
   showStep('step-station');
+});
+// 「ほかの たんけんを さがす」：履歴から別の探検を選ぶ（最新以外を再開したいとき）
+$('resume-ask-history')?.addEventListener('click', () => {
+  $('resume-ask-modal').classList.add('hidden');
+  openHistory();
 });
 $('resume-ask-modal')?.addEventListener('click', e => {
   if (e.target.dataset.action === 'resume-ask-close') $('resume-ask-modal').classList.add('hidden');

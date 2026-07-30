@@ -1,6 +1,6 @@
 // ARキャラクター捕獲：カメラ・GPS・コンパスの統合セッション
 //
-// 出現条件（docs/ar-character-capture-spec.md §2）:
+// 出現条件（docs/10-specs/ar-character-capture-spec.md §2）:
 //   - 距離: スポットから radiusM（既定50m）以内
 //   - 向き: 端末コンパス方位が「現在地→スポット」方位角の ±toleranceDeg（既定30°）以内
 //   - ヒステリシス: 一度出現したら ±(toleranceDeg+10)° まで表示継続（チカチカ防止）

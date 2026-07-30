@@ -117,7 +117,7 @@ const drive = (CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL')
 // 仮説データ（src/ に入れる前の"叩き台"。ここで効果を確認してから archetypes.js へ移す）
 // ============================================================
 
-// H1: 新14フォルム（docs/character-form-first-design.md §5）。promptHint は「丸ブロブ」ではなく骨格。
+// H1: 新14フォルム（docs/10-specs/character-form-first-design.md §5）。promptHint は「丸ブロブ」ではなく骨格。
 const BODY14 = [
   { id:'round',     ja:'まる・ボール',        hint:'a single rounded ball-shaped body with only small stubby limbs' },
   { id:'quadruped', ja:'四足獣',              hint:'a four-legged beast with a horizontal body and a head facing forward' },
@@ -185,7 +185,7 @@ const SIL_BY_RARITY = {
   legend: "Rarity feel: the grandest, most imposing version of THIS creature — noticeably larger, with its own body form and its own identifying feature pushed to their fullest and most elaborate, boldly asymmetric and majestic in a dynamic pose, while keeping one rounded core mass so the solid black silhouette stays instantly recognizable.",
 };
 
-// H6: レア度別の複雑さ目標帯（docs/pokemon-character-design-analysis.md §6-2）。実測を合否判定に使う。
+// H6: レア度別の複雑さ目標帯（docs/30-research/pokemon-character-design-analysis.md §6-2）。実測を合否判定に使う。
 const TARGETS = {
   common: { contour:[1.4,1.75], solidity:[0.75,0.90], symmetry:[0.55,0.80] },
   rare:   { contour:[1.65,1.95], solidity:[0.66,0.80], symmetry:[0.50,0.68] },

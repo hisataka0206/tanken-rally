@@ -1,4 +1,4 @@
-// 冒険型UIシェル（docs/ui-redesign-concept.md Phase A）
+// 冒険型UIシェル（docs/10-specs/ui-redesign-concept.md Phase A）
 //
 // 3つの要素で「書類の文法」を「キャラと行く冒険」に置き換える:
 //   1. 進捗トレイル（すごろく型・上部固定）… 今どこにいるかを常に見せる

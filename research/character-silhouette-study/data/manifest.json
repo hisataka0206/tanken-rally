@@ -1,0 +1,136 @@
+[
+ {
+  "name": "E-A-post",
+  "source_zip": "lab1",
+  "desc": "全仮説ON・新14フォルム（介入後）",
+  "prompt_version": "pre-fix",
+  "n_total": 12,
+  "n_ok": 12,
+  "n_error": 0,
+  "rarity": {
+   "legend": 3,
+   "epic": 7,
+   "rare": 2
+  },
+  "errors": null,
+  "silhouettes": 12
+ },
+ {
+  "name": "E-A-pre",
+  "source_zip": "lab2",
+  "desc": "H1 OFF・旧10フォルム（介入前）",
+  "prompt_version": "pre-fix",
+  "n_total": 12,
+  "n_ok": 12,
+  "n_error": 0,
+  "rarity": {
+   "rare": 4,
+   "epic": 3,
+   "legend": 2,
+   "common": 3
+  },
+  "errors": null,
+  "silhouettes": 12
+ },
+ {
+  "name": "H2-off",
+  "source_zip": "lab3",
+  "desc": "新14フォルムだが形の特徴OFF",
+  "prompt_version": "pre-fix",
+  "n_total": 12,
+  "n_ok": 12,
+  "n_error": 0,
+  "rarity": {
+   "common": 4,
+   "rare": 3,
+   "legend": 4,
+   "epic": 1
+  },
+  "errors": null,
+  "silhouettes": 12
+ },
+ {
+  "name": "E-B-form-sweep",
+  "source_zip": "lab4",
+  "desc": "14フォルム総当り（common固定・特徴なし）",
+  "prompt_version": "post-fix",
+  "n_total": 14,
+  "n_ok": 9,
+  "n_error": 5,
+  "rarity": {
+   "common": 9
+  },
+  "errors": [
+   "GAS API エラー: 404",
+   "signal is aborted without reason"
+  ],
+  "silhouettes": 9
+ },
+ {
+  "name": "E-C-serpent-ladder",
+  "source_zip": "lab5",
+  "desc": "ヘビ固定でレア度ラダー（①検証）",
+  "prompt_version": "post-fix",
+  "n_total": 4,
+  "n_ok": 4,
+  "n_error": 0,
+  "rarity": {
+   "common": 1,
+   "rare": 1,
+   "epic": 1,
+   "legend": 1
+  },
+  "errors": null,
+  "silhouettes": 4
+ },
+ {
+  "name": "E-D-feature-sweep",
+  "source_zip": "lab6",
+  "desc": "まる固定・common で特徴総当り",
+  "prompt_version": "post-fix",
+  "n_total": 7,
+  "n_ok": 7,
+  "n_error": 0,
+  "rarity": {
+   "common": 7
+  },
+  "errors": null,
+  "silhouettes": 7
+ },
+ {
+  "name": "E-C-quadruped-ladder",
+  "source_zip": "lab7",
+  "desc": "四足獣固定でレア度ラダー×3反復",
+  "prompt_version": "post-fix",
+  "n_total": 12,
+  "n_ok": 10,
+  "n_error": 2,
+  "rarity": {
+   "common": 3,
+   "rare": 2,
+   "epic": 3,
+   "legend": 2
+  },
+  "errors": [
+   "GAS API エラー: 404",
+   "daily-limit"
+  ],
+  "silhouettes": 10,
+  "note": "★ブラウザ記録の指標は穴埋めバグで汚染。canonical_metrics.json を使うこと"
+ },
+ {
+  "name": "E-B-form-sweep-v2",
+  "source_zip": "char-lab_2026-07-18-15-20-44.zip",
+  "desc": "14フォルム総当り（common固定・特徴なし）2枚/体・全フォルム成功。E-Bの完全版",
+  "prompt_version": "post-fix",
+  "n_total": 14,
+  "n_ok": 14,
+  "n_error": 0,
+  "rarity": {
+   "common": 14
+  },
+  "errors": null,
+  "silhouettes": 14,
+  "note": "★ブラウザ記録の指標は穴埋めバグで汚染。canonical_metrics.json を使うこと"
+ }
+]

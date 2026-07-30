@@ -49,7 +49,7 @@ python3 tools/character_complexity.py gen1 --roles tools/gen1_roles.csv --out ge
 
 ## measure-visible-text.js — 画面の文字数をブラウザ実測する（唯一の計測方法）
 
-`docs/ui-text-minimization-design.md` の目標判定に使う。ソース解析や、その場限りの
+`docs/10-specs/ui-text-minimization-design.md` の目標判定に使う。ソース解析や、その場限りの
 簡易版スクリプトを作ってはいけない（過去に5種類のバグを踏んだ）。
 
 使い方:

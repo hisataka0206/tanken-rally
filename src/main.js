@@ -454,7 +454,7 @@ function closeWhereModal() {
 // ===== STEP 4: ARキャラ捕獲 =====
 // スポットステージ: カテゴリ対応キャラが出現（GPS 50m以内 + コンパス ±30°）
 // ゴールステージ:   レア（タンケンハカセ）がセッション1回の抽選（25%）で出現
-// docs/ar-character-capture-spec.md 参照
+// docs/10-specs/ar-character-capture-spec.md 参照
 let arSession = null;
 let arCurrent = null;   // { char, tag, targetName, target, latestStatus }
 let _arShutterBusy = false; // シャッター多重発火（連打）ガード
@@ -5200,7 +5200,7 @@ const TEST_PLAN = [
   { title: '10. その他', items: [
     { id: 't-logout',   do: 'ログアウトする', check: 'ログイン画面に戻る' },
   ]},
-  // ▼ UI改善計画・2026-07トライアルの指摘反映（docs/ui-text-minimization-design.md / public-release-plan.md）
+  // ▼ UI改善計画・2026-07トライアルの指摘反映（docs/10-specs/ui-text-minimization-design.md / public-release-plan.md）
   { title: '11. トップ・再開導線（UI改善）', items: [
     { id: 't-ui-toptext',   do: 'トップ画面を見る', check: '「再開中の冒険」等の常設バナーが無い（文字を増やしていない）' },
     { id: 't-ui-resumeask', do: '中断中の探検がある状態で「探検をはじめる」を押す', check: '「つづきから／あたらしく はじめる／ほかの たんけんを さがす」の3択ダイアログが出る（最新の駅名つき）' },

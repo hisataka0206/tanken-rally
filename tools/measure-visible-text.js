@@ -14,7 +14,7 @@
  *     (5) 空欄の placeholder
  *   原因は「ブラウザが知っていることをソースから推測しようとした」こと。実DOMに聞けば消える。
  *
- * ■ 数え方（docs/ui-text-minimization-design.md §3-2 準拠）
+ * ■ 数え方（docs/10-specs/ui-text-minimization-design.md §3-2 準拠）
  *   空白を除いた素の文字数で数え、次の6種類に必ず分類する。
  *   **どれにも入れずに黙って除外してはいけない。** 分母から隠すと改善が数字に出なくなる。
  *

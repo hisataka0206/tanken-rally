@@ -1,0 +1,326 @@
+[
+  {
+    "i": 0,
+    "rarity": "rare",
+    "bodyJa": "(旧)beast",
+    "featJa": "垂れ耳",
+    "flags": {
+      "h1": false,
+      "h2": true,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "ゆうかん",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. Base creature form: a small four-legged furry creature. Give it a clear, distinctive silhouette in this shape. The silhouette must clearly show this identifying feature: two large droopy ears. Make this feature stick out of the outline so the character is recognizable by shape alone. Silhouette design: mostly rounded and calm, but give it ONE distinctive feature so its black shape is memorable. Rarity: rare. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. Overall mood: ゆうかん. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.4315493172327824,
+      "solidity": 0.7860552903297435,
+      "symmetry": 0.7101449275362319,
+      "area": 7080,
+      "occupancy": 0.5086206896551724
+    },
+    "removedRatio": 0.5010015314275568,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 1,
+    "rarity": "epic",
+    "bodyJa": "(旧)beast",
+    "featJa": "翼",
+    "flags": {
+      "h1": false,
+      "h2": true,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one COOL LEGENDARY GUARDIAN mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat vibrant colors with glossy white highlights, sticker-like flat shading. This is a special LEGEND-tier character: sharp glowing eyes, sharp edges and a bold dynamic silhouette, a confident majestic heroic presence. NOT cute-baby, no pastel, no pink cheeks — cool and awe-inspiring but still friendly for kids. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cool and powerful but not scary, no violence, no weapons. Base creature form: a small four-legged furry creature. Give it a clear, distinctive silhouette in this shape. The silhouette must clearly show this identifying feature: a pair of clear wings on the back. Make this feature stick out of the outline so the character is recognizable by shape alone. Silhouette design: dynamic and slightly asymmetric — add a couple of bold appendages (wings, horns, a flowing tail or a few spikes) and an active pose, while keeping one rounded core mass so it still reads cleanly as a black shape. Rarity: epic. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 2.0054638883181592,
+      "solidity": 0.7010826771653543,
+      "symmetry": 0.6450346420323325,
+      "area": 7123,
+      "occupancy": 0.5117097701149426
+    },
+    "removedRatio": 0.5072881525213068,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 2,
+    "rarity": "rare",
+    "bodyJa": "(旧)plant",
+    "featJa": "背びれ",
+    "flags": {
+      "h1": false,
+      "h2": true,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "こおり",
+    "atmo": "ひんやり",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. Base creature form: a cheerful plant-like sprout creature. Give it a clear, distinctive silhouette in this shape. The silhouette must clearly show this identifying feature: a row of spikes / a back fin along the spine. Make this feature stick out of the outline so the character is recognizable by shape alone. Silhouette design: mostly rounded and calm, but give it ONE distinctive feature so its black shape is memorable. Rarity: rare. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. Creature concept / motif: こおり. Overall mood: ひんやり. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.547838562869311,
+      "solidity": 0.8705882352941177,
+      "symmetry": 0.677461139896373,
+      "area": 3885,
+      "occupancy": 0.2790948275862069
+    },
+    "removedRatio": 0.7329647179805872,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 3,
+    "rarity": "legend",
+    "bodyJa": "(旧)plant",
+    "featJa": "長い尻尾",
+    "flags": {
+      "h1": false,
+      "h2": true,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "ランタン",
+    "atmo": "",
+    "prompt": "Design one COOL LEGENDARY GUARDIAN mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat vibrant colors with glossy white highlights, sticker-like flat shading. This is a special LEGEND-tier character: sharp glowing eyes, sharp edges and a bold dynamic silhouette, a confident majestic heroic presence. NOT cute-baby, no pastel, no pink cheeks — cool and awe-inspiring but still friendly for kids. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cool and powerful but not scary, no violence, no weapons. Base creature form: a cheerful plant-like sprout creature. Give it a clear, distinctive silhouette in this shape. The silhouette must clearly show this identifying feature: one long sweeping tail. Make this feature stick out of the outline so the character is recognizable by shape alone. Silhouette design: elaborate, asymmetric and majestic — several bold appendages (large wings, horns, a sweeping tail, spikes) in a dynamic, imposing pose. Make the outline highly distinctive, but keep one rounded core mass so the solid black silhouette stays instantly recognizable. Rarity: legend. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. Creature concept / motif: ランタン. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 2.395171204821962,
+      "solidity": 0.7173087357569181,
+      "symmetry": 0.5354239256678281,
+      "area": 7271,
+      "occupancy": 0.5223419540229886
+    },
+    "removedRatio": 0.5006038781368372,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 4,
+    "rarity": "common",
+    "bodyJa": "(旧)beast",
+    "featJa": "ねじれ角",
+    "flags": {
+      "h1": false,
+      "h2": true,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. Base creature form: a small four-legged furry creature. Give it a clear, distinctive silhouette in this shape. The silhouette must clearly show this identifying feature: a pair of twisted spiral horns. Make this feature stick out of the outline so the character is recognizable by shape alone. Silhouette design: keep it very simple, rounded and symmetric — one clear compact mass with almost no extra appendages. It must read instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.2118914991348466,
+      "solidity": 0.8559771521827826,
+      "symmetry": 0.7729577464788733,
+      "area": 3147,
+      "occupancy": 0.22607758620689655
+    },
+    "removedRatio": 0.7816310073390151,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 5,
+    "rarity": "epic",
+    "bodyJa": "(旧)machine",
+    "featJa": "角2本",
+    "flags": {
+      "h1": false,
+      "h2": true,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "しずく",
+    "atmo": "",
+    "prompt": "Design one COOL LEGENDARY GUARDIAN mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat vibrant colors with glossy white highlights, sticker-like flat shading. This is a special LEGEND-tier character: sharp glowing eyes, sharp edges and a bold dynamic silhouette, a confident majestic heroic presence. NOT cute-baby, no pastel, no pink cheeks — cool and awe-inspiring but still friendly for kids. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cool and powerful but not scary, no violence, no weapons. Base creature form: a cute round robot or rock creature. Give it a clear, distinctive silhouette in this shape. The silhouette must clearly show this identifying feature: two horns on the head. Make this feature stick out of the outline so the character is recognizable by shape alone. Silhouette design: dynamic and slightly asymmetric — add a couple of bold appendages (wings, horns, a flowing tail or a few spikes) and an active pose, while keeping one rounded core mass so it still reads cleanly as a black shape. Rarity: epic. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. Creature concept / motif: しずく. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 2.320932521841141,
+      "solidity": 0.7222786401663523,
+      "symmetry": 0.6126106672424962,
+      "area": 7468,
+      "occupancy": 0.5364942528735632
+    },
+    "removedRatio": 0.47557021632339014,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 6,
+    "rarity": "legend",
+    "bodyJa": "(旧)critter",
+    "featJa": "翼",
+    "flags": {
+      "h1": false,
+      "h2": true,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one COOL LEGENDARY GUARDIAN mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat vibrant colors with glossy white highlights, sticker-like flat shading. This is a special LEGEND-tier character: sharp glowing eyes, sharp edges and a bold dynamic silhouette, a confident majestic heroic presence. NOT cute-baby, no pastel, no pink cheeks — cool and awe-inspiring but still friendly for kids. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cool and powerful but not scary, no violence, no weapons. Base creature form: a tiny rodent-like critter. Give it a clear, distinctive silhouette in this shape. The silhouette must clearly show this identifying feature: a pair of clear wings on the back. Make this feature stick out of the outline so the character is recognizable by shape alone. Silhouette design: elaborate, asymmetric and majestic — several bold appendages (large wings, horns, a sweeping tail, spikes) in a dynamic, imposing pose. Make the outline highly distinctive, but keep one rounded core mass so the solid black silhouette stays instantly recognizable. Rarity: legend. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 2.0573040439812558,
+      "solidity": 0.7540421886711639,
+      "symmetry": 0.6432154941080387,
+      "area": 7042,
+      "occupancy": 0.5058908045977012
+    },
+    "removedRatio": 0.5131900671756628,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 7,
+    "rarity": "common",
+    "bodyJa": "(旧)aqua",
+    "featJa": "角2本",
+    "flags": {
+      "h1": false,
+      "h2": true,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "くも",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. Base creature form: a soft aquatic sea creature. Give it a clear, distinctive silhouette in this shape. The silhouette must clearly show this identifying feature: two horns on the head. Make this feature stick out of the outline so the character is recognizable by shape alone. Silhouette design: keep it very simple, rounded and symmetric — one clear compact mass with almost no extra appendages. It must read instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. Creature concept / motif: くも. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.1193106466465705,
+      "solidity": 0.8919084772508109,
+      "symmetry": 0.9996069182389937,
+      "area": 5087,
+      "occupancy": 0.3654454022988506
+    },
+    "removedRatio": 0.6435306433475378,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 8,
+    "rarity": "rare",
+    "bodyJa": "(旧)bug",
+    "featJa": "丸い耳",
+    "flags": {
+      "h1": false,
+      "h2": true,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. Base creature form: a friendly rounded insect-like creature. Give it a clear, distinctive silhouette in this shape. The silhouette must clearly show this identifying feature: two round ears on top of the head. Make this feature stick out of the outline so the character is recognizable by shape alone. Silhouette design: mostly rounded and calm, but give it ONE distinctive feature so its black shape is memorable. Rarity: rare. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.479732102512473,
+      "solidity": 0.8189349112426035,
+      "symmetry": 0.9356643356643357,
+      "area": 4152,
+      "occupancy": 0.2982758620689655
+    },
+    "removedRatio": 0.712289521188447,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 9,
+    "rarity": "common",
+    "bodyJa": "(旧)aqua",
+    "featJa": "触角",
+    "flags": {
+      "h1": false,
+      "h2": true,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "おっとり",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. Base creature form: a soft aquatic sea creature. Give it a clear, distinctive silhouette in this shape. The silhouette must clearly show this identifying feature: two antennae on the head. Make this feature stick out of the outline so the character is recognizable by shape alone. Silhouette design: keep it very simple, rounded and symmetric — one clear compact mass with almost no extra appendages. It must read instantly as a solid black shape. Rarity: common. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. Overall mood: おっとり. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.6950284672187717,
+      "solidity": 0.6848553646220691,
+      "symmetry": 0.8672358591248666,
+      "area": 8748,
+      "occupancy": 0.628448275862069
+    },
+    "removedRatio": 0.3877896395596591,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 10,
+    "rarity": "rare",
+    "bodyJa": "(旧)machine",
+    "featJa": "ねじれ角",
+    "flags": {
+      "h1": false,
+      "h2": true,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "",
+    "atmo": "ぽかぽか",
+    "prompt": "Design one original mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single cute kawaii yuru-chara mascot with chibi proportions, drawn as a flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat colors with soft glossy white highlights, round rosy cheeks, big friendly eyes, simple short stubby dark-brown limbs, sticker-like flat shading. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cute and friendly, not scary, no violence, no weapons. Base creature form: a cute round robot or rock creature. Give it a clear, distinctive silhouette in this shape. The silhouette must clearly show this identifying feature: a pair of twisted spiral horns. Make this feature stick out of the outline so the character is recognizable by shape alone. Silhouette design: mostly rounded and calm, but give it ONE distinctive feature so its black shape is memorable. Rarity: rare. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. Overall mood: ぽかぽか. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.7800996333740056,
+      "solidity": 0.7820375907731738,
+      "symmetry": 0.9991809991809992,
+      "area": 7323,
+      "occupancy": 0.5260775862068966
+    },
+    "removedRatio": 0.4876699736624053,
+    "error": null,
+    "source": "nanobanana"
+  },
+  {
+    "i": 11,
+    "rarity": "epic",
+    "bodyJa": "(旧)machine",
+    "featJa": "ふさふさ尻尾",
+    "flags": {
+      "h1": false,
+      "h2": true,
+      "h3": true,
+      "h4": true,
+      "h5": true,
+      "h6": true
+    },
+    "motif": "どんぐり",
+    "atmo": "おっとり",
+    "prompt": "Design one COOL LEGENDARY GUARDIAN mascot character for a kids station-exploration game called \"Tekutan\". Art style: a single flat 2D vector illustration. Bold clean dark-brown outlines (never pure black), flat vibrant colors with glossy white highlights, sticker-like flat shading. This is a special LEGEND-tier character: sharp glowing eyes, sharp edges and a bold dynamic silhouette, a confident majestic heroic presence. NOT cute-baby, no pastel, no pink cheeks — cool and awe-inspiring but still friendly for kids. The character is fully isolated on a single flat, empty, pure-white background. The whole background is one solid white color and completely bare — only the one character is in the picture, centered with margin fully inside the frame. No scenery, no shadow, no gradient, no props, and no border or frame around the picture. Child-friendly: cool and powerful but not scary, no violence, no weapons. Base creature form: a cute round robot or rock creature. Give it a clear, distinctive silhouette in this shape. The silhouette must clearly show this identifying feature: one big fluffy bushy tail. Make this feature stick out of the outline so the character is recognizable by shape alone. Silhouette design: dynamic and slightly asymmetric — add a couple of bold appendages (wings, horns, a flowing tail or a few spikes) and an active pose, while keeping one rounded core mass so it still reads cleanly as a black shape. Rarity: epic. Higher rarity means the CHARACTER itself is more elaborate — through its own shape and features, not through extra surrounding effects. Above all, the design must stay recognizable purely as its black silhouette (shape-first readability). Use a small set of flat colors with clean, simple shading — no busy gradients, no heavy painterly rendering. Creature concept / motif: どんぐり. Overall mood: おっとり. The character stands completely alone: there is nothing else anywhere in the picture except the one character on flat white. Use large, calm, flat areas of color with only minimal internal detail, leaving clean empty breathing space around it. Keep it a single flat 2D vector sticker illustration (not realistic, not 3D, not a photo). Exactly one character only. Clean and simple.",
+    "metrics": {
+      "contour": 1.963793729497798,
+      "solidity": 0.751223114557371,
+      "symmetry": 0.5994496855345912,
+      "area": 8138,
+      "occupancy": 0.5846264367816092
+    },
+    "removedRatio": 0.4329649029356061,
+    "error": null,
+    "source": "nanobanana"
+  }
+]

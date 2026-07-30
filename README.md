@@ -43,23 +43,43 @@ npx serve .
 
 ```
 tanken-rally/
-├── index.html              # メインHTML
+├── index.html              # メインHTML（GitHub Pages が直下から配信）
 ├── config.js               # APIキー設定（.gitignore対象）
 ├── config.example.js       # 設定テンプレート
-├── src/
+├── src/                    # アプリ本体（ESモジュール）
 │   ├── main.js             # メインロジック・イベントバインド
 │   ├── style.css           # スタイル
-│   └── utils/
-│       ├── maps.js         # Google Maps（Geocode / Places / Directions / 距離計算）
-│       ├── ai.js           # OpenAI API 呼び出し
-│       ├── pdf.js          # 地図PDF生成（HTML→html2canvas→jsPDF）
-│       └── drive.js        # GAS 経由の Google Drive 連携クライアント
+│   ├── data/               # 都市・駅・語彙・アーキタイプ等の静的データ
+│   └── utils/              # maps / ai / pdf / drive / chargen / collection ほか
 ├── gas/
 │   └── Code.gs             # Google Apps Script（Drive 写真保存・ランキング Sheets）
-└── docs/
-    ├── 企画書.md
-    └── 仕様書.md
+├── tools/                  # 分析スクリプト（キャラ複雑度・シルエットクラスタ・UI文字量計測）
+├── docs/                   # 事業・仕様・計画・調査・テスト（→ docs/README.md が地図）
+│   ├── 00-business/        # 企画・価値提案・公開計画・CM
+│   ├── 10-specs/           # 仕様・要求分類・キャラ生成/UI設計
+│   ├── 20-plans/           # 開発日誌・改善計画
+│   ├── 30-research/        # ポケモン分析・taxonomy・postmortem・トライアルFB
+│   └── 40-tests/           # テスト仕様書・テスト結果報告書
+├── research/               # データ重めの調査プロジェクト
+│   ├── anime-pilgrimage/          # 聖地巡礼データ（AniTabi由来・CC-NC）
+│   └── character-silhouette-study/ # キャラシルエット研究（旧 thesis/）
+└── _local/                 # ローカル専用の生成物（.gitignore対象・再生成可能）
+    ├── analysis-images/    # char-lab 検証の分析PNG
+    ├── gen1/ pokemon_all/  # ポケモン分析用スプライトdump
+    └── *_metrics.csv       # 分析結果CSV
 ```
+
+### ドキュメントの地図
+
+| 見たいもの | 行き先 |
+|---|---|
+| **事業としての全体像** | [[docs/00-business/product-proposal.md]] |
+| **仕様の全体** | [[docs/10-specs/spec-overview.md]] |
+| **これから何を作るか・現在地** | [[docs/20-plans/dev-log.md]] |
+| **キャラ自動生成の設計** | docs/10-specs/character-auto-generation-spec.md |
+| **UI改善の設計** | docs/10-specs/ui-text-minimization-design.md |
+| **テスト仕様/結果** | docs/40-tests/ |
+| ドキュメント全体の地図 | docs/README.md |
 
 ## Google Cloud の設定（有効化が必要なAPI）
 

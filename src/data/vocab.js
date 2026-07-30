@@ -1,4 +1,4 @@
-// 自動生成: docs/character-taxonomy/character_generation_vocab_db.json (2026-07-12) より変換
+// 自動生成: docs/30-research/character-taxonomy/character_generation_vocab_db.json (2026-07-12) より変換
 // ※2026-07-12 手動IP対策: type軸/motif等がポケモンのタイプ体系と丸かぶりだったため、
 //   独自の非IP語彙へ差し替え済み（#7）。再生成時はソースtaxonomy側も更新すること（でないと復活する）。
 // [[キャラ記述語彙DB]] 6論点 taxonomy（IP非依存の一般名詞のみ）。

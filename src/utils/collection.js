@@ -1,7 +1,7 @@
 // 図鑑（キャラコレクション）のローカル保存
 //
 // キー設計: ニックネームは重複しうるため、端末ローカルID（explorerId）を
-// localStorage に発行して図鑑のキーにする（docs/ar-character-capture-spec.md §5-2）。
+// localStorage に発行して図鑑のキーにする（docs/10-specs/ar-character-capture-spec.md §5-2）。
 //   - localStorage が一次ストア（オフライン・GAS未設定でも図鑑は機能する）
 //   - GAS（Sheets「captures」タブ）へは main.js が fire-and-forget で同期し、
 //     図鑑を開いたときにサーバー値をマージして表示する

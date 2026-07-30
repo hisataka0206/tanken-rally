@@ -2,7 +2,7 @@
 //
 // キャラ自動生成の「ユーザー変数」= 生き物デザインの汎用記述語彙。
 // アイデンティティは「①基本フォルム（骨格）＋②形に出る特徴」で決まり、色・模様は風味。
-// 根拠: docs/character-form-first-design.md（14フォルム）、docs/pokemon-character-design-analysis.md（実測）。
+// 根拠: docs/10-specs/character-form-first-design.md（14フォルム）、docs/30-research/pokemon-character-design-analysis.md（実測）。
 // char-lab.html で A/B・sweep 検証済み（H1: フォルムで見分く／H2: 特徴で個体差）。
 //
 // 使い方:

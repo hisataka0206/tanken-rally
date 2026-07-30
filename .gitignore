@@ -3,7 +3,10 @@ config.js
 .DS_Store
 *.bak
 
-# char-lab 検証で出力した分析画像・DLしたZIP（ローカルのみ）
+# ローカル専用の生成物・作業データ（すべて再生成可能）はここに集約する
+_local/
+
+# char-lab 検証で出力した分析画像（_local/analysis-images/ に集約済み。念のためパターンも残す）
 silhouette_montage_*.png
 E2_*.png
 E2b_*.png
@@ -12,18 +15,22 @@ compare_*.png
 sil_holefix_*.png
 src/assets/characters/char-lab_*.zip
 
-# thesis: 正規化シルエット画像（生成物・analysis/make_silhouettes.py で再生成可能）
-# 測定値そのものは thesis/data/runs/*/results.json に残るのでコミット対象
-thesis/data/silhouettes/
+# シルエット研究（research/character-silhouette-study/）: 正規化シルエット画像
+# 生成物・analysis/make_silhouettes.py で再生成可能。測定値は data/runs/*/results.json に残る
+research/character-silhouette-study/data/silhouettes/
 
-# thesis: char-lab の生成結果ZIP（約319MB・ローカル保管のみ）
+# シルエット研究: char-lab の生成結果ZIP（約319MB・ローカル保管のみ）
 # 測定値は runs/*/results.json と canonical_metrics.json に抽出済み
-thesis/data/zip/
+research/character-silhouette-study/data/zip/
 
-# thesis/experiment: 実験刺激（参照は著作物由来のシルエット＝再配布しない）
+# シルエット研究/experiment: 実験刺激（参照は著作物由来のシルエット＝再配布しない）
 # make_stimuli.py で誰でも再生成できるため、スクリプトのみコミットする
-thesis/experiment/stimuli/
-thesis/experiment/results/
+research/character-silhouette-study/experiment/stimuli/
+research/character-silhouette-study/experiment/results/
+research/character-silhouette-study/experiment/work/
+
+# 巡礼リサーチ: AniTabi 由来の原データ（28MB・CC-NC / 非商用・要ライセンス整理）
+research/anime-pilgrimage/cleaned-anime-spot.json
 
 # キャラクター原画シート（ローカル保管のみ。切り出し済み素材は src/assets/characters/ にコミット）
 img/
@@ -33,11 +40,11 @@ cm/
 src/assets/characters/others/
 dist/
 
-# ポケモン分析用にDLしたスプライト（重い・ローカルのみ。ツールと役割マップは tools/ にコミット）
-gen1/
-gen1_metrics.csv
-pokemon_all/
-pokemon_all_metrics.csv
+# ポケモン分析用にDLしたスプライト（_local/ 配下・重い・ローカルのみ。ツールと役割マップは tools/ にコミット）
+_local/gen1/
+_local/pokemon_all/
+_local/gen1_metrics.csv
+_local/pokemon_all_metrics.csv
 
 # Python 実行キャッシュ（tools/ のスクリプト実行で生成）
 __pycache__/
@@ -45,4 +52,3 @@ __pycache__/
 
 # generated character assets
 src/assets/characters/*.zip
-thesis/experiment/work/

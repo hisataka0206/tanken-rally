@@ -77,7 +77,7 @@ def kmeans(X,k,iters=40,seed=0):
     return A,C,inertia
 
 def main():
-    files=sorted(glob.glob('pokemon_all/*.png'), key=lambda p:int(os.path.splitext(os.path.basename(p))[0]) if os.path.basename(p)[0].isdigit() else 0)
+    files=sorted(glob.glob('_local/pokemon_all/*.png'), key=lambda p:int(os.path.splitext(os.path.basename(p))[0]) if os.path.basename(p)[0].isdigit() else 0)
     F=[]; keep=[]
     for f in files:
         v=feats(f)

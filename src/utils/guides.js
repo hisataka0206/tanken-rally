@@ -1,6 +1,6 @@
 // UIキャラクター案内役（ガイド）の受け皿
 //
-// 設計: docs/ui-character-guide-spec.md
+// 設計: docs/10-specs/ui-character-guide-spec.md
 // 素材: src/assets/characters/guide/<内部ID>_g<画面番号>.png（現在作成中）
 //   - 画像が存在しない間は onerror で自動非表示になり、レイアウトに影響しない
 //   - PNG をフォルダに置いてデプロイすれば、コード変更なしでガイドが出現する

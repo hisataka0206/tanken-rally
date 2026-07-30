@@ -69,7 +69,7 @@ export function parseCollectionKey(key) {
   return i < 0 ? { charId: s, variantId: 'normal' } : { charId: s.slice(0, i), variantId: s.slice(i + 1) };
 }
 
-// 性格・ストーリーの設定資料: docs/characters-story.md（変更時は両方を更新すること）
+// 性格・ストーリーの設定資料: docs/10-specs/characters-story.md（変更時は両方を更新すること）
 // ⚠️ 表示名は変更してよいが、id はアセットファイル名・図鑑の保存キーなので変更しない。
 export const CHARACTERS = [
   { id: 'lucky', category: 'historic', color: '#795548',

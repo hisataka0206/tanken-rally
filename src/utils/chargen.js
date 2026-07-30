@@ -1,6 +1,6 @@
 // [[キャラ自動生成]] Phase 1（個人生成）オーケストレーション
 //
-// 仕様: docs/character-auto-generation-spec.md
+// 仕様: docs/10-specs/character-auto-generation-spec.md
 // この Phase では実 API（NanoBanana Pro）は「差し込み口」だけ用意し、
 // 実際の3体候補は既存キャラ絵を色替え/選抜した【モック】で生成する。
 // → 実 API 導入時は callNanoBananaPro() を GAS プロキシ経由の実装に差し替えるだけ。
@@ -456,7 +456,7 @@ export function nameCandidates(station, vocab, lang = 'ja') {
     return Array.from(new Set(list)).slice(0, 4);
   }
 
-  // ポケモン名 全1025種の分析より（docs/character-taxonomy）:
+  // ポケモン名 全1025種の分析より（docs/30-research/character-taxonomy）:
   //   4〜5文字カタカナ／濁音多用／語尾に強い型。伝説枠は「格上の語尾」(オン/ドン/ザー/ロス/ース)＋長音。
   const mk = hiraToKata(motif);          // モチーフをカタカナ化（例: ほし→ホシ）
   const sk = stationKataShort(station);  // 駅カタカナ短縮（4文字まで）

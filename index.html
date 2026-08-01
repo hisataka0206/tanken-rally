@@ -76,6 +76,9 @@
     </div>
 
     <div id="login-gate" class="login-gate hidden" role="dialog" aria-modal="true" aria-labelledby="login-title">
+      <figure class="login-showcase">
+        <img src="src/assets/marketing/pain-board.jpg" alt="いつもの駅が、ぼうけんになる。テクタンが変える、まちのすごしかた。" loading="eager" />
+      </figure>
       <div class="login-card">
         <div class="login-logo"><img src="src/assets/icons/icon-acorn.svg" alt="" aria-hidden="true" class="ui-icon"> <span data-i18n="appTitle">テクタン</span></div>
         <h2 id="login-title" class="login-title" data-i18n="loginTitleRegister">はじめまして！なまえを つくろう</h2>
@@ -143,23 +146,28 @@
           <p class="home-welcome-title" data-i18n="welcomeHomeTitle">ようこそ、テクタンへ！</p>
           <p class="home-welcome-body" data-i18n="welcomeHomeBody">あそびに きてくれて ありがとう。これから 日本中（にっぽんじゅう）を たんけんして、まだ だれも 見（み）つけていない キャラクターの 第一発見者（だいいちはっけんしゃ）に なってね！</p>
         </div>
+        <figure class="home-showcase">
+          <img src="src/assets/marketing/solution-board.jpg" alt="テクタンのあそびかた" loading="lazy" />
+        </figure>
         <button id="home-start" class="home-entry home-entry-primary" type="button">
           <span class="home-entry-icon"><img src="src/assets/icons/icon-map.svg" alt="" aria-hidden="true"></span>
           <span class="home-entry-label" data-i18n="homeStart">たんけんを はじめる</span>
         </button>
-        <button id="home-history" class="home-entry" type="button">
-          <span class="home-entry-icon"><img src="src/assets/icons/icon-scroll.svg" alt="" aria-hidden="true"></span>
-          <span class="home-entry-label" data-i18n="homeHistory">いままでの たんけんを 思い出す</span>
-        </button>
-        <button id="home-zukan" class="home-entry" type="button">
-          <span class="home-entry-icon"><img src="src/assets/icons/icon-book.svg" alt="" aria-hidden="true"></span>
-          <span class="home-entry-label" data-i18n="homeZukan">ずかんを 見る</span>
-        </button>
-        <button id="home-grow" class="home-entry home-entry-soon" type="button">
-          <span class="home-entry-icon"><img src="src/assets/icons/icon-sprout.svg" alt="" aria-hidden="true"></span>
-          <span class="home-entry-label" data-i18n="homeGrow">育てる（仮）</span>
-          <span class="home-entry-badge" data-i18n="homeGrowBadge">作成中</span>
-        </button>
+        <div class="home-entry-grid">
+          <button id="home-history" class="home-entry home-tile" type="button">
+            <span class="home-entry-icon"><img src="src/assets/icons/icon-scroll.svg" alt="" aria-hidden="true"></span>
+            <span class="home-entry-label" data-i18n="homeHistory">いままでの たんけんを 思い出す</span>
+          </button>
+          <button id="home-zukan" class="home-entry home-tile" type="button">
+            <span class="home-entry-icon"><img src="src/assets/icons/icon-book.svg" alt="" aria-hidden="true"></span>
+            <span class="home-entry-label" data-i18n="homeZukan">ずかんを 見る</span>
+          </button>
+          <button id="home-grow" class="home-entry home-tile home-entry-soon" type="button">
+            <span class="home-entry-icon"><img src="src/assets/icons/icon-sprout.svg" alt="" aria-hidden="true"></span>
+            <span class="home-entry-label" data-i18n="homeGrow">育てる（仮）</span>
+            <span class="home-entry-badge" data-i18n="homeGrowBadge">作成中</span>
+          </button>
+        </div>
         <button id="home-logout" class="home-logout" type="button" data-i18n="btnLogout">ログアウト</button>
         <a class="home-policy" href="policy.html" target="_blank" rel="noopener" data-i18n="homePolicy">利用規約・プライバシー</a>
         <button type="button" id="home-report" class="home-policy home-report-link" data-i18n="homeReport">ふぐあい・おといあわせ</button>

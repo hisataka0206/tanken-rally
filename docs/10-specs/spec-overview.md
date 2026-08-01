@@ -1,422 +1,284 @@
-# たんけんラリー（仮称）
-## システム仕様書 v0.2
-> 作成日: 2026-04-26 / 更新: 2026-04-26（写真アップ仕様・プライバシー設計を追記）
+# [[たんけんラリー]]（テクタン） システム仕様書 v1.2
+
+> 対象実装: APP_VERSION `1.2.0`（src/version.js） / 改訂日: 2026-07-30
+> 本書は **実装準拠**。過去の企画段階仕様（v0.2, 2026-04-26）はサーバ集約型の別構成を想定していたため、現行コードに合わせて全面改訂した。旧仕様との主な乖離は §15 に記す。
+
+子どもが駅を起点に周辺スポットを探検し、写真・音声メモで記録し、[[AR]]で土地の[[キャラクター]]を捕獲、探検の実績に応じて[[AIキャラクター自動生成]]でオリジナルキャラを1体もらえる Web アプリ。成果は「たんけんノート（PDF）」と「[[図鑑]]」に残る。
 
 ---
 
-## 1. システム全体構成
+## 1. システム構成（実際）
+
+ビルドを持たない純バニラ [[JavaScript]] ESモジュール。フロントは [[GitHub Pages]] から静的配信し、外部APIとデータ永続化はすべて [[Google Apps Script]]（[[GAS]]）プロキシ経由で行う。専用のバックエンドサーバ・DBは持たない。
 
 ```
-[プレーヤー端末（スマホ/PC）]
-        │
-        │ HTTPS
-        ▼
-[フロントエンド]
-  - Web アプリ（PWA対応でスマホでも使いやすく）
-        │
-        │ API呼び出し
-        ▼
-[バックエンド API サーバー]
-  ├─ スポット検索モジュール
-  ├─ ルート生成モジュール
-  ├─ PDF生成モジュール
-  ├─ 写真管理モジュール
-  ├─ レポート生成モジュール（AI）
-  └─ スコアリング・ランキングモジュール
-        │
-        ├─ [外部API]
-        │    ├─ Google Maps API（地図・ルート・施設検索）
-        │    ├─ OpenAI API（スポット説明生成・レポート骨格生成・スコアリング）
-        │    └─ 地名・文化財DB（文化庁文化財情報API等）
-        │
-        └─ [データストア]
-             ├─ ユーザーDB（プレーヤー情報・スコア）
-             ├─ 探検記録DB（ルート・訪問履歴）
-             ├─ 写真ストレージ（S3互換）
-             └─ ランキングDB
+[プレーヤー端末（スマホ/PC ブラウザ）]
+   │  ES Modules（src/main.js を <script type="module"> で読込）
+   │  状態 = src/state.js（単一 state オブジェクト）＋ localStorage
+   │
+   ├─ ブラウザ直：Google Maps JS / Geocoding / Places / Directions / Static Maps / Street View
+   │              （GOOGLE_MAPS_API_KEY・HTTPリファラ制限）
+   ├─ ブラウザ直：Wikipedia MediaWiki API（史実フォールバック・CORS可）
+   │
+   └─ HTTPS POST（action名）→ [GAS: gas/Code.gs]  ← APIキーはScript Property・非露出
+          ├─ Drive：写真/生成キャラ画像の保存・取得
+          ├─ Sheets：セッション/ランキング/図鑑/生成キャラ/ユーザー/キャッシュ
+          ├─ OpenAI（gpt-4o-mini / whisper-1）：文章生成・文字起こし
+          └─ Gemini（gemini-3-pro-image=NanoBanana Pro / gemini-2.5-flash+検索）：キャラ画像生成・史実グラウンディング
 ```
+
+設定は `config.js`（`GAS_URL` / `GAS_SECRET` / `GOOGLE_MAPS_API_KEY`）。`GAS_URL` 未設定時は `drive=null` となり、サーバ依存機能（写真アップロード・ランキング・生成キャラのサーバ保存・履歴の端末横断）が自動的にオフになりローカル動作へフォールバックする。キャッシュバスターの `?v=` はデプロイ時に GitHub Actions がコミットSHAへ自動置換する（手動更新不要）。
 
 ---
 
-## 2. 機能一覧
+## 2. 画面と動線
 
-### 2-1. 駅名入力・スポット検索
+`showStep()`（main.js）が切り替えるのは6つの `.step` セクションのみ。それ以外はすべてモーダル（オーバーレイ）。
 
-| 機能ID | 機能名 | 概要 |
+| 種別 | ID | 役割 |
 |---|---|---|
-| F-01 | 駅名入力 | テキスト入力 + サジェスト（全国駅名対応） |
-| F-02 | スポット検索 | 駅周辺の史跡・菓子店・地名由来スポットを検索・取得 |
-| F-03 | 地名由来説明生成 | AIが地名の由来をわかりやすく説明 |
-| F-04 | スポット一覧表示 | カテゴリ別・地図上へのピン表示 |
+| step | step-home | ホーム（3+1入口） |
+| step | step-station | 駅を決める |
+| step | step-spots | 行く場所を選ぶ |
+| step | step-route | ルート確認 |
+| step | step-photos | 撮影ウィザード（駅→各スポット→駅→写真管理） |
+| step | step-report | たんけんノート |
+| modal | login-gate / welcome-modal | 入場（ログイン）と歓迎演出 |
+| modal | resume-ask-modal | 中断セッションの再開確認（つづき／新規／他の探検） |
+| modal | chargen-pick-modal / chargen-modal | キャラ自動生成（すき選択→3体シルエット→登場→命名） |
+| modal | score-modal | スコア発表 |
+| modal | grow-modal | 「育てる」ティーザー（**未実装**の予告） |
+| modal | history-modal / zukan-modal | 探検履歴 / 図鑑 |
+| modal | where-modal / tag-modal / voice-memo-modal | いまどこ？ / 写真タグ付け / 音声メモ |
+| modal | ar-captured-modal | ARキャラ捕獲成功 |
+| modal | admin-modal / test-mode-modal | 管理パネル / テストモード（admin専用） |
+| modal | report-issue-modal | 不具合報告 |
 
-### 2-2. スポット選択・ルート生成
+**動線**：起動 → ログインゲート（未ログインは入れない）→ 新規なら[[スターターキャラ]]付与＋歓迎演出 → ホーム。ホームの「たんけんスタート」で中断セッションがあれば再開確認、無ければ 駅→スポット→ルート→撮影→ノート と進む。撮影ウィザードは「スタート駅 → 各スポット → ゴール駅 → 写真一覧管理」の各ステージ制。ノート画面でスコア発表とキャラ自動生成が起こる。
 
-| 機能ID | 機能名 | 概要 |
-|---|---|---|
-| F-05 | スポット選択 | プレーヤーが訪問スポットをチェックボックスで選択 |
-| F-06 | ルート最適化 | 選択スポットを最短距離で結ぶ徒歩ルートを生成 |
-| F-07 | 地図表示 | ルートを地図上に描画。各スポットに番号付きピン |
-| F-08 | PDF生成 | 地図＋スポット説明をA4 PDF化してダウンロード提供 |
+---
 
-### 2-3. 現地探検・写真管理
+## 3. 機能一覧（実装済み）
 
-| 機能ID | 機能名 | 概要 |
-|---|---|---|
-| F-09 | 探検開始 | 探検セッションを開始（タイムスタンプ記録） |
-| F-10 | 写真撮影・即時アップロード | スマホのカメラを直接起動し、撮影と同時にサーバーへアップロード。EXIF（撮影時刻・GPS）を自動取得 |
-| F-10b | オフライン対応 | 圏外時は端末にキャッシュし、電波が回復次第自動アップロード |
-| F-11 | 訪問自動記録 | 写真のGPS座標がスポットの半径100m以内なら訪問済みとして自動記録。GPS取得不可の場合は手動チェックイン |
-| F-12 | 写真一覧表示 | 撮影した写真を時系列で一覧表示。スポットごとにグループ表示も可 |
-| F-13 | 写真選択 | レポートに使う写真を選択（複数選択可） |
+### 3-1. 駅・スポット検索
+- 都市タブ（東京/名古屋/大阪/神戸/京都/その他）＋路線チップ＋駅チップ、または自由入力。初期選択は名古屋・桜通線。
+- Geocoding で駅→座標、Places の nearbySearch（キーワード別14種）＋textSearch でスポット取得。検索半径 800m。
+- 塾・予備校等の不適切スポットは `blocked.js` で自動除外（学習型）。
+- 地名の由来を OpenAI（GAS経由）で生成表示。
 
-### 2-4. 探検レポート生成
+### 3-2. スポット選択・ルート
+- カテゴリ（史跡/スイーツ/公園自然/玩具/美術博物/科学/駄菓子/その他）でフィルタしチェック選択。
+- 選択が変わるたびルート試算をプレビュー。最近傍法で順序最適化し Directions で徒歩ルート描画。逆順ボタンあり。
 
-| 機能ID | 機能名 | 概要 |
-|---|---|---|
-| F-14 | レポート骨格生成 | 写真・時刻・移動データからAIがレポート構成を自動作成 |
-| F-15 | コメント入力 | 各写真・スポットへのコメントをプレーヤーが記入 |
-| F-16 | レポートプレビュー | 完成イメージをリアルタイムでプレビュー |
-| F-17 | レポートPDF出力 | 完成レポートをPDFで出力・保存・シェア |
+### 3-3. 撮影ウィザード・写真管理
+- ステージごとに Static Map / Street View の静止画と現在地オーバーレイを提示。
+- 「写真を撮る」で通常カメラ or AR捕獲へ。EXIF（撮影時刻・GPS）を exifr で抽出。写真は Drive にアップロード（サムネイル/フル解像度を都度取得）。
+- 写真ごとに「いまどこ？」位置タグ・カテゴリタグ・音声メモを付与可能。
 
-### 2-5. スコアリング・ランキング
+### 3-4. たんけんノート（レポート）・PDF
+- 写真・コメント・概要・あとがきを編集。音声メモは OpenAI で整形（元メモを保持しやり直し可）。
+- jsPDF でA4ノートPDFを生成（1ページ目4枚・以降6枚）。
 
-| 機能ID | 機能名 | 概要 |
-|---|---|---|
-| F-18 | スコア算出 | 訪問率・移動距離・写真・レポートを総合評価 |
-| F-19 | ランキング登録 | スコアをプレーヤー名と共に公開ランキングに登録 |
-| F-20 | ランキング閲覧 | 駅別・全国・週間ランキングの閲覧 |
+### 3-5. スコア・ランキング
+- 探検実績からスコアを算出し発表（§10）。ランキングは地域・駅単位で Sheets に送信/取得（日本語版のみ）。
 
-### 2-6. ユーザー管理・プライバシー設計
+### 3-6. ARキャラ捕獲
+- カメラ＋GPS＋コンパスで、半径50m・方位±30°以内に土地キャラが出現。合成写真で捕獲し図鑑に記録。
+- スタート駅キャラ（lookie/colorey）、ゴール駅レア出現（確率0.25）等の演出制御あり。手描きキャラは6段バリアント（normal/mini/jumbo/shiny/gold/rainbow）を重み抽選。
 
-> **設計方針：LEGO Life に準拠した子ども向けコミュニティ設計**
-> LEGO Life は13歳未満でも安全に使える子ども向け SNS として COPPA 準拠。実名・顔写真・位置情報を公開せず、ニックネームとアバターのみで参加できる設計が参考になる。
+### 3-7. 図鑑・履歴
+- 図鑑：捕獲キャラ＋自動生成キャラを一覧・詳細表示（画像は遅延ロード）。
+- 履歴：過去セッションを一覧、再開・削除。
 
-| 機能ID | 機能名 | 概要 |
-|---|---|---|
-| F-21 | プレーヤー登録 | ニックネーム（表示名）+ 保護者メールアドレス。13歳未満は保護者の同意メール必須 |
-| F-21b | アバター選択 | プリセットのキャラクターアバターから選択（実写プロフィール写真は不可） |
-| F-22 | 探検履歴 | 過去の探検記録・レポート・スコアを一覧で確認（本人のみ閲覧） |
-| F-23 | プロフィール（公開） | **公開情報はニックネーム・アバター・累計スコア・訪問駅数のみ**。年齢・本名・メール等は非公開 |
+### 3-8. AIキャラクター自動生成
+- 探検実績が条件を満たすと、オリジナルキャラを3体生成し1体選んで図鑑に登録（§4）。
 
-#### 公開・非公開の明示ルール（LEGO Life 準拠）
+---
 
-| 情報 | 公開範囲 | 備考 |
-|---|---|---|
-| ニックネーム | 全体公開 | 実名禁止。登録時にシステムが実名っぽい文字列を警告 |
-| アバター | 全体公開 | プリセットのみ。実写画像は使用不可 |
-| スコア | 全体公開 | ランキングに表示 |
-| 訪問駅・訪問数 | 全体公開 | |
-| 探検レポート | **デフォルト非公開**。プレーヤーが明示的に公開設定した場合のみ公開 | |
-| 写真 | **デフォルト非公開**。公開レポートに含まれる場合のみ公開 | |
-| GPS・位置情報 | **非公開**（システム内部でのみ使用） | 外部には一切出さない |
-| メールアドレス | 非公開 | |
-| 年齢・生年月日 | 非公開 | |
+## 4. AIキャラクター自動生成システム
 
-#### コメント・テキスト入力の安全設計
+キャラは **モチーフ × フォルム × フィーチャー** の三層で組み立てる（src/data/archetypes.js・vocab.js・utils/chargen.js）。
 
-| 項目 | 設計 |
+- **フォルム** `AXIS_BODY`（14種：round/quadruped/upright/squat/bird/bigwing/critter/eared/tailed/dragon/serpent/aqua/bug/multilimb）
+- **フィーチャー** `AXIS_FEATURE`（14種：耳・尻尾・角・翼・ヒレ等、相性フォルムを持つ）
+- **モチーフ→原型** `MOTIF_ARCHETYPE`：`archetypeForMotif(motif)` がモチーフから `[フォルム, 特徴]` を導出。非動物モチーフは中立フォルムへ逃がし特徴なし。装飾はフォルムから導出（`decorationForBody`）。
+- **語彙DB** vocab.js：6論点（type/motif/texture/expression/decoration/atmosphere）を「被りやすい(app_auto)」と「個性(user_selectable)」に分けて保持。
+
+### 4-1. レア度（生成キャラ）
+`RARITY_TIERS`＝ common(0km/☆1) / rare(1.5km/☆2) / epic(3km/☆3) / legend(5km/☆4)。`rarityForDistance(km)` で距離→ティア、`bumpRarity()` で1段引き上げ（legend上限）。
+※これは生成キャラのレア度。手描きARキャラの6段バリアントとは**別系統**。
+
+### 4-2. 生成ゲート（`evaluateEligibility`）
+実行スコア `execScore ≥ 250`、写真付きスポット `≥ 2`、距離 `≥ 0.3km`、かつ「GPS2点以上 または 写真スポット3以上」を全て満たすと生成可能。距離に応じたレア度を返す。
+
+### 4-3. 3体保証と生成
+`startGeneration()` が語彙・フォルム・特徴を変えた3体を並行生成（プロンプト→GAS `generateCharacters`（NanoBanana Pro）→背景透過化 `cutoutBackground` で検証）。最大3ラウンドで欠けたスロットのみ再生成し、それでも足りなければ既存絵の色替えモックで必ず3体に埋める。命名候補は駅名カナ×モチーフ×レア度語尾で4件提示。
+
+### 4-4. レア度の上書き優先順位（main.js `maybeStartCharGen`）
+1. [[早期特典]]（`EARLY_BIRD_ACTIVE`）→ **epic 確定**（ゲート免除・最優先）
+2. 「いまどこ？」未使用 → `bumpRarity` で1段UP（自力ボーナス）
+3. それ以外 → 距離ベース
+
+---
+
+## 5. データモデル（実際）
+
+サーバ側DBは持たず、**localStorage ＋ Google Sheets/Drive** で永続化する。
+
+### 5-1. 実行時状態 `state`（src/state.js）
+駅・座標・都市、スポット/選択/表示カテゴリ、ルート順・Directions・統計・地図、セッションID・Driveフォルダ・アップロード写真・選択写真、AR捕獲配列（`{characterId,variantId,spotName,photoFileId,capturedAt,lat,lng}`）、レポート（date/author/overview/afterword/photoComments/photoCommentsRaw/excludedPhotoIds）。
+
+### 5-2. localStorage キー
+| キー | 内容 |
 |---|---|
-| 使用可能文字 | 日本語・英数字・絵文字のみ |
-| NGワードフィルター | 暴言・個人情報（電話番号・住所等のパターン）を自動検出・ブロック |
-| AIモデレーション | レポートのコメントはAIが不適切表現を確認してから公開 |
-| ダイレクトメッセージ | **実装しない**（LEGO Life と同方針） |
-| コメント欄 | **実装しない**（ランキングへのリアクションはスタンプのみ） |
+| `tanken_collection_v1__<explorerId>` | 図鑑（`{ [key]: {count, firstAt, lastAt} }`） |
+| `tanken_generated_v1__<explorerId>` | 自動生成キャラ |
+| `tanken_explorer_id` / `tanken_auth` / `tanken_local_users` | 端末ID / ログイン情報 / ローカルユーザー |
+| `tekutan_active_session_<id>` | 中断中セッション |
+| `tekutan_earlybird_used_<explorerId>` | 早期特典の使用済みフラグ（1アカウント1回） |
+| `tanken_admin_override` / `tanken-rally:blocked-spots:v1` / `tanken-rally:issue-reports:v1` | 管理上書き / 除外スポット学習 / 不具合ローカル控え |
+
+`explorerId` は、ログイン時は userId、未ログイン時は端末ID。ログイン初回に無記名図鑑を引き継ぐ。
+
+### 5-3. Sheets タブ（GAS）
+`セッション`（日時/sessionId/駅名/プレーヤー名/フォルダURL/スポット数/詳細JSON/距離/推定時間/userId/写真枚数）、`ランキング`（地域/駅/名前/スコア/訪問数/距離/写真数/文字数）、`captures`（explorerId別 図鑑集計）、`generated`（生成キャラ台帳）、`users`（なまえ+PINハッシュ）、`ground_guard`（グラウンディング月次呼数上限）、スポット検索キャッシュ、不具合報告。
 
 ---
 
-## 3. 画面設計（ページ一覧）
+## 6. GAS API（action 一覧）
 
-| ページ | パス | 概要 |
+`gas/Code.gs` の `doPost` が action 名でディスパッチ。フロントは `src/utils/drive.js` の `DriveClient` から呼ぶ（自動リトライあり）。
+
+セッション：`createSession / resumeSession / saveSession / updateSessionPhotoCount / deleteSession / loadSession`
+レポート：`saveReportData / loadReportData`
+写真：`uploadPhoto / listPhotos / getPhotoData / getPhotoThumbnail / updatePhotoTag`
+不具合：`saveIssueReport / submitIssueReport`
+スコア：`saveRanking / getRanking`
+図鑑：`saveCaptures / getCaptures`
+ユーザー：`registerUser / loginUser / getUserHistory`
+キャッシュ：`getSpotsCache / saveSpotsCache`
+生成キャラ：`generateCharacters / saveGeneratedCharacter / getGeneratedCharacters / getGeneratedImage`
+AI：`geminiGroundSpot / openaiChat / openaiTranscribe`
+
+---
+
+## 7. 外部API
+
+| API | 用途 | 経路 |
 |---|---|---|
-| トップ / 駅入力 | `/` | 駅名入力フォーム・最近の探検・ランキングへのリンク |
-| スポット選択 | `/explore/:stationId` | スポット一覧（地図＋リスト）・選択UI |
-| マップ確認 / PDF | `/route/:sessionId` | 最適ルート地図表示・PDF生成ボタン |
-| 探検中 | `/adventure/:sessionId` | 写真アップ・訪問チェックイン・進捗表示 |
-| 写真選択 | `/photos/:sessionId` | 撮影写真一覧・レポート用写真セレクト |
-| レポート作成 | `/report/:sessionId` | コメント入力・プレビュー・PDF出力 |
-| スコア / ランキング | `/score/:sessionId` | スコア結果・ランキング順位・シェアボタン |
-| ランキング一覧 | `/ranking` | 駅別・全国・週間ランキング |
-| マイページ | `/mypage` | 探検履歴・プロフィール |
+| Google Maps JS（places, geometry） | 地図描画・Places | ブラウザ直 |
+| Geocoding | 駅名→座標 | ブラウザ直 |
+| Places（nearby/text/details/opening_hours/editorial） | スポット検索・営業時間 | ブラウザ直＋GASキャッシュ |
+| Directions | ルート | ブラウザ直 |
+| Static Maps / Street View | ステージ静止画・史跡ヒント | 画像URL直 |
+| OpenAI gpt-4o-mini | 地名由来・物語・キャラ説明融合・メモ整形 | GAS `openaiChat` |
+| OpenAI whisper-1 | 音声メモ文字起こし | GAS `openaiTranscribe` |
+| Gemini gemini-3-pro-image（NanoBanana Pro） | キャラ3体生成 | GAS `generateCharacters`（月額上限ロジック） |
+| Gemini gemini-2.5-flash＋Google検索 | スポット史実の出典つき取得 | GAS `geminiGroundSpot`（月4500回上限） |
+| Wikipedia MediaWiki | 史実フォールバック | ブラウザ直（CORS可） |
+
+OpenAI/Gemini のキーは GAS の Script Property に置きブラウザへ露出しない。Maps系のみブラウザ直（HTTPリファラ制限で保護）。
 
 ---
 
-## 4. データモデル
+## 8. スコアリング（実際の式）
 
-### 4-1. User（ユーザー）
+`calculateScore()`（main.js）は加点式の生スコアを内部計算し、**計画点＋実行点**の2系統で表示する。旧仕様の「訪問30/距離10/写真10/写真質20/レポート30」とは一致しない（AIによる写真・レポートの質採点は現状**未使用**）。
 
-```
-User {
-  id: UUID
-  nickname: String         // 公開ニックネーム
-  email: String            // 非公開
-  avatar_url: String?
-  total_score: Int         // 累計スコア
-  visited_stations: Int    // 訪問駅数
-  created_at: DateTime
-}
-```
+内部内訳：
+- visit＝訪問スポット数×100、distance＝round(距離km×30)
+- photo＝写真枚数×10、tagged＝タグ付き写真×5
+- cmtNum＝写真コメント数×20、cmtChar＝min(総コメント文字数, 500)
+- within60＝総経過時間≤60分で200、pace＝Google推定移動時間との比で200/100/50
+- capture＝捕獲数×40＋ユニーク種×40＋レア捕獲150
 
-### 4-2. Adventure（探検セッション）
+表示：
+- **計画点** = visit + distance を0〜100正規化（ルート密度＝スポット数×滞在10分＋移動で満点ハードルを動的化）
+- **実行点** = photo+tagged+cmtNum+cmtChar+within60+pace+capture（生）
+- **ランキング/表示スコア** = 計画点(0-100) ＋ 実行点
 
-```
-Adventure {
-  id: UUID
-  user_id: UUID
-  station_name: String     // 駅名
-  station_code: String     // 駅コード
-  selected_spots: Spot[]   // 選択したスポット
-  route_data: JSON         // ルート情報（座標リスト）
-  total_distance_m: Int    // 移動距離（メートル）
-  started_at: DateTime
-  completed_at: DateTime?
-  score: Int?
-  status: Enum(planning, in_progress, completed)
-}
-```
-
-### 4-3. Spot（スポット）
-
-```
-Spot {
-  id: UUID
-  adventure_id: UUID
-  name: String
-  category: Enum(historic, sweets, origin, nature, other)
-  address: String
-  lat: Float
-  lng: Float
-  description: String      // AI生成の説明文
-  origin_story: String?    // 地名由来の場合のストーリー
-  visited_at: DateTime?    // 訪問時刻
-  order_in_route: Int      // ルート上の順番
-}
-```
-
-### 4-4. Photo（写真）
-
-```
-Photo {
-  id: UUID
-  adventure_id: UUID
-  user_id: UUID
-  url: String              // ストレージURL
-  taken_at: DateTime       // 撮影時刻（EXIFから取得）
-  lat: Float?              // GPS座標
-  lng: Float?
-  spot_id: UUID?           // 紐づくスポット
-  is_selected: Boolean     // レポートに使用するか
-  ai_quality_score: Float? // AI評価スコア（0.0〜1.0）
-}
-```
-
-### 4-5. Report（探検レポート）
-
-```
-Report {
-  id: UUID
-  adventure_id: UUID
-  user_id: UUID
-  title: String
-  photo_comments: JSON     // { photo_id: String, comment: String }[]
-  spot_comments: JSON      // { spot_id: String, comment: String }[]
-  closing_message: String
-  pdf_url: String?         // 生成されたPDFのURL
-  word_count: Int
-  created_at: DateTime
-}
-```
-
-### 4-6. Score（スコア）
-
-```
-Score {
-  id: UUID
-  adventure_id: UUID
-  user_id: UUID
-  station_name: String
-  visit_completion_rate: Float  // 訪問完了率（0.0〜1.0）
-  distance_bonus: Int
-  photo_count_score: Int
-  photo_quality_score: Int
-  report_quality_score: Int
-  total_score: Int
-  rank_station: Int?            // 駅別順位
-  rank_global: Int?             // 全国順位
-  created_at: DateTime
-}
-```
+「いまどこ？」の使用は減点しない。代わりに未使用だと生成キャラのレア度が1段上がる。`buildScoreAdvice()` が弱点を1つ提示。滞在/移動時間はEXIF撮影時刻を優先して算出。
 
 ---
 
-## 5. API設計（主要エンドポイント）
+## 9. 認証（簡易）
 
-### スポット検索
-
-```
-GET /api/spots?station={駅名}&lat={緯度}&lng={経度}
-Response: {
-  station: { name, lat, lng },
-  origin_story: String,
-  spots: Spot[]
-}
-```
-
-### ルート生成
-
-```
-POST /api/route
-Body: { spot_ids: UUID[] }
-Response: {
-  route: { polyline, total_distance_m, estimated_minutes },
-  ordered_spots: Spot[]
-}
-```
-
-### PDF生成（マップ）
-
-```
-POST /api/pdf/map
-Body: { adventure_id: UUID }
-Response: { pdf_url: String }
-```
-
-### 写真アップロード
-
-```
-POST /api/photos
-Body: FormData { file, adventure_id, spot_id? }
-Response: Photo
-```
-
-### レポート骨格生成
-
-```
-POST /api/report/generate
-Body: { adventure_id: UUID, selected_photo_ids: UUID[] }
-Response: {
-  title_suggestion: String,
-  photo_captions: { photo_id: UUID, caption: String }[],
-  spot_summaries: { spot_id: UUID, summary: String }[]
-}
-```
-
-### PDF生成（レポート）
-
-```
-POST /api/pdf/report
-Body: { report_id: UUID }
-Response: { pdf_url: String }
-```
-
-### スコア算出
-
-```
-POST /api/score
-Body: { adventure_id: UUID, report_id: UUID }
-Response: Score
-```
-
-### ランキング取得
-
-```
-GET /api/ranking?type={station|global|weekly}&station={駅名}
-Response: { rankings: { rank, nickname, score, station, date }[] }
-```
+起動時にログインゲートがあり、未ログインでは利用できない（`isLoggedIn()`）。ただし本格認証ではなく「図鑑を守るひみつのことば」程度の位置づけ。方式は **なまえ ＋ あいことば（6字以上）**で、PINは SHA-256 ハッシュ化して送信（平文非送信）。サーバは GAS `registerUser/loginUser`（`users` タブ・試行回数制限）。`GAS_URL` 未設定や旧GAS時は localStorage `tanken_local_users` にフォールバック。ログイン統合フロー（`onLoginSubmit`）は login→失敗時 register を自動試行し、新規なら[[スターターキャラ]]付与＋歓迎演出。名前 `hisatakaadmin` は admin（生成ゲート免除・図鑑全開放等のテスト用、非adminには無効）。
 
 ---
 
-## 6. スコアリングロジック詳細
+## 10. 多言語・機能フラグ
 
-### 6-1. 訪問完了率（最大30点）
-```
-score = (訪問済みスポット数 / 選択スポット数) × 30
-```
+`src/utils/i18n.js` に **ja / en / elementary（小学生向け・ふりがな）** の3辞書。`?lang=` で切替、既定 ja。`applyI18n()` が `data-i18n` を一括置換。elementary は「漢字（かな）」表記を `<ruby>` ルビへ自動変換（MutationObserver で動的テキストも網羅）し、移動時間を×1.5表示。
 
-### 6-2. 移動距離ボーナス（最大10点）
-```
-score = min(総移動距離km × 2, 10)
-例: 3km歩いたら6点、5km以上で満点10点
-```
+動作差分（数値・ON/OFF）は `src/config-features.js` に集約：
+- 日本語/elementary：スコア・ランキング・撮影ウィザード・AR すべてON、検索半径800m。
+- **英語版：スコア・ランキング・スコアアドバイスはOFF**（撮影・ARはON）。
 
-### 6-3. 写真枚数（最大10点）
-```
-score = min(写真枚数 × 1, 10)
-10枚以上で満点
-```
-
-### 6-4. 写真の質（最大20点）
-```
-AIが評価（OpenAI Vision API）
-- 構図の良さ（0〜5点）
-- 明るさ・ピントの適切さ（0〜5点）
-- スポットとの関連性（0〜5点）
-- 独自性・面白さ（0〜5点）
-選択した写真の平均 × 4点 で計算
-```
-
-### 6-5. レポートの質（最大30点）
-```
-AIが評価（OpenAI API）
-- 文字数（100字以上で5点、300字以上で10点）
-- コメントの充実度（各スポットにコメントあり: +3点/スポット、最大15点）
-- オリジナリティ（AI評価: 0〜5点）
-```
+設計方針＝文字列差分は i18n、動作差分は config-features、見た目差分は `body.lang-XX`＋CSS。
 
 ---
 
-## 7. 技術スタック（案）
+## 11. ローンチ・キャンペーン（`src/config-campaign.js`）
 
-| レイヤー | 技術 | 理由 |
+- `STARTER_CHARACTER_ID='lookie'`：新規登録で図鑑にノーマル付与（冪等）。
+- `EARLY_BIRD_ACTIVE=true` / `EARLY_BIRD_RARITY_ID='epic'`：100アカウント到達までの特典。初回探検完了で生成ゲートを免除し、必ずエピックを1回もらえる。到達時に手動で false 化して再デプロイ。
+
+---
+
+## 12. 非機能・プライバシー
+
+- 対応：iOS Safari / Android Chrome。PDFはダウンロード後オフライン閲覧可。
+- APIキー保護：OpenAI/Gemini は GAS プロキシで非露出。Maps はHTTPリファラ制限。
+- 位置情報・GPSはシステム内部利用のみ（ランキング公開値は地域・駅・名前・スコア等に限定）。
+- 不適切スポット除外（blocked.js）。不具合報告は report-issue から GAS 経由で Drive/Sheet に記録。
+- 音声・写真は Drive に保存。セッションはGAS側の自動削除トリガー（既定7日）で古いものをゴミ箱へ。
+
+---
+
+## 13. 主要モジュール対応表
+
+| 領域 | フロント | GAS action |
 |---|---|---|
-| フロントエンド | Next.js (React) + TypeScript | PWA対応・SEOしやすい |
-| スタイリング | Tailwind CSS | 開発速度 |
-| 地図 | Google Maps JavaScript API | ルート・施設検索との統合 |
-| バックエンド | Node.js (Fastify) + TypeScript | 軽量・型安全 |
-| DB | PostgreSQL（+ PostGIS） | 位置情報クエリ対応 |
-| 写真ストレージ | AWS S3 or Cloudflare R2 | コスト・スケーラビリティ |
-| AI | OpenAI API (GPT-4o + Vision) | 説明生成・レポート生成・採点 |
-| PDF生成 | Puppeteer or @react-pdf/renderer | 柔軟なレイアウト |
-| 認証 | Supabase Auth or Auth.js | 実装コスト削減 |
-| デプロイ | Vercel (Front) + Railway / Fly.io (API) | 小規模でのコスト効率 |
+| 地図・検索 | utils/maps.js | getSpotsCache/saveSpotsCache |
+| AI文章 | utils/ai.js | openaiChat/openaiTranscribe |
+| キャラ生成 | utils/chargen.js, data/vocab.js, data/archetypes.js | generateCharacters/saveGeneratedCharacter/geminiGroundSpot |
+| 手描きAR | utils/characters.js, utils/ar.js | saveCaptures/getCaptures, uploadPhoto |
+| 図鑑 | utils/collection.js | getCaptures/saveCaptures |
+| PDF | utils/pdf.js | getPhotoData |
+| 永続化 | utils/drive.js | （全action） |
+| 認証 | utils/auth.js | registerUser/loginUser |
+| UIシェル・ガイド | utils/shell.js, utils/guides.js | — |
+| 画像処理 | utils/imagefx.js | — |
+| 音声 | utils/voice.js | openaiTranscribe |
 
 ---
 
-## 8. 非機能要件
+## 14. 未実装・注意点
 
-| 項目 | 要件 |
-|---|---|
-| レスポンスタイム | スポット検索: 3秒以内、ルート生成: 5秒以内 |
-| スマホ対応 | iOS Safari / Android Chrome で動作すること |
-| オフライン対応 | PDFをダウンロード後は圏外でも地図を閲覧できること |
-| 個人情報 | LEGO Life 準拠。ニックネーム＋保護者メールのみ収集。13歳未満は保護者同意必須（COPPA対応） |
-| 写真の権利 | アップロードした写真の権利はユーザーに帰属。公開レポートへの掲載は明示的同意制 |
-| 写真モデレーション | アップロード時にAIで不適切画像（顔写真・個人を特定できる画像）を検出し警告 |
-| ダイレクト通信 | ユーザー間のDM・コメント機能は実装しない（LEGO Life 方針に準拠） |
-| 言語 | 日本語のみ（v1）。英語対応は v2 以降 |
+- **「育てる」機能は未実装**（home-grow は予告ティーザーのみ）。
+- 写真・レポートの **AI質採点はスコアに未使用**（旧仕様の想定のみ残存）。
+- `issues.js` のサーバ送信は未実装（ローカル控え。現行報告UIは GAS 側）。
+- 生成キャラのレア度（4段）と手描きARキャラのバリアント（6段）は別系統。混同しないこと。
+- `src/utils/maps.js.bak`、`src/assets/characters/others/`、`metadataのコピー.json` 等は使用外の残骸。
 
 ---
 
-## 9. 開発フェーズ案
+## 15. 旧仕様（v0.2, 2026-04-26）からの主な乖離
 
-| フェーズ | 内容 | 目安期間 |
+| 項目 | 旧仕様 v0.2 | 現行実装 v1.2 |
 |---|---|---|
-| **Phase 1（MVP）** | 駅入力→スポット表示→ルート生成→PDF出力 | 1〜2ヶ月 |
-| **Phase 2** | 写真アップ→レポート生成→スコア算出 | 1〜2ヶ月 |
-| **Phase 3** | ランキング・ユーザー登録・公開機能 | 1ヶ月 |
-| **Phase 4** | AI評価精度向上・UI磨き込み・自治体連携 | 継続 |
+| アーキテクチャ | Next.js + Node(Fastify) + PostgreSQL/PostGIS + S3 | バニラJS静的（GitHub Pages）＋ GAS/Drive/Sheets |
+| バックエンドAPI | 独自REST（/api/spots 等） | GASの action ディスパッチ |
+| 認証 | Supabase Auth、保護者メール・COPPA同意 | なまえ＋あいことばの簡易ログイン（メール収集なし） |
+| データモデル | User/Adventure/Spot/Photo/Report/Score の正規化DB | state＋localStorage＋Sheetsタブ |
+| キャラ自動生成 | 記載なし | 中核機能（三層構成・レア度・3体保証・Gemini画像） |
+| 図鑑・AR捕獲 | 記載なし | 実装済み（手描きキャラ・バリアント・GPS/コンパス出現） |
+| スコア | 訪問30/距離10/写真10/写真質20/レポート30・AI採点 | 計画点＋実行点の加点式（AI質採点は未使用） |
+| ランキングの公開設計 | LEGO Life準拠の詳細な公開/非公開ルール | 地域・駅単位の簡易ランキング（日本語版のみ） |
+| 多言語 | 日本語のみ（v1） | ja/en/elementary の3系統＋機能フラグ差別化 |
+| キャンペーン | 記載なし | スターターキャラ・早期特典（エピック確定） |
 
 ---
 
-## 10. 未決定事項・今後の検討事項
-
-- [ ] アプリ名の決定
-- [ ] キャラクターデザイン（たんけん博士）
-- [ ] スポット検索の精度担保（地名由来DBの選定）
-- [ ] 写真アップロードの容量制限・モデレーション方針（未成年保護）
-- [ ] スコアリングのAI評価基準の詳細定義
-- [ ] ランキングの不正防止設計（同一スポットの何度も訪問等）
-- [ ] Google Maps API の費用試算
-
----
-
-*v0.1 — 初稿。企画書と合わせて随時更新*
+*本書は現行コードから起こした実装準拠仕様。機能追加時は本書と `docs/20-plans/dev-log.md`・`docs/40-tests/test-spec.md` を併せて更新すること。*

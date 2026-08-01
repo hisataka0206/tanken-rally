@@ -258,7 +258,7 @@
 
 ## 13. ブランドキット（AI・編集に渡す共通仕様）
 
-- **アプリ公開URL**: `__要記入（NetlifyサイトURL）__` ← 画面録画(SC)とQRコードの元
+- **アプリ公開URL**: `https://live--tekutan.netlify.app`（案B改の公開版=liveブランチデプロイ。※稼働確認後に確定。詳細 `docs/20-plans/deploy-operations.md`）← 画面録画(SC)とQRコードの元
 - **ロゴ/マーク**: ワードマーク「テクタン」（フォント Mochiy Pop P One）／シンボル＝どんぐりアイコン `src/assets/icons/icon-acorn.svg`
 - **QRコード**: 上記公開URLから生成（未作成・要生成）
 - **フォント（すべて Google Fonts・無料）**:

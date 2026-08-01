@@ -133,35 +133,22 @@ GAS が提供する API（POST `action`）：
 - [ ] 探検レポート生成（次フェーズ）
 - [ ] スコアリング / ランキング（次フェーズ）
 
-## [[GitHub Pages]] への自動デプロイ
+## デプロイ（本番公開）
 
-main ブランチに push すると `.github/workflows/deploy.yml` が走って公開されます。
+本番公開は **[[Netlify]] のブランチデプロイ**で運用する（案B改）。設計・切替手順の詳細は `docs/20-plans/deploy-operations.md`。
 
-### 1. リポジトリ設定（初回のみ）
+| 用途 | ブランチ | URL | コスト |
+|---|---|---|---|
+| 公開版 | `live` | `https://live--tekutan.netlify.app` | ブランチデプロイ＝**無料・更新無制限** |
+| テスト | `beta` | `https://beta--tekutan.netlify.app` | 同上（無料） |
+| （production branch） | `main` | `tekutan.netlify.app`（使わない） | **1デプロイ=15クレジット**のため**凍結**（触らない） |
 
-1. GitHub リポジトリの **Settings → Pages**
-2. "Source" を **GitHub Actions** に切り替え
+- **開発は `beta`、公開は `live`**。`beta` で確認 → `live` に merge → 公開更新。`main` には push しない。
+- ビルドは `netlify.toml`（command=`bash netlify-build.sh` / publish=`dist`）。**環境変数**（Netlify: Site settings → Environment variables）に `GOOGLE_MAPS_API_KEY` / `GAS_URL` / `GAS_SECRET` を登録。ビルド時に `config.js` を生成し（git 非コミット）、`?v=` はコミットSHAへ自動スタンプ。
+- **OpenAI / Gemini キーはクライアントに出さない**（GAS の Script Property に保持）。
+- **Google Maps キーの HTTPリファラー**に `https://live--tekutan.netlify.app/*` と `https://beta--tekutan.netlify.app/*` を追加（未設定だと地図が真っ白）。
 
-### 2. Secrets 登録（初回のみ）
-
-**Settings → Secrets and variables → Actions → New repository secret** で以下4つを登録：
-
-| Secret 名 | 内容 |
-|---|---|
-| `GOOGLE_MAPS_API_KEY` | Google Cloud Console で発行した Maps JS / Places / Directions / Geocoding / Maps Static API キー |
-| `OPENAI_API_KEY` | OpenAI の API キー（未設定なら空文字でも可。地名由来生成は失敗してスキップされる） |
-| `GAS_URL` | GAS デプロイURL（未設定なら空文字。写真アップロードはローカル保存にフォールバック） |
-| `GAS_SECRET` | GAS の `SHARED_SECRET` と同じ値 |
-
-ワークフローはこれらを使って `config.js` をデプロイ時に生成します。`config.js` 自体は git にコミットしません（`.gitignore` 済み）。
-
-### 3. デプロイ
-
-```bash
-git push origin main
-```
-
-数分後に `https://<ユーザー名>.github.io/tanken-rally/` で公開されます（プロジェクト名がリポジトリ名）。
+> 旧: GitHub Pages（`.github/workflows/deploy.yml`）は**廃止予定**。repo を private 化すると無料の Pages 公開は不可のため、Netlify に一本化する。
 
 ### [[キャッシュバスター]]は自動（手動で `?v=` を上げる必要なし）
 
@@ -172,13 +159,14 @@ git push origin main
 
 ### 🔒 API キー漏洩対策（必読）
 
-**GitHub Pages は静的ホスティングなので、デプロイ後の `config.js` はブラウザから誰でも読めます。** 必ず以下の制限をかけてください：
+**Netlify も静的ホスティングなので、デプロイ後の `config.js` はブラウザから誰でも読めます。** 必ず以下の制限をかけてください：
 
 #### Google Maps API キー
 [Google Cloud Console](https://console.cloud.google.com/apis/credentials) でキーを開き、**アプリケーションの制限**を設定：
 
 - **HTTPリファラー** で許可するドメインを限定:
-  - `https://<ユーザー名>.github.io/tanken-rally/*`
+  - `https://live--tekutan.netlify.app/*`（公開版）
+  - `https://beta--tekutan.netlify.app/*`（テスト）
   - `http://localhost:8080/*`（ローカル開発用）
 - **APIの制限** で必要な API のみ許可（Maps JavaScript API / Places API / Directions API / Geocoding API / Maps Static API）
 

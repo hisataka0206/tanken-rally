@@ -11,6 +11,8 @@
 | public-release-plan.md | 一般公開計画 |
 | cm-howto-storyboard.md | CM 絵コンテの作り方 |
 | cm-video-storyline.md | CM 動画のストーリーライン |
+| yonkoma-manga-storyboard.md | [[4コマ漫画]]絵コンテ（ペイン→変わる世界観） |
+| yonkoma-solution-storyboard.md | [[4コマ漫画]]絵コンテ（テクタンのソリューション） |
 
 ## 10-specs — 仕様・設計
 

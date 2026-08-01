@@ -3718,3 +3718,43 @@ body.lang-elementary { line-height: 1.85; }
   border: 1px solid #e5dcc8; border-radius: 8px; background: #fff; color: #5c554a;
 }
 .gen-sort-rev:hover { background: #f4efe3; }
+
+/* ===== [[4コマショーケース]]＋[[タイル型ホーム入口]]（2026-08-01） ===== */
+/* ログイン画面: ペイン版4コマ（テキストなし）をショーケース表示。広い画面は横並び、狭い画面は上下。 */
+.login-gate { flex-wrap: wrap; gap: 22px; align-content: center; }
+.login-showcase { margin: 0; width: min(520px, 100%); }
+.login-showcase img {
+  width: 100%; height: auto; display: block;
+  border-radius: 18px; border: 2px solid #EDE6D6;
+  box-shadow: 0 8px 26px rgba(0,0,0,.14);
+}
+
+/* トップ画面: ソリューション版4コマ（テキストなし）をヒーロー表示 */
+.home-showcase { margin: 2px 0 4px; }
+.home-showcase img {
+  width: 100%; height: auto; display: block;
+  border-radius: 18px; border: 2px solid #EDE6D6;
+  box-shadow: 0 6px 20px rgba(0,0,0,.10);
+}
+
+/* 入口ボタン: 主ボタンは横幅大のまま、残り3つはタイル（アイコン上・ラベル下）を横グリッド */
+.home-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.home-tile {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 16px 10px;
+  position: relative;
+  box-shadow: 0 3px 0 rgba(15,122,77,0.12);
+}
+.home-tile .home-entry-icon img { width: 30px; height: 30px; }
+.home-tile .home-entry-label { font-size: 12.5px; font-weight: 700; line-height: 1.28; }
+.home-tile .home-entry-badge {
+  position: absolute; top: 8px; right: 8px;
+  margin: 0; font-size: 10px; padding: 2px 7px;
+}

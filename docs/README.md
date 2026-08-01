@@ -42,6 +42,7 @@
 | ファイル | 内容 |
 |---|---|
 | pokemon-character-design-analysis.md | ポケモンのキャラデザ分析 |
+| reference-sugimori-ken-design-philosophy.md | [[杉森建]]のデザイン哲学（外部インタビュー等の調査メモ・参照用） |
 | character-taxonomy/ | キャラ分類（語彙DB・5軸分析） |
 | pdf-map-performance-postmortem.md | 地図PDF性能の[[ポストモーテム]] |
 | char-lab-howto.md | char-lab ツールの使い方 |

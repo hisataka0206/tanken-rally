@@ -5559,6 +5559,7 @@ function showLoginError(code) {
     'login-mismatch': 'loginErrMismatch',
     'too-many-attempts':'loginErrTooMany',
     'network':        'loginErrNetwork',
+    'app-error':      'loginErrGeneric',
   };
   const el = $('login-error');
   el.textContent = t(map[code] || 'loginErrNetwork');
@@ -5618,31 +5619,51 @@ async function onLoginSubmit() {
   try {
     // 1) まずログイン
     let res = await loginAccount(name, pin, drive);
-    if (!res.ok && res.error === 'too-many-attempts') {
-      // レート制限中は新規作成を試さず即エラー（アカウント有無も漏らさない）
-      return fail('too-many-attempts');
-    }
+
     if (!res.ok) {
-      // 2) 失敗 → 新規作成を試す
-      const reg = await registerAccount(name, pin, drive);
-      if (reg.ok) {
-        res = reg; // 新しい名前だった＝新規作成成功
-        _justRegistered = true; // スターター付与＋お祝い演出のフラグ
-      } else if (reg.error === 'name-taken') {
-        // 名前は存在する＝ログイン失敗の理由はあいことば違い
+      if (res.error === 'too-many-attempts') {
+        // レート制限中は即エラー（アカウント有無も漏らさない）
+        return fail('too-many-attempts');
+      }
+      if (res.error === 'bad-credentials') {
+        // 名前は在るが あいことば違い
         return fail('login-mismatch');
+      }
+      if (res.error === 'not-found') {
+        // 2) 未登録の名前 → 「新しく作る？」を確認してから作成する
+        btn.disabled = false; btn.textContent = original; // confirm 中はボタンを戻す
+        const yes = confirm(t('registerConfirm',
+          'この名前（なまえ）は まだ ないよ。\nこの名前で 新（あたら）しく はじめる？\n（あいことばは 大切（たいせつ）に おぼえてね）'));
+        if (!yes) return; // キャンセル：入力はそのまま残す
+        btn.disabled = true; btn.textContent = t('loginWorking');
+        const reg = await registerAccount(name, pin, drive);
+        if (reg.ok) {
+          res = reg;
+          _justRegistered = true; // スターター付与＋お祝い演出のフラグ
+        } else if (reg.error === 'name-taken') {
+          // 競合等で既に在った＝あいことば違い扱い
+          return fail('login-mismatch');
+        } else {
+          console.warn('[login] register failed:', reg.error);
+          return fail(reg.error || 'app-error');
+        }
       } else {
-        return fail(reg.error || res.error);
+        // 想定外のエラーコードは 'network' で握りつぶさず、実原因をログに出す
+        console.warn('[login] unexpected login error code:', res.error);
+        return fail(res.error || 'app-error');
       }
     }
+
     // 初回ログイン時、端末に残っている無記名の図鑑をアカウントへ引き継ぐ
     await migrateAnonymousCollection();
     // 新規作成なら、スターターのルッキー（ノーマル）を図鑑に付与してから入る
     if (_justRegistered) grantStarterCharacter();
     enterApp();
   } catch (e) {
-    console.warn('[login] error:', e);
-    fail('network');
+    // ここに来るのは主に登録後の処理（migrate/grant/enter）での想定外エラー。
+    // 通信断とは限らないので 'network' とは言わず、実原因はコンソールに出す。
+    console.error('[login] unexpected error:', e);
+    fail('app-error');
   }
 }
 

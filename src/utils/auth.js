@@ -101,12 +101,14 @@ export async function registerAccount(name, pin, drive) {
       if (res && res.error && !isGasNotUpdated_(res.error)) {
         return { ok: false, error: res.error };
       }
-    } catch (_) {
-      return { ok: false, error: 'network' };
+    } catch (e) {
+      // GAS が例外（HTTPエラー / 非JSON応答＝Google認証HTML など）を投げた場合。
+      // 通信断とは限らないので握りつぶさず、下のローカル作成へフォールバックする（ハード失敗を避ける）。
+      console.warn('[auth] registerUser via GAS failed; falling back to local:', e);
     }
   }
 
-  // ローカルfallback（GAS未設定、または GAS が未更新でユーザーAPIが無い場合）
+  // ローカルfallback（GAS未設定 / GAS未更新 / GASが例外を投げた場合）
   const users = loadLocalUsers();
   const key = cleanName.toLowerCase();
   if (users[key]) return { ok: false, error: 'name-taken' };
@@ -137,8 +139,9 @@ export async function loginAccount(name, pin, drive) {
         // レート制限（クールダウン中）は残り時間も添えて返す
         return { ok: false, error: res.error, retryAfterSec: res.retryAfterSec };
       }
-    } catch (_) {
-      return { ok: false, error: 'network' };
+    } catch (e) {
+      // GAS が例外を投げた場合。ハード失敗させず、下のローカル照合へフォールバックする。
+      console.warn('[auth] loginUser via GAS failed; falling back to local:', e);
     }
   }
 

@@ -57,7 +57,7 @@ export function mountGuides(stepId) {
     img.loading = 'lazy';
     // 素材未着・読み込み失敗時は静かに消える（レイアウト不変）
     img.addEventListener('error', () => { img.style.display = 'none'; });
-    img.src = GUIDE_BASE + def.file;
+    img.src = GUIDE_BASE + def.file.replace(/\.png$/i, '.webp');
     layer.appendChild(img);
   });
   card.appendChild(layer);

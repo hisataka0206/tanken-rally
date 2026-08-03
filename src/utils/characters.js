@@ -330,11 +330,14 @@ export function charStory(char) {
   return char.story[LANG] || char.story.ja;
 }
 
+// 配信は WebP（軽量・元PNGは温存）。データのファイル名は .png のままで、参照時に .webp へ寄せる。
+const toWebp = (f) => (typeof f === 'string' ? f.replace(/\.png$/i, '.webp') : f);
+
 /** ポーズ画像のURL（無いポーズは normal にフォールバック） */
 export function characterImageUrl(char, pose = 'normal') {
   if (!char) return '';
   const file = char.poses[pose] || char.poses.normal;
-  return ASSET_BASE + file;
+  return ASSET_BASE + toWebp(file);
 }
 
 // 「get以外」の予備ポーズ（シートに存在したもののみ）。地図PDFのお楽しみ配置などに使う。
@@ -354,7 +357,7 @@ export function randomFunCharacterImage() {
   const char = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
   const pool = [char.poses.normal, char.poses.captured, ...(EXTRA_POSES[char.id] || [])];
   const file = pool[Math.floor(Math.random() * pool.length)];
-  return { char, url: ASSET_BASE + file };
+  return { char, url: ASSET_BASE + toWebp(file) };
 }
 
 /** キャラの全ポーズ画像をプリロードし、{ pose: HTMLImageElement } を返す。

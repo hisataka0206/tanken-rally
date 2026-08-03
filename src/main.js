@@ -1,23 +1,23 @@
-import { CONFIG } from '../config.js?v=106';
-import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, bearingDeg, compass8, fetchOpeningHours, fetchEditorialSummary, isPlaceOpenInWindow, MAP_STYLE } from './utils/maps.js?v=106';
-import { fetchOriginStory, fetchSpotFacts, generateCharacterBlurb, tidyMemo, transcribeAudio, setAiBackend } from './utils/ai.js?v=106';
-import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=106';
-import { generateMapPdf, renderMapPreview, buildStageMedia } from './utils/pdf.js?v=106';
-import { DriveClient, generateSessionId } from './utils/drive.js?v=106';
-import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=106';
-import { CITIES, localizeStationName } from './data/cities.js?v=106';
-import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=106';
-import { applyI18n, LANG, t, furiganize, installFuriganaObserver, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=106';
-import { APP_VERSION, RELEASE_LABEL } from './version.js?v=106';
-import { FEATURES } from './config-features.js?v=106';
-import { EARLY_BIRD_ACTIVE, EARLY_BIRD_RARITY_ID, STARTER_CHARACTER_ID } from './config-campaign.js?v=106';
-import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=106';
-import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, charRarityStars, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID, VARIANTS, variantById, rollVariant, collectionKey, parseCollectionKey } from './utils/characters.js?v=106';
-import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, loadLegacyAnonymousCollection } from './utils/collection.js?v=106';
-import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout, validateCredentials } from './utils/auth.js?v=106';
-import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=106';
-import { initShell, updateShell } from './utils/shell.js?v=106';
-import { evaluateEligibility, startGeneration, rarityById, bumpRarity, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, genRecTimeMs, generatedImageUrl, buildGeneratedStory, generatedPersonality, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, setServerGenerated, driveThumbUrl } from './utils/chargen.js?v=106';
+import { CONFIG } from '../config.js?v=107';
+import { loadGoogleMaps, geocodeStation, searchNearbySpotsWith, optimizeRoute, getDirections, calcRouteStats, haversine, bearingDeg, compass8, fetchOpeningHours, fetchEditorialSummary, isPlaceOpenInWindow, MAP_STYLE } from './utils/maps.js?v=107';
+import { fetchOriginStory, fetchSpotFacts, generateCharacterBlurb, tidyMemo, transcribeAudio, setAiBackend } from './utils/ai.js?v=107';
+import { startWebSpeech, AudioRecorder, supportsWebSpeech, supportsRecording, speechLang } from './utils/voice.js?v=107';
+import { generateMapPdf, renderMapPreview, buildStageMedia } from './utils/pdf.js?v=107';
+import { DriveClient, generateSessionId } from './utils/drive.js?v=107';
+import { state, resetSearchState, CAT, SELECTED_COLOR } from './state.js?v=107';
+import { CITIES, localizeStationName } from './data/cities.js?v=107';
+import { filterBlocked, addBlockedSpot } from './utils/blocked.js?v=107';
+import { applyI18n, LANG, t, furiganize, installFuriganaObserver, adjustMinForKids, pickWizardSpotHint, apiLang } from './utils/i18n.js?v=107';
+import { APP_VERSION, RELEASE_LABEL } from './version.js?v=107';
+import { FEATURES } from './config-features.js?v=107';
+import { EARLY_BIRD_ACTIVE, EARLY_BIRD_RARITY_ID, STARTER_CHARACTER_ID } from './config-campaign.js?v=107';
+import { ArSession, supportsArCamera, requestOrientationPermission } from './utils/ar.js?v=107';
+import { CHARACTERS, characterForSpot, rareCharacter, characterById, pickStartCharacter, charDisplayName, charPersonality, charStory, charRarityStars, characterImageUrl, preloadCharacterImages, drawCharacterOnCanvas, RARE_APPEAR_PROBABILITY, RARE_CHARACTER_ID, VARIANTS, variantById, rollVariant, collectionKey, parseCollectionKey } from './utils/characters.js?v=107';
+import { getExplorerId, loadCollection, recordCapture, mergeServerCollection, loadLegacyAnonymousCollection } from './utils/collection.js?v=107';
+import { isLoggedIn, getStoredAuth, registerAccount, loginAccount, logout, validateCredentials } from './utils/auth.js?v=107';
+import { mountGuides, GUIDE_BASE } from './utils/guides.js?v=107';
+import { initShell, updateShell } from './utils/shell.js?v=107';
+import { evaluateEligibility, startGeneration, rarityById, bumpRarity, nameCandidates, saveGeneratedCharacter, loadGeneratedCharacters, genRecTimeMs, generatedImageUrl, buildGeneratedStory, generatedPersonality, SILHOUETTE_FILTER, setChargenBackend, getUserVocabChoices, getLastGenDebug, setServerGenerated, driveThumbUrl } from './utils/chargen.js?v=107';
 
 // DriveClient（GAS_URLが設定されていれば有効）
 const drive = CONFIG.GAS_URL && CONFIG.GAS_URL !== 'YOUR_GAS_DEPLOY_URL'
@@ -177,7 +177,7 @@ function updateWizardGuide(info) {
     img.style.display = '';
     img.classList.remove('wizard-guide-fade');
     void img.offsetWidth; // アニメ再トリガ
-    img.src = 'src/assets/characters/' + file;
+    img.src = 'src/assets/characters/' + file.replace(/\.png$/i, '.webp');
     img.classList.add('wizard-guide-fade');
   }
 }
@@ -4379,7 +4379,7 @@ function renderReportPhotos() {
     deco.className = 'report-guide rg-taffy';
     deco.alt = '';
     deco.addEventListener('error', () => deco.remove());
-    deco.src = GUIDE_BASE + 'taffy_g6.png';
+    deco.src = GUIDE_BASE + 'taffy_g6.webp';
     page.appendChild(deco);
   });
 }
